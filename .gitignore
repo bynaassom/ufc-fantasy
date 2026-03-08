@@ -1,6 +1,7 @@
-/.next
-/node_modules
-/.env.local
-/README.md
-/.zed-settings.json
+node_modules/
+.next/
+.env*.local
+.DS_Store
+.zed-settings.json
 /supabase
+.README.md
