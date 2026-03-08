@@ -50,7 +50,13 @@ export default function FightCard({
   // Acertos (só relevante se luta completada e usuário tinha pick)
   const hitWinner = completed && pickedWinnerId === fight.winner_id;
   const hitMethod = hitWinner && pickedMethod === fight.result_method;
-  const hitRound = hitWinner && pickedRound === fight.result_round;
+  // Decisão: round é automático se acertou vencedor + método (vale 3 pts)
+  const hitRound =
+    hitWinner &&
+    hitMethod &&
+    (fight.result_method === "decision"
+      ? true
+      : pickedRound === fight.result_round);
 
   // ── Handlers ──────────────────────────────────────────────
   function selectFighter(id: string) {
