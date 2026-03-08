@@ -26,6 +26,7 @@ export interface Event {
   ufc_event_id?: string;
   status: EventStatus;
   picks_lock_at: string;
+  picks_open_at: string | null;
   created_at: string;
   updated_at: string;
 }

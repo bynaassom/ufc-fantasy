@@ -23,6 +23,18 @@ export function isPicksLocked(lockAt: string): boolean {
   return isBefore(new Date(lockAt), new Date());
 }
 
+export function isPicksOpen(picksOpenAt: string | null): boolean {
+  if (!picksOpenAt) return true; // null = sempre aberto
+  return isBefore(new Date(picksOpenAt), new Date());
+}
+
+export function timeUntilPicksOpen(picksOpenAt: string): string {
+  return formatDistanceToNow(new Date(picksOpenAt), {
+    locale: ptBR,
+    addSuffix: true,
+  });
+}
+
 export function getMethodLabel(method: string): string {
   const labels: Record<string, string> = {
     decision: "Decisão",

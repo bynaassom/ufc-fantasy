@@ -2,7 +2,13 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 import EventPicksClient from "@/components/event/EventPicksClient";
-import { formatEventDate, isPicksLocked, timeUntilEvent } from "@/lib/utils";
+import {
+  formatEventDate,
+  isPicksLocked,
+  isPicksOpen,
+  timeUntilEvent,
+  timeUntilPicksOpen,
+} from "@/lib/utils";
 
 interface EventPageProps {
   params: { slug: string };
@@ -42,6 +48,7 @@ export default async function EventPage({ params }: EventPageProps) {
     .eq("event_id", event.id);
 
   const locked = isPicksLocked(event.picks_lock_at);
+  const open = isPicksOpen(event.picks_open_at);
 
   return (
     <div
@@ -63,7 +70,19 @@ export default async function EventPage({ params }: EventPageProps) {
                 AO VIVO
               </span>
             )}
-            {locked && event.status !== "live" && (
+            {!open && (
+              <span
+                className="text-xs font-bold px-2 py-1 rounded"
+                style={{
+                  backgroundColor: "var(--bg-card)",
+                  color: "var(--red)",
+                  border: "1px solid var(--red)",
+                }}
+              >
+                PICKS EM BREVE
+              </span>
+            )}
+            {open && locked && event.status !== "live" && (
               <span
                 className="text-xs font-bold px-2 py-1 rounded"
                 style={{
@@ -123,7 +142,26 @@ export default async function EventPage({ params }: EventPageProps) {
                 {event.location}
               </span>
             )}
-            {!locked && (
+            {!open && event.picks_open_at && (
+              <span
+                className="flex items-center gap-1.5 text-sm font-semibold"
+                style={{ color: "var(--red)" }}
+              >
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+                Picks abrem {timeUntilPicksOpen(event.picks_open_at)}
+              </span>
+            )}
+            {open && !locked && (
               <span
                 className="flex items-center gap-1.5 text-sm font-semibold"
                 style={{ color: "var(--red)" }}
@@ -149,6 +187,7 @@ export default async function EventPage({ params }: EventPageProps) {
           event={event}
           existingPicks={existingPicks || []}
           userId={user.id}
+          picksOpen={open}
         />
       </main>
     </div>
