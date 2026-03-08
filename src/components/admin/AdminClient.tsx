@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 import FighterSearchInput from "./FighterSearchInput";
 
-type Tab = "event" | "fight" | "result" | "users";
+type Tab = "event" | "fight" | "result" | "users" | "import";
 
 interface FighterData {
   name: string;
@@ -98,6 +98,16 @@ export default function AdminClient({
 
   // ── Users ──────────────────────────────────────────────────
   const [userList, setUserList] = useState(users);
+
+  // ── Import / Scraper ───────────────────────────────────────
+  const [importUrl, setImportUrl] = useState("");
+  const [importLoading, setImportLoading] = useState(false);
+  const [importData, setImportData] = useState<null | {
+    event: any;
+    fights: any[];
+  }>(null);
+  const [importSql, setImportSql] = useState("");
+  const [importError, setImportError] = useState("");
 
   // ── Lutas do evento selecionado ────────────────────────────
   const [eventFights, setEventFights] = useState<any[]>([]);
@@ -323,7 +333,99 @@ export default function AdminClient({
     { key: "fight", label: "Nova Luta" },
     { key: "result", label: "Resultado" },
     { key: "users", label: "Usuários" },
+    { key: "import", label: "Importar" },
   ];
+
+  // ── Scrape ────────────────────────────────────────────────
+  async function handleScrape() {
+    if (!importUrl.trim()) {
+      toast.error("Cole uma URL válida.");
+      return;
+    }
+    setImportLoading(true);
+    setImportData(null);
+    setImportSql("");
+    setImportError("");
+    try {
+      const res = await fetch("/api/scrape-event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: importUrl }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setImportError(json.error || "Erro desconhecido");
+        return;
+      }
+      setImportData(json);
+      setImportSql(generateSql(json));
+    } catch (err) {
+      setImportError(String(err));
+    } finally {
+      setImportLoading(false);
+    }
+  }
+
+  function generateSql(data: { event: any; fights: any[] }): string {
+    const { event, fights } = data;
+    const slug = (event.name || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+
+    const lines: string[] = [
+      "-- ============================================================",
+      `-- ${event.name}`,
+      "-- ============================================================",
+      "",
+      "-- 1. Evento",
+      `INSERT INTO events (id, name, slug, event_date, location, banner_image_url, status, picks_open_at)`,
+      `VALUES (`,
+      `  gen_random_uuid(),`,
+      `  '${(event.name || "").replace(/'/g, "''")}',`,
+      `  '${slug}',`,
+      `  '${event.event_date || ""}',`,
+      `  '${(event.location || "").replace(/'/g, "''")}',`,
+      `  '${event.banner_image_url || ""}',`,
+      `  'upcoming',`,
+      `  NOW() -- ajuste: picks_open_at (ex: data_evento_anterior + 12h)`,
+      `);`,
+      "",
+      "-- 2. Lutadores e Lutas",
+    ];
+
+    fights.forEach((fight, i) => {
+      const fa = fight.fighter_a;
+      const fb = fight.fighter_b;
+      lines.push(`-- Luta ${i + 1}: ${fa.name} vs ${fb.name}`);
+      lines.push(
+        `INSERT INTO fighters (id, name, headshot_url, country) VALUES (gen_random_uuid(), '${fa.name.replace(/'/g, "''")}', '${fa.headshot_url || ""}', '${(fa.country || "").replace(/'/g, "''")}') ON CONFLICT (name) DO UPDATE SET headshot_url = EXCLUDED.headshot_url, country = EXCLUDED.country;`,
+      );
+      lines.push(
+        `INSERT INTO fighters (id, name, headshot_url, country) VALUES (gen_random_uuid(), '${fb.name.replace(/'/g, "''")}', '${fb.headshot_url || ""}', '${(fb.country || "").replace(/'/g, "''")}') ON CONFLICT (name) DO UPDATE SET headshot_url = EXCLUDED.headshot_url, country = EXCLUDED.country;`,
+      );
+      lines.push(
+        `INSERT INTO fights (event_id, fighter_a_id, fighter_b_id, card_type, fight_order, weight_class, is_title_fight, total_rounds)`,
+      );
+      lines.push(`VALUES (`);
+      lines.push(`  (SELECT id FROM events WHERE slug = '${slug}'),`);
+      lines.push(
+        `  (SELECT id FROM fighters WHERE name = '${fa.name.replace(/'/g, "''")}'),`,
+      );
+      lines.push(
+        `  (SELECT id FROM fighters WHERE name = '${fb.name.replace(/'/g, "''")}'),`,
+      );
+      lines.push(
+        `  '${fight.card_type}', ${fight.fight_order}, '${fight.weight_class}', ${fight.is_title_fight}, ${fight.total_rounds}`,
+      );
+      lines.push(`);`);
+      lines.push("");
+    });
+
+    return lines.join("\n");
+  }
 
   return (
     <div>
@@ -934,6 +1036,187 @@ export default function AdminClient({
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* ── TAB: IMPORTAR ────────────────────────────────────── */}
+      {tab === "import" && (
+        <div className="max-w-2xl space-y-6">
+          {/* URL input */}
+          <div>
+            <label
+              className={labelClass}
+              style={{ color: "var(--text-secondary)" }}
+            >
+              URL do Evento
+            </label>
+            <p className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>
+              Cole a URL de qualquer página do evento (ufc.com, ufc.com.br,
+              tapology.com)
+            </p>
+            <div className="flex gap-2">
+              <input
+                value={importUrl}
+                onChange={(e) => setImportUrl(e.target.value)}
+                placeholder="https://www.ufc.com/event/ufc-fight-night-..."
+                style={{ ...inputStyle, flex: 1 }}
+                onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
+                onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
+              />
+              <button
+                onClick={handleScrape}
+                disabled={importLoading}
+                className="px-5 py-2 font-condensed font-900 text-xs uppercase tracking-widest text-white transition-all hover:opacity-90 disabled:opacity-50 flex-shrink-0"
+                style={{ backgroundColor: "var(--red)" }}
+              >
+                {importLoading ? "BUSCANDO..." : "IMPORTAR"}
+              </button>
+            </div>
+          </div>
+
+          {/* Erro */}
+          {importError && (
+            <div
+              className="p-4 rounded"
+              style={{
+                backgroundColor: "rgba(232,0,26,0.08)",
+                border: "1px solid var(--red)",
+              }}
+            >
+              <p
+                className="font-condensed font-700 text-xs uppercase tracking-widest mb-1"
+                style={{ color: "var(--red)" }}
+              >
+                ERRO
+              </p>
+              <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                {importError}
+              </p>
+            </div>
+          )}
+
+          {/* Preview dos dados */}
+          {importData && (
+            <div className="space-y-4">
+              <div
+                className="p-4 rounded space-y-2"
+                style={{
+                  backgroundColor: "var(--bg-elevated)",
+                  border: "1px solid var(--border)",
+                }}
+              >
+                <p
+                  className="font-condensed font-900 text-sm uppercase tracking-widest"
+                  style={{ color: "var(--text)" }}
+                >
+                  {importData.event.name}
+                </p>
+                <p
+                  className="text-xs"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  {importData.event.event_date} · {importData.event.location}
+                </p>
+                <p
+                  className="font-condensed font-700 text-xs uppercase tracking-widest"
+                  style={{ color: "var(--red)" }}
+                >
+                  {importData.fights.length} luta
+                  {importData.fights.length !== 1 ? "s" : ""} encontrada
+                  {importData.fights.length !== 1 ? "s" : ""}
+                </p>
+              </div>
+
+              {/* Lista de lutas */}
+              <div className="space-y-2">
+                {importData.fights.map((f, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center justify-between px-4 py-3 rounded"
+                    style={{
+                      backgroundColor: "var(--bg-card)",
+                      border: "1px solid var(--border)",
+                    }}
+                  >
+                    <div>
+                      <p
+                        className="font-condensed font-700 text-sm uppercase"
+                        style={{ color: "var(--text)" }}
+                      >
+                        {f.fighter_a.name}{" "}
+                        <span style={{ color: "var(--red)" }}>vs</span>{" "}
+                        {f.fighter_b.name}
+                      </p>
+                      <p
+                        className="text-xs mt-0.5"
+                        style={{ color: "var(--text-muted)" }}
+                      >
+                        {f.weight_class} · {f.card_type} · R{f.total_rounds}
+                        {f.is_title_fight && (
+                          <span
+                            className="ml-2 px-1.5 py-0.5 text-white font-900"
+                            style={{
+                              backgroundColor: "var(--red)",
+                              fontSize: "9px",
+                            }}
+                          >
+                            TÍTULO
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    <span
+                      className="font-condensed font-700 text-xs"
+                      style={{ color: "var(--text-muted)" }}
+                    >
+                      #{f.fight_order}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* SQL gerado */}
+              {importSql && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <p
+                      className="font-condensed font-700 text-xs uppercase tracking-widest"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      SQL GERADO — cole no Supabase SQL Editor
+                    </p>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(
+                          importSql.replace(/\n/g, "\n"),
+                        );
+                        toast.success("SQL copiado!");
+                      }}
+                      className="font-condensed font-700 text-xs uppercase tracking-widest px-3 py-1.5 transition-all hover:opacity-70"
+                      style={{
+                        border: "1px solid var(--border)",
+                        color: "var(--text-secondary)",
+                      }}
+                    >
+                      COPIAR
+                    </button>
+                  </div>
+                  <textarea
+                    readOnly
+                    value={importSql.replace(/\\n/g, "\n")}
+                    rows={16}
+                    className="w-full text-xs font-mono p-3 rounded resize-none"
+                    style={{
+                      backgroundColor: "var(--bg-elevated)",
+                      border: "1px solid var(--border)",
+                      color: "var(--text-secondary)",
+                      outline: "none",
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
