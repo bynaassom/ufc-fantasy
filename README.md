@@ -3,7 +3,7 @@
 
 Um web app de *Pick'em Game* (estilo Fantasy) onde entusiastas de MMA podem palpitar nos resultados de cada luta dos eventos do UFC, acompanhar rankings por evento e disputar a liderança no ranking geral.
 
-Este projeto nasceu de uma "vibe coding" com o Claude, focado em ser uma ferramenta comunitária, open-source e sem fins lucrativos para fãs de luta.
+Este projeto nasceu de um "vibe coding" com o Claude, focado em ser uma ferramenta comunitária, open-source e sem fins lucrativos para fãs de luta.
 
 ### 🚀 Funcionalidades
 
