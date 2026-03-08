@@ -84,14 +84,8 @@ export async function POST(req: NextRequest) {
     .replace(/\s{2,}/g, " ")
     .slice(0, 80000);
 
-  // Claude API
-  const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 4000,
-      system: `Você é um extrator de dados de eventos de MMA/UFC.
+  // Abacus RouteLLM API (OpenAI-compatible)
+  const SYSTEM_PROMPT = `Você é um extrator de dados de eventos de MMA/UFC.
 Analise o HTML fornecido e extraia as informações do evento em JSON.
 Responda APENAS com JSON válido, sem markdown, sem explicações.
 
@@ -123,8 +117,19 @@ Regras:
 - total_rounds: 5 para main event e title fights, 3 para demais
 - weight_class valores válidos: Heavyweight, LightHeavyweight, Middleweight, Welterweight, Lightweight, Featherweight, Bantamweight, Flyweight, Strawweight
 - event_date em UTC
-- Se não encontrar headshot ou banner, use string vazia ""`,
+- Se não encontrar headshot ou banner, use string vazia ""`;
+
+  const llmRes = await fetch("https://routellm.abacus.ai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.ABACUS_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-6",
+      stream: false,
       messages: [
+        { role: "system", content: SYSTEM_PROMPT },
         {
           role: "user",
           content: `Extraia os dados deste evento UFC:\n\n${cleanHtml}`,
@@ -133,21 +138,16 @@ Regras:
     }),
   });
 
-  if (!claudeRes.ok) {
-    const err = await claudeRes.text();
+  if (!llmRes.ok) {
+    const err = await llmRes.text();
     return NextResponse.json(
-      { error: `Claude API error: ${err}` },
+      { error: `LLM API error: ${err}` },
       { status: 500 },
     );
   }
 
-  const claudeData = await claudeRes.json();
-  const rawText =
-    claudeData.content
-      ?.map((b: { type: string; text?: string }) =>
-        b.type === "text" ? b.text : "",
-      )
-      .join("") || "";
+  const llmData = await llmRes.json();
+  const rawText: string = llmData.choices?.[0]?.message?.content || "";
 
   let parsed;
   try {
