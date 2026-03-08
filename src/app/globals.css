@@ -1,0 +1,156 @@
+@import url("https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800;900&family=Encode+Sans:wght@300;400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   CSS VARIABLES — Dark default
+   ============================================================ */
+:root {
+    --red: #e8001a;
+    --red-dark: #c8001a;
+    --bg: #0d0d0d;
+    --bg-secondary: #141414;
+    --bg-card: #1a1a1a;
+    --bg-elevated: #222222;
+    --text: #f0f0f0;
+    --text-secondary: #888888;
+    --text-muted: #555555;
+    --border: #2a2a2a;
+    --border-light: #1f1f1f;
+    --red-line: #e8001a;
+}
+
+* {
+    box-sizing: border-box;
+    padding: 0;
+    margin: 0;
+}
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: "Encode Sans", sans-serif;
+    background-color: var(--bg);
+    color: var(--text);
+    transition:
+        background-color 0.15s ease,
+        color 0.15s ease;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ============================================================
+   TYPOGRAPHY UTILITIES
+   ============================================================ */
+.font-condensed {
+    font-family: "Encode Sans Condensed", sans-serif;
+}
+
+.section-title {
+    font-family: "Encode Sans Condensed", sans-serif;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 1.1rem;
+    color: var(--text);
+}
+
+/* Red line separator — estilo UFC.com */
+.red-line {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 1.25rem;
+}
+.red-line::before {
+    content: "";
+    display: block;
+    width: 3px;
+    height: 1.1rem;
+    background-color: var(--red);
+    border-radius: 1px;
+    flex-shrink: 0;
+}
+
+/* ============================================================
+   SCROLLBAR
+   ============================================================ */
+::-webkit-scrollbar {
+    width: 4px;
+}
+::-webkit-scrollbar-track {
+    background: var(--bg);
+}
+::-webkit-scrollbar-thumb {
+    background: var(--red);
+    border-radius: 2px;
+}
+
+/* ============================================================
+   FIGHTER CARD INTERACTIONS
+   ============================================================ */
+.fighter-select-btn {
+    cursor: pointer;
+    transition: all 0.15s ease;
+    border: 2px solid transparent;
+}
+.fighter-select-btn:hover {
+    border-color: rgba(232, 0, 26, 0.4);
+}
+.fighter-select-btn.selected {
+    border-color: var(--red) !important;
+}
+.fighter-select-btn.defeated {
+    filter: grayscale(100%) brightness(0.4);
+}
+
+/* ============================================================
+   ANIMATIONS
+   ============================================================ */
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+.slide-down {
+    animation: slideDown 0.18s ease forwards;
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: -200% 0;
+    }
+    100% {
+        background-position: 200% 0;
+    }
+}
+.skeleton {
+    background: linear-gradient(
+        90deg,
+        var(--bg-card) 25%,
+        var(--border) 50%,
+        var(--bg-card) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+}
+
+@keyframes pulse-red {
+    0%,
+    100% {
+        box-shadow: 0 0 0 0 rgba(232, 0, 26, 0.4);
+    }
+    50% {
+        box-shadow: 0 0 0 6px rgba(232, 0, 26, 0);
+    }
+}
+.pulse-red {
+    animation: pulse-red 2s ease-in-out infinite;
+}

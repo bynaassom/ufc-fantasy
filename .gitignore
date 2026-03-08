@@ -1,0 +1,6 @@
+/.next
+/node_modules
+/.env.local
+/README.md
+/.zed-settings.json
+/supabase

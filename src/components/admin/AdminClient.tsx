@@ -1,0 +1,941 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
+import toast from "react-hot-toast";
+import FighterSearchInput from "./FighterSearchInput";
+
+type Tab = "event" | "fight" | "result" | "users";
+
+interface FighterData {
+  name: string;
+  headshot_url: string;
+  country: string;
+}
+
+interface FightForm {
+  fighter_a: FighterData;
+  fighter_b: FighterData;
+  weight_class: string;
+  is_title_fight: boolean;
+  total_rounds: number;
+  card_type: string;
+  fight_order: number;
+}
+
+const WEIGHT_CLASSES = [
+  "Heavyweight",
+  "LightHeavyweight",
+  "Middleweight",
+  "Welterweight",
+  "Lightweight",
+  "Featherweight",
+  "Bantamweight",
+  "Flyweight",
+  "Strawweight",
+  "Atomweight",
+  "Catchweight",
+];
+
+const CARD_TYPES = [
+  { value: "main", label: "Main Card" },
+  { value: "preliminary", label: "Preliminares" },
+  { value: "early_preliminary", label: "Early Prelims" },
+];
+
+const inputStyle: React.CSSProperties = {
+  backgroundColor: "var(--bg-elevated)",
+  border: "1px solid var(--border)",
+  color: "var(--text)",
+  fontFamily: "inherit",
+  outline: "none",
+  width: "100%",
+  padding: "10px 14px",
+  fontSize: "14px",
+  transition: "border-color 0.15s",
+};
+
+const selectStyle: React.CSSProperties = { ...inputStyle, cursor: "pointer" };
+const labelClass =
+  "block text-xs font-condensed font-700 uppercase tracking-widest mb-1.5";
+
+export default function AdminClient({
+  events,
+  users,
+}: {
+  events: any[];
+  users: any[];
+}) {
+  const [tab, setTab] = useState<Tab>("event");
+
+  // ── Event form ──────────────────────────────────────────────
+  const [eventForm, setEventForm] = useState({
+    name: "",
+    location: "",
+    event_date: "",
+    banner_image_url: "",
+  });
+
+  // ── Fight form ─────────────────────────────────────────────
+  const [selectedEventId, setSelectedEventId] = useState(events[0]?.id || "");
+  const [fightForm, setFightForm] = useState<FightForm>({
+    fighter_a: { name: "", headshot_url: "", country: "" },
+    fighter_b: { name: "", headshot_url: "", country: "" },
+    weight_class: "Lightweight",
+    is_title_fight: false,
+    total_rounds: 3,
+    card_type: "main",
+    fight_order: 1,
+  });
+
+  // ── Result form ────────────────────────────────────────────
+  const [resultFightId, setResultFightId] = useState("");
+  const [resultForm, setResultForm] = useState({
+    winner_side: "a" as "a" | "b",
+    method: "decision" as "decision" | "submission" | "knockout",
+    round: 1,
+  });
+
+  // ── Users ──────────────────────────────────────────────────
+  const [userList, setUserList] = useState(users);
+
+  // ── Lutas do evento selecionado ────────────────────────────
+  const [eventFights, setEventFights] = useState<any[]>([]);
+
+  // Carrega lutas automaticamente ao montar e ao trocar de aba
+  useEffect(() => {
+    if (selectedEventId) loadFights(selectedEventId);
+  }, [selectedEventId, tab]);
+
+  async function loadFights(eventId: string) {
+    const sb = createClient();
+    const { data } = await sb
+      .from("fights")
+      .select(
+        "id, fighter_a:fighters!fighter_a_id(name), fighter_b:fighters!fighter_b_id(name), result_confirmed",
+      )
+      .eq("event_id", eventId)
+      .order("card_type")
+      .order("fight_order");
+    setEventFights(data || []);
+  }
+
+  // ────────────────────────────────────────────────────────────
+  // SUBMIT: criar evento
+  // ────────────────────────────────────────────────────────────
+  async function handleCreateEvent(e: React.FormEvent) {
+    e.preventDefault();
+    const sb = createClient();
+    const slug = eventForm.name
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+
+    const { error } = await sb.from("events").insert({
+      ...eventForm,
+      slug,
+      status: "upcoming",
+    });
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Evento criado!");
+    setEventForm({
+      name: "",
+      location: "",
+      event_date: "",
+      banner_image_url: "",
+    });
+  }
+
+  // ────────────────────────────────────────────────────────────
+  // SUBMIT: criar luta (com upsert dos lutadores)
+  // ────────────────────────────────────────────────────────────
+  async function handleCreateFight(e: React.FormEvent) {
+    e.preventDefault();
+    if (!fightForm.fighter_a.name || !fightForm.fighter_b.name) {
+      toast.error("Preencha os nomes dos dois lutadores.");
+      return;
+    }
+    if (!selectedEventId) {
+      toast.error("Selecione um evento.");
+      return;
+    }
+
+    const sb = createClient();
+
+    // Upsert fighter A e B
+    const fighterIds: { a: string; b: string } = { a: "", b: "" };
+    for (const side of ["a", "b"] as const) {
+      const fighter = fightForm[`fighter_${side}`];
+      const { data: existing } = await sb
+        .from("fighters")
+        .select("id")
+        .eq("name", fighter.name)
+        .limit(1)
+        .single();
+
+      if (existing) {
+        // Atualiza headshot se veio vazio antes
+        if (fighter.headshot_url) {
+          await sb
+            .from("fighters")
+            .update({
+              headshot_url: fighter.headshot_url,
+              country: fighter.country,
+            })
+            .eq("id", existing.id);
+        }
+        fighterIds[side] = existing.id;
+      } else {
+        const { data, error } = await sb
+          .from("fighters")
+          .insert({
+            name: fighter.name,
+            headshot_url: fighter.headshot_url,
+            country: fighter.country,
+          })
+          .select("id")
+          .single();
+        if (error) {
+          toast.error(`Erro ao inserir ${fighter.name}: ${error.message}`);
+          return;
+        }
+        fighterIds[side] = data.id;
+      }
+    }
+
+    // Inserir luta
+    const { error } = await sb.from("fights").insert({
+      event_id: selectedEventId,
+      fighter_a_id: fighterIds.a,
+      fighter_b_id: fighterIds.b,
+      weight_class: fightForm.weight_class,
+      is_title_fight: fightForm.is_title_fight,
+      total_rounds: fightForm.total_rounds,
+      card_type: fightForm.card_type,
+      fight_order: fightForm.fight_order,
+    });
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(
+      `Luta adicionada: ${fightForm.fighter_a.name} vs ${fightForm.fighter_b.name}`,
+    );
+
+    // Reset apenas os lutadores
+    setFightForm((f) => ({
+      ...f,
+      fighter_a: { name: "", headshot_url: "", country: "" },
+      fighter_b: { name: "", headshot_url: "", country: "" },
+      fight_order: f.fight_order + 1,
+    }));
+    loadFights(selectedEventId);
+  }
+
+  // ────────────────────────────────────────────────────────────
+  // SUBMIT: inserir resultado
+  // ────────────────────────────────────────────────────────────
+  async function handleInsertResult(e: React.FormEvent) {
+    e.preventDefault();
+    const fight = eventFights.find((f) => f.id === resultFightId);
+    if (!fight) {
+      toast.error("Selecione uma luta.");
+      return;
+    }
+    // Para decisão, round é sempre o último
+    if (resultForm.method === "decision") {
+      setResultForm((r) => ({ ...r, round: 3 }));
+    }
+
+    const sb = createClient();
+    const winner_id =
+      resultForm.winner_side === "a"
+        ? fight.fighter_a?.id
+        : fight.fighter_b?.id;
+
+    // Busca os IDs dos lutadores
+    const { data: fightData } = await sb
+      .from("fights")
+      .select("fighter_a_id, fighter_b_id")
+      .eq("id", resultFightId)
+      .single();
+
+    const winnerId =
+      resultForm.winner_side === "a"
+        ? fightData?.fighter_a_id
+        : fightData?.fighter_b_id;
+
+    const { error } = await sb
+      .from("fights")
+      .update({
+        winner_id: winnerId,
+        result_method: resultForm.method,
+        result_round: resultForm.round,
+        result_confirmed: true,
+      })
+      .eq("id", resultFightId);
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    // Pontua os picks
+    await fetch("/api/results/score", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fight_id: resultFightId }),
+    });
+
+    toast.success("Resultado inserido e picks pontuados!");
+    loadFights(selectedEventId);
+    setResultFightId("");
+  }
+
+  // ────────────────────────────────────────────────────────────
+  // BAN / UNBAN
+  // ────────────────────────────────────────────────────────────
+  async function toggleBan(userId: string, currentBan: boolean) {
+    const sb = createClient();
+    const { error } = await sb
+      .from("profiles")
+      .update({ is_banned: !currentBan })
+      .eq("id", userId);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setUserList((u) =>
+      u.map((p) => (p.id === userId ? { ...p, is_banned: !currentBan } : p)),
+    );
+    toast.success(currentBan ? "Usuário desbanido." : "Usuário banido.");
+  }
+
+  const tabs: { key: Tab; label: string }[] = [
+    { key: "event", label: "Novo Evento" },
+    { key: "fight", label: "Nova Luta" },
+    { key: "result", label: "Resultado" },
+    { key: "users", label: "Usuários" },
+  ];
+
+  return (
+    <div>
+      {/* Tabs */}
+      <div
+        className="flex gap-0 mb-8"
+        style={{ borderBottom: "1px solid var(--border)" }}
+      >
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className="relative font-condensed font-700 text-xs uppercase tracking-widest px-6 py-3 transition-all"
+            style={{
+              color: tab === t.key ? "var(--red)" : "var(--text-muted)",
+            }}
+          >
+            {t.label}
+            {tab === t.key && (
+              <span
+                className="absolute bottom-0 left-0 right-0 h-0.5"
+                style={{ backgroundColor: "var(--red)" }}
+              />
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* ── TAB: NOVO EVENTO ─────────────────────────────────── */}
+      {tab === "event" && (
+        <form onSubmit={handleCreateEvent} className="max-w-lg space-y-4">
+          <div>
+            <label
+              className={labelClass}
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Nome do Evento
+            </label>
+            <input
+              required
+              value={eventForm.name}
+              onChange={(e) =>
+                setEventForm({ ...eventForm, name: e.target.value })
+              }
+              placeholder="Ex: UFC 327"
+              style={inputStyle}
+              onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
+              onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
+            />
+          </div>
+          <div>
+            <label
+              className={labelClass}
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Local
+            </label>
+            <input
+              value={eventForm.location}
+              onChange={(e) =>
+                setEventForm({ ...eventForm, location: e.target.value })
+              }
+              placeholder="Ex: T-Mobile Arena, Las Vegas, NV"
+              style={inputStyle}
+              onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
+              onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
+            />
+          </div>
+          <div>
+            <label
+              className={labelClass}
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Data e Hora (local)
+            </label>
+            <input
+              required
+              type="datetime-local"
+              value={eventForm.event_date}
+              onChange={(e) =>
+                setEventForm({ ...eventForm, event_date: e.target.value })
+              }
+              style={inputStyle}
+              onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
+              onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
+            />
+          </div>
+          <div>
+            <label
+              className={labelClass}
+              style={{ color: "var(--text-secondary)" }}
+            >
+              URL do Banner (opcional)
+            </label>
+            <input
+              value={eventForm.banner_image_url}
+              onChange={(e) =>
+                setEventForm({ ...eventForm, banner_image_url: e.target.value })
+              }
+              placeholder="https://..."
+              style={inputStyle}
+              onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
+              onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
+            />
+          </div>
+          <button
+            type="submit"
+            className="w-full py-3 font-condensed font-900 text-sm uppercase tracking-widest text-white transition-all hover:opacity-90"
+            style={{ backgroundColor: "var(--red)" }}
+          >
+            CRIAR EVENTO
+          </button>
+        </form>
+      )}
+
+      {/* ── TAB: NOVA LUTA ────────────────────────────────────── */}
+      {tab === "fight" && (
+        <form onSubmit={handleCreateFight} className="max-w-2xl space-y-5">
+          {/* Evento */}
+          <div>
+            <label
+              className={labelClass}
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Evento
+            </label>
+            <select
+              value={selectedEventId}
+              onChange={(e) => {
+                setSelectedEventId(e.target.value);
+                loadFights(e.target.value);
+              }}
+              style={selectStyle}
+              onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
+              onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
+            >
+              {events.map((ev) => (
+                <option key={ev.id} value={ev.id}>
+                  {ev.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Lutadores — lado a lado com busca automática */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FighterSearchInput
+              label="Lutador A (vermelho)"
+              value={fightForm.fighter_a}
+              onChange={(d) => setFightForm((f) => ({ ...f, fighter_a: d }))}
+            />
+            <FighterSearchInput
+              label="Lutador B (azul)"
+              value={fightForm.fighter_b}
+              onChange={(d) => setFightForm((f) => ({ ...f, fighter_b: d }))}
+            />
+          </div>
+
+          {/* Detalhes da luta */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label
+                className={labelClass}
+                style={{ color: "var(--text-secondary)" }}
+              >
+                Categoria de Peso
+              </label>
+              <select
+                value={fightForm.weight_class}
+                onChange={(e) =>
+                  setFightForm((f) => ({ ...f, weight_class: e.target.value }))
+                }
+                style={selectStyle}
+                onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
+                onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
+              >
+                {WEIGHT_CLASSES.map((w) => (
+                  <option key={w} value={w}>
+                    {w}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label
+                className={labelClass}
+                style={{ color: "var(--text-secondary)" }}
+              >
+                Tipo de Card
+              </label>
+              <select
+                value={fightForm.card_type}
+                onChange={(e) =>
+                  setFightForm((f) => ({ ...f, card_type: e.target.value }))
+                }
+                style={selectStyle}
+                onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
+                onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
+              >
+                {CARD_TYPES.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label
+                className={labelClass}
+                style={{ color: "var(--text-secondary)" }}
+              >
+                Rounds
+              </label>
+              <select
+                value={fightForm.total_rounds}
+                onChange={(e) =>
+                  setFightForm((f) => ({ ...f, total_rounds: +e.target.value }))
+                }
+                style={selectStyle}
+                onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
+                onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
+              >
+                <option value={3}>3 rounds</option>
+                <option value={5}>5 rounds (main/título)</option>
+              </select>
+            </div>
+            <div>
+              <label
+                className={labelClass}
+                style={{ color: "var(--text-secondary)" }}
+              >
+                Ordem no Card
+              </label>
+              <input
+                type="number"
+                min={1}
+                value={fightForm.fight_order}
+                onChange={(e) =>
+                  setFightForm((f) => ({ ...f, fight_order: +e.target.value }))
+                }
+                style={inputStyle}
+                onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
+                onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
+              />
+            </div>
+          </div>
+
+          {/* Título */}
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={fightForm.is_title_fight}
+              onChange={(e) =>
+                setFightForm((f) => ({
+                  ...f,
+                  is_title_fight: e.target.checked,
+                  total_rounds: e.target.checked ? 5 : 3,
+                }))
+              }
+              style={{ accentColor: "var(--red)", width: 16, height: 16 }}
+            />
+            <span
+              className="font-condensed font-700 text-sm uppercase tracking-widest"
+              style={{ color: "var(--text)" }}
+            >
+              Disputa de Cinturão / BMF Title
+            </span>
+          </label>
+
+          <button
+            type="submit"
+            className="w-full py-3 font-condensed font-900 text-sm uppercase tracking-widest text-white transition-all hover:opacity-90"
+            style={{ backgroundColor: "var(--red)" }}
+          >
+            ADICIONAR LUTA
+          </button>
+
+          {/* Lutas já cadastradas */}
+          {eventFights.length > 0 && (
+            <div className="mt-4">
+              <p
+                className="font-condensed font-700 text-xs uppercase tracking-widest mb-2"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                Lutas cadastradas neste evento
+              </p>
+              <div style={{ border: "1px solid var(--border)" }}>
+                {eventFights.map((f, i) => (
+                  <div
+                    key={f.id}
+                    className="flex items-center justify-between px-4 py-2.5"
+                    style={{
+                      borderBottom:
+                        i < eventFights.length - 1
+                          ? "1px solid var(--border-light)"
+                          : "none",
+                    }}
+                  >
+                    <span
+                      className="font-condensed font-700 text-sm"
+                      style={{ color: "var(--text)" }}
+                    >
+                      {f.fighter_a?.name} vs {f.fighter_b?.name}
+                    </span>
+                    {f.result_confirmed && (
+                      <span
+                        className="font-condensed font-700 text-xs px-2 py-0.5"
+                        style={{
+                          backgroundColor: "var(--red)",
+                          color: "white",
+                        }}
+                      >
+                        RESULT
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </form>
+      )}
+
+      {/* ── TAB: RESULTADO ────────────────────────────────────── */}
+      {tab === "result" && (
+        <form onSubmit={handleInsertResult} className="max-w-lg space-y-4">
+          <div>
+            <label
+              className={labelClass}
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Evento
+            </label>
+            <select
+              value={selectedEventId}
+              onChange={(e) => {
+                setSelectedEventId(e.target.value);
+                loadFights(e.target.value);
+                setResultFightId("");
+              }}
+              style={selectStyle}
+              onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
+              onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
+            >
+              {events.map((ev) => (
+                <option key={ev.id} value={ev.id}>
+                  {ev.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label
+              className={labelClass}
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Luta
+            </label>
+            <select
+              value={resultFightId}
+              onChange={(e) => setResultFightId(e.target.value)}
+              style={selectStyle}
+              onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
+              onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
+            >
+              <option value="">Selecione uma luta…</option>
+              {eventFights.map((f) => (
+                <option key={f.id} value={f.id} disabled={f.result_confirmed}>
+                  {f.fighter_a?.name} vs {f.fighter_b?.name}
+                  {f.result_confirmed && (
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      style={{
+                        color: "var(--red)",
+                        display: "inline",
+                        marginLeft: "4px",
+                      }}
+                    >
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {resultFightId &&
+            (() => {
+              const fight = eventFights.find((f) => f.id === resultFightId);
+              if (!fight) return null;
+              return (
+                <>
+                  <div>
+                    <label
+                      className={labelClass}
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      Vencedor
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(["a", "b"] as const).map((side) => (
+                        <button
+                          type="button"
+                          key={side}
+                          onClick={() =>
+                            setResultForm((r) => ({ ...r, winner_side: side }))
+                          }
+                          className="py-3 font-condensed font-900 text-sm uppercase tracking-wide transition-all"
+                          style={{
+                            backgroundColor:
+                              resultForm.winner_side === side
+                                ? "var(--red)"
+                                : "var(--bg-elevated)",
+                            color:
+                              resultForm.winner_side === side
+                                ? "white"
+                                : "var(--text)",
+                            border: `1px solid ${resultForm.winner_side === side ? "var(--red)" : "var(--border)"}`,
+                          }}
+                        >
+                          {fight[`fighter_${side}`]?.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label
+                      className={labelClass}
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      Método
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(
+                        [
+                          { v: "decision", l: "Decisão" },
+                          { v: "submission", l: "Finalização" },
+                          { v: "knockout", l: "Nocaute" },
+                        ] as const
+                      ).map(({ v, l }) => (
+                        <button
+                          type="button"
+                          key={v}
+                          onClick={() =>
+                            setResultForm((r) => ({ ...r, method: v }))
+                          }
+                          className="py-3 font-condensed font-900 text-xs uppercase tracking-widest transition-all"
+                          style={{
+                            backgroundColor:
+                              resultForm.method === v
+                                ? "var(--red)"
+                                : "var(--bg-elevated)",
+                            color:
+                              resultForm.method === v ? "white" : "var(--text)",
+                            border: `1px solid ${resultForm.method === v ? "var(--red)" : "var(--border)"}`,
+                          }}
+                        >
+                          {l}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Round — só para KO e finalização */}
+                  {resultForm.method !== "decision" && (
+                    <div>
+                      <label
+                        className={labelClass}
+                        style={{ color: "var(--text-secondary)" }}
+                      >
+                        Round
+                      </label>
+                      <div className="flex gap-2">
+                        {[1, 2, 3, 4, 5].map((r) => (
+                          <button
+                            type="button"
+                            key={r}
+                            onClick={() =>
+                              setResultForm((rf) => ({ ...rf, round: r }))
+                            }
+                            className="w-12 h-12 font-condensed font-900 text-sm transition-all"
+                            style={{
+                              backgroundColor:
+                                resultForm.round === r
+                                  ? "var(--red)"
+                                  : "var(--bg-elevated)",
+                              color:
+                                resultForm.round === r
+                                  ? "white"
+                                  : "var(--text)",
+                              border: `1px solid ${resultForm.round === r ? "var(--red)" : "var(--border)"}`,
+                            }}
+                          >
+                            R{r}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+
+          <button
+            type="submit"
+            disabled={!resultFightId}
+            className="w-full py-3 font-condensed font-900 text-sm uppercase tracking-widest text-white transition-all hover:opacity-90 disabled:opacity-40"
+            style={{ backgroundColor: "var(--red)" }}
+          >
+            CONFIRMAR RESULTADO
+          </button>
+        </form>
+      )}
+
+      {/* ── TAB: USUÁRIOS ─────────────────────────────────────── */}
+      {tab === "users" && (
+        <div style={{ border: "1px solid var(--border)" }}>
+          <div
+            className="grid grid-cols-12 px-4 py-2"
+            style={{
+              backgroundColor: "var(--bg-elevated)",
+              borderBottom: "2px solid var(--red)",
+            }}
+          >
+            {["Nickname", "Nome", "Pts", "Role", "Ação"].map((h) => (
+              <div
+                key={h}
+                className={`${h === "Nickname" ? "col-span-3" : h === "Nome" ? "col-span-4" : "col-span-1"} ${h === "Ação" ? "col-span-2 text-right" : ""}`}
+              >
+                <span
+                  className="font-condensed font-700 text-xs uppercase tracking-widest"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  {h}
+                </span>
+              </div>
+            ))}
+          </div>
+          {userList.map((u, i) => (
+            <div
+              key={u.id}
+              className="grid grid-cols-12 items-center px-4 py-3"
+              style={{
+                borderBottom:
+                  i < userList.length - 1
+                    ? "1px solid var(--border-light)"
+                    : "none",
+              }}
+            >
+              <div className="col-span-3">
+                <span
+                  className="font-condensed font-900 text-sm uppercase"
+                  style={{
+                    color: u.is_banned ? "var(--text-muted)" : "var(--text)",
+                  }}
+                >
+                  {u.nickname}
+                </span>
+              </div>
+              <div className="col-span-4">
+                <span
+                  className="text-sm"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  {u.first_name} {u.last_name}
+                </span>
+              </div>
+              <div className="col-span-1">
+                <span
+                  className="font-condensed font-700 text-sm"
+                  style={{ color: "var(--red)" }}
+                >
+                  {u.total_points}
+                </span>
+              </div>
+              <div className="col-span-2">
+                <span
+                  className="font-condensed font-700 text-xs uppercase px-2 py-0.5"
+                  style={{
+                    backgroundColor:
+                      u.role === "admin" ? "var(--red)" : "var(--bg-elevated)",
+                    color:
+                      u.role === "admin" ? "white" : "var(--text-secondary)",
+                    border: "1px solid var(--border)",
+                  }}
+                >
+                  {u.role}
+                </span>
+              </div>
+              <div className="col-span-2 text-right">
+                <button
+                  onClick={() => toggleBan(u.id, u.is_banned)}
+                  className="font-condensed font-700 text-xs uppercase tracking-widest px-3 py-1.5 transition-all hover:opacity-70"
+                  style={{
+                    border: `1px solid ${u.is_banned ? "var(--border)" : "var(--red)"}`,
+                    color: u.is_banned ? "var(--text-secondary)" : "var(--red)",
+                  }}
+                >
+                  {u.is_banned ? "DESBANIR" : "BANIR"}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
