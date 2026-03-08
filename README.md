@@ -3,7 +3,7 @@
 
 Um web app de *Pick'em Game* (estilo Fantasy) onde entusiastas de MMA podem palpitar nos resultados de cada luta dos eventos do UFC, acompanhar rankings por evento e disputar a liderança no ranking geral.
 
-Este projeto nasceu de um "vibe coding" com o Claude, focado em ser uma ferramenta comunitária, open-source e sem fins lucrativos para fãs de luta.
+Este projeto nasceu de uma "vibe coding" com o Claude, focado em ser uma ferramenta comunitária, open-source e sem fins lucrativos para fãs de luta.
 
 ### 🚀 Funcionalidades
 
@@ -52,6 +52,29 @@ Este projeto nasceu de um "vibe coding" com o Claude, focado em ser uma ferramen
     ```bash
     npm run dev
     ```
+
+### 🗃️ Estrutura do Banco de Dados (Supabase)
+
+O esquema do banco de dados está definido no arquivo [`schema.sql`](./schema.sql). Ele inclui tabelas para perfis de usuários, eventos, lutadores, lutas, palpites e pontuações.
+
+Principais tabelas:
+*   `profiles`: Estende o usuário do Supabase com dados como nickname, nome, papel (user/admin) e pontuação total.
+*   `events`: Armazena informações sobre os eventos do UFC (nome, data, status).
+*   `fighters`: Cadastro de todos os lutadores.
+*   `fights`: Representa cada luta dentro de um evento, com os lutadores envolvidos.
+*   `picks`: Registra os palpites feitos pelos usuários para cada luta.
+*   `event_scores`: Agrega a pontuação de cada usuário por evento.
+*   `activity_logs`: Registros de atividades suspeitas ou importantes.
+
+Para configurar o banco de dados:
+1. Acesse o [painel do Supabase](https://app.supabase.com/).
+2. Crie um novo projeto.
+3. No editor SQL do Supabase, execute o conteúdo do arquivo `schema.sql`.
+4. Configure as políticas de segurança conforme necessário.
+5. Após criar sua conta de administrador, defina seu papel executando:
+   ```sql
+   UPDATE profiles SET role = 'admin' WHERE id = 'SEU_USER_UUID_AQUI';
+   ```
 
 ### 📂 Estrutura do Projeto
 
