@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Event } from "@/types";
 
 // ============================================================
-// COLOQUE A URL DO BANNER DO EVENTO AQUI (opcional)
+// COLOQUE A URL DO BANNER DO EVENTO AQUI
 // ============================================================
 const EVENT_BANNER_URL = "";
 // ============================================================
@@ -30,18 +30,27 @@ export default function LandingPage() {
     fetchEvent();
   }, []);
 
-  // Prioriza a imagem do evento atual; senão usa o EVENT_BANNER_URL; senão null
-  const bannerUrl = currentEvent?.banner_image_url || EVENT_BANNER_URL || null;
-
   return (
     <main
       className="min-h-screen flex flex-col"
       style={{ backgroundColor: "var(--bg)" }}
     >
+      {/* ── HEADER ── */}
       <header style={{ borderBottom: "1px solid var(--border)" }}>
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <img src="/logo-dark.svg" alt="UFC Fantasy" className="h-5" />
+            <span
+              className="font-condensed font-900 text-2xl tracking-widest uppercase"
+              style={{ color: "var(--red)" }}
+            >
+              UFC
+            </span>
+            <span
+              className="font-condensed font-900 text-2xl tracking-widest uppercase"
+              style={{ color: "var(--text)" }}
+            >
+              FANTASY
+            </span>
           </div>
           <div className="flex items-center gap-3">
             <Link
@@ -67,44 +76,59 @@ export default function LandingPage() {
         className="relative w-full overflow-hidden"
         style={{ minHeight: "60vh" }}
       >
-        {/* Background: imagem (se houver) ou fallback pattern */}
-        {bannerUrl ? (
-          <div className="absolute inset-0 z-0">
+        {EVENT_BANNER_URL ? (
+          <div className="relative w-full" style={{ aspectRatio: "16/7" }}>
             <Image
-              src={bannerUrl}
+              src={EVENT_BANNER_URL}
               alt={currentEvent?.name || "Evento"}
               fill
-              className="object-cover transition-transform duration-500 group-hover:scale-105"
+              className="object-cover"
               priority
             />
-            {/* Overlay para legibilidade do texto */}
             <div
-              className="absolute inset-0 z-10"
+              className="absolute inset-0"
               style={{
                 background:
-                  "linear-gradient(to right, rgba(0,0,0,0.85) 10%, rgba(0,0,0,0.2) 100%)",
+                  "linear-gradient(to right, rgba(0,0,0,0.85) 30%, rgba(0,0,0,0.2) 100%)",
               }}
             />
           </div>
         ) : (
           <div
-            className="absolute inset-0 z-0"
+            className="relative flex items-center"
             style={{
-              backgroundImage:
-                "repeating-linear-gradient(0deg, var(--border) 0px, var(--border) 1px, transparent 1px, transparent 60px), repeating-linear-gradient(90deg, var(--border) 0px, var(--border) 1px, transparent 1px, transparent 60px)",
+              minHeight: "60vh",
+              backgroundColor: "var(--bg-secondary)",
             }}
-          />
+          >
+            <div
+              className="absolute inset-0 opacity-5"
+              style={{
+                backgroundImage:
+                  "repeating-linear-gradient(0deg, var(--border) 0px, var(--border) 1px, transparent 1px, transparent 60px), repeating-linear-gradient(90deg, var(--border) 0px, var(--border) 1px, transparent 1px, transparent 60px)",
+              }}
+            />
+          </div>
         )}
 
-        {/* Hero text overlay (conteúdo acima da imagem) */}
+        {/* Hero text overlay */}
         <div className="absolute inset-0 flex items-center">
-          <div className="relative z-20 max-w-6xl mx-auto px-6 w-full">
+          <div className="max-w-6xl mx-auto px-6 w-full">
+            <p
+              className="font-condensed font-700 text-xs uppercase tracking-ultra mb-3"
+              style={{ color: "var(--red)" }}
+            >
+              Plataforma de Fantasy
+            </p>
             <h1
-              className="font-condensed font-900 uppercase leading-none mb-4"
+              className="uppercase leading-none mb-4"
               style={{
-                fontSize: "clamp(3rem, 8vw, 7rem)",
+                fontFamily: "'Khand', sans-serif",
+                fontWeight: 700,
+                fontSize: "clamp(4rem, 10vw, 9rem)",
                 color: "var(--text)",
-                letterSpacing: "0.02em",
+                letterSpacing: "-0.01em",
+                lineHeight: 0.9,
               }}
             >
               FAÇA SEUS
