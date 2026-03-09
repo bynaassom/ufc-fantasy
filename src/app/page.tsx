@@ -4,12 +4,7 @@ import Navbar from "@/components/layout/Navbar";
 import Link from "next/link";
 import Image from "next/image";
 import { Event } from "@/types";
-import {
-  formatEventDate,
-  isPicksLocked,
-  timeUntilEvent,
-  getDisplayName,
-} from "@/lib/utils";
+import { formatEventDate, isPicksLocked, timeUntilEvent } from "@/lib/utils";
 
 export const revalidate = 60; // revalida a cada 60s
 
@@ -62,9 +57,7 @@ export default async function HomePage() {
             className="font-condensed font-900 text-3xl uppercase tracking-wide"
             style={{ color: "var(--text)" }}
           >
-            <span style={{ color: "var(--red)" }}>
-              {profile ? getDisplayName(profile) : ""}
-            </span>
+            <span style={{ color: "var(--red)" }}>{profile?.nickname}</span>
           </h1>
           <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
             {profile?.total_points} pontos acumulados
