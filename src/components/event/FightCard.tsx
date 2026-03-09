@@ -229,7 +229,7 @@ export default function FightCard({
 
               {/* Name */}
               <p
-                className="font-condensed font-900 uppercase text-center leading-tight"
+                className="font-condensed font-600 uppercase text-center leading-tight"
                 style={{
                   color: nameColor,
                   fontSize: "clamp(0.75rem, 2vw, 1rem)",
@@ -240,9 +240,10 @@ export default function FightCard({
               </p>
               {fighter.country && (
                 <p
-                  className="font-condensed font-600 uppercase text-xs mt-0.5"
+                  className="font-condensed font-400 uppercase text-xs mt-0.5"
                   style={{ color: "var(--text-muted)" }}
                 >
+                  {" "}
                   {fighter.country}
                 </p>
               )}
