@@ -16,6 +16,16 @@ export default function LandingPage() {
   const [currentEvent, setCurrentEvent] = useState<Event | null>(null);
 
   useEffect(() => {
+    // Garante Khand carregada nesta página client-side
+    if (!document.querySelector("link[data-font='khand']")) {
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href =
+        "https://fonts.googleapis.com/css2?family=Khand:wght@400;500;600;700&display=swap";
+      link.setAttribute("data-font", "khand");
+      document.head.appendChild(link);
+    }
+
     async function fetchEvent() {
       const supabase = createClient();
       const { data } = await supabase
@@ -30,7 +40,6 @@ export default function LandingPage() {
     fetchEvent();
   }, []);
 
-  // Prioriza a imagem do evento atual; senão usa o EVENT_BANNER_URL; senão null
   const bannerUrl = currentEvent?.banner_image_url || EVENT_BANNER_URL || null;
 
   return (
@@ -67,17 +76,15 @@ export default function LandingPage() {
         className="relative w-full overflow-hidden"
         style={{ minHeight: "60vh" }}
       >
-        {/* Background: imagem (se houver) ou fallback pattern */}
         {bannerUrl ? (
           <div className="absolute inset-0 z-0">
             <Image
               src={bannerUrl}
               alt={currentEvent?.name || "Evento"}
               fill
-              className="object-cover transition-transform duration-500 group-hover:scale-105"
+              className="object-cover"
               priority
             />
-            {/* Overlay para legibilidade do texto */}
             <div
               className="absolute inset-0 z-10"
               style={{
@@ -96,15 +103,17 @@ export default function LandingPage() {
           />
         )}
 
-        {/* Hero text overlay (conteúdo acima da imagem) */}
         <div className="absolute inset-0 flex items-center">
           <div className="relative z-20 max-w-6xl mx-auto px-6 w-full">
             <h1
-              className="font-condensed font-900 uppercase leading-none mb-4"
+              className="uppercase leading-none mb-4"
               style={{
-                fontSize: "clamp(3rem, 8vw, 7rem)",
+                fontFamily: "'Khand', sans-serif",
+                fontWeight: 700,
+                fontSize: "clamp(4rem, 10vw, 9rem)",
                 color: "var(--text)",
-                letterSpacing: "0.02em",
+                letterSpacing: "-0.01em",
+                lineHeight: 0.9,
               }}
             >
               FAÇA SEUS
