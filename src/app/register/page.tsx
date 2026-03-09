@@ -66,7 +66,7 @@ export default function RegisterPage() {
       return;
     }
 
-    router.push(`/verify-email?email=${encodeURIComponent(form.email)}`);
+    router.push(`/home`);
   }
 
   const inputStyle: React.CSSProperties = {
