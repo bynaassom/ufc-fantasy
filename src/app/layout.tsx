@@ -2,6 +2,16 @@ import type { Metadata } from "next";
 import { Toaster } from "react-hot-toast";
 import "./globals.css";
 
+import type { Viewport } from "next";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover", // iPhone notch/home bar
+};
+
 export const metadata: Metadata = {
   title: "UFC Fantasy | Faça seus picks",
   description:

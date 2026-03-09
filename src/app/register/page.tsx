@@ -28,8 +28,15 @@ export default function RegisterPage() {
       toast.error("Senha deve ter pelo menos 8 caracteres.");
       return;
     }
-    if (!/^[a-zA-Z0-9_]+$/.test(form.nickname)) {
+    if (form.nickname && !/^[a-zA-Z0-9_]+$/.test(form.nickname)) {
       toast.error("Nickname: apenas letras, números e _");
+      return;
+    }
+    if (
+      form.nickname &&
+      (form.nickname.length < 3 || form.nickname.length > 20)
+    ) {
+      toast.error("Nickname deve ter entre 3 e 20 caracteres.");
       return;
     }
 
@@ -113,10 +120,20 @@ export default function RegisterPage() {
                 className={labelClass}
                 style={{ color: "var(--text-secondary)" }}
               >
-                Nickname
+                Nickname{" "}
+                <span
+                  style={{
+                    color: "var(--text-muted)",
+                    fontWeight: 400,
+                    textTransform: "none",
+                    letterSpacing: 0,
+                    fontSize: "11px",
+                  }}
+                >
+                  (opcional)
+                </span>
               </label>
               <input
-                required
                 minLength={3}
                 maxLength={20}
                 value={form.nickname}
@@ -130,7 +147,8 @@ export default function RegisterPage() {
                 className="text-xs mt-1"
                 style={{ color: "var(--text-muted)" }}
               >
-                3–20 caracteres, letras, números e _
+                3–20 caracteres, letras, números e _ · Se vazio, usaremos seu
+                nome
               </p>
             </div>
 

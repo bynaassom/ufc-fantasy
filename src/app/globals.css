@@ -39,17 +39,26 @@ body {
         background-color 0.15s ease,
         color 0.15s ease;
     -webkit-font-smoothing: antialiased;
+    /* Mobile: remove tap highlight e overflow lateral */
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+    overflow-x: hidden;
+}
+
+/* Safe area para iPhone com notch/home bar */
+.navbar-mobile-safe {
+    padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* ============================================================
    TYPOGRAPHY UTILITIES
    ============================================================ */
 .font-condensed {
-    font-family: "Encode Sans Condensed", sans-serif;
+    font-family: "Barlow Condensed", sans-serif;
 }
 
 .section-title {
-    font-family: "Encode Sans Condensed", sans-serif;
+    font-family: "Barlow Condensed", sans-serif;
     font-weight: 900;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -153,4 +162,13 @@ body {
 }
 .pulse-red {
     animation: pulse-red 2s ease-in-out infinite;
+}
+
+/* ============================================================
+   MOBILE SAFE AREA — iPhone home bar
+   ============================================================ */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+    .pb-safe {
+        padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+    }
 }
