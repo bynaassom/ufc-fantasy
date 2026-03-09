@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 import { Profile } from "@/types";
 
+export const revalidate = 120; // ranking revalida a cada 2min
+
 export default async function RankingPage({
   searchParams,
 }: {
@@ -13,6 +15,12 @@ export default async function RankingPage({
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
+    .single();
 
   const tab = searchParams.tab === "evento" ? "evento" : "geral";
 
@@ -75,8 +83,7 @@ export default async function RankingPage({
       className="min-h-screen pb-24 md:pb-0"
       style={{ backgroundColor: "var(--bg)" }}
     >
-      <Navbar />
-
+      <Navbar profile={profile} />
       <main className="max-w-3xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-6">

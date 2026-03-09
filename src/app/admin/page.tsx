@@ -86,7 +86,7 @@ export default async function AdminPage() {
       className="min-h-screen pb-24 md:pb-10"
       style={{ backgroundColor: "var(--bg)" }}
     >
-      <Navbar />
+      <Navbar profile={profile} />
       <main className="max-w-5xl mx-auto px-4 py-8">
         <div
           className="mb-8 pb-6"

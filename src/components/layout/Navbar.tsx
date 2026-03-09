@@ -6,18 +6,29 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Profile } from "@/types";
 
-// Singleton de profile — evita refetch toda vez que a Navbar remonta
+// Singleton — fallback para páginas que não passam profile via prop
 let cachedProfile: Profile | null = null;
 
-export default function Navbar() {
+interface NavbarProps {
+  profile?: Profile | null;
+}
+
+export default function Navbar({ profile: profileProp }: NavbarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const [profile, setProfile] = useState<Profile | null>(cachedProfile);
+
+  // Se vier via prop (server), usa direto. Senão, busca client-side (fallback)
+  const [profile, setProfile] = useState<Profile | null>(
+    profileProp ?? cachedProfile,
+  );
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // Carrega profile uma única vez por sessão
   useEffect(() => {
-    if (cachedProfile) return;
+    // Se já temos profile (via prop ou cache), não busca novamente
+    if (profile) {
+      if (!cachedProfile) cachedProfile = profile;
+      return;
+    }
     const supabase = createClient();
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return;
@@ -33,7 +44,15 @@ export default function Navbar() {
           }
         });
     });
-  }, []);
+  }, [profile]);
+
+  // Atualiza cache quando prop muda (ex: navegação)
+  useEffect(() => {
+    if (profileProp) {
+      cachedProfile = profileProp;
+      setProfile(profileProp);
+    }
+  }, [profileProp]);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -58,7 +77,6 @@ export default function Navbar() {
   ];
 
   const isActive = (href: string) => pathname.startsWith(href);
-
   const logo = (
     <img
       src="/logo-dark.svg"

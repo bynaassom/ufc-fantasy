@@ -1,289 +1,278 @@
-"use client";
-
+import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
+import Navbar from "@/components/layout/Navbar";
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { Event } from "@/types";
+import { formatEventDate, isPicksLocked, timeUntilEvent } from "@/lib/utils";
 
-// ============================================================
-// COLOQUE A URL DO BANNER DO EVENTO AQUI (opcional)
-// ============================================================
-const EVENT_BANNER_URL = "";
-// ============================================================
+export const revalidate = 60; // revalida a cada 60s
 
-export default function LandingPage() {
-  const [currentEvent, setCurrentEvent] = useState<Event | null>(null);
+export default async function HomePage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
 
-  useEffect(() => {
-    async function fetchEvent() {
-      const supabase = createClient();
-      const { data } = await supabase
-        .from("events")
-        .select("*")
-        .in("status", ["upcoming", "live"])
-        .order("event_date", { ascending: true })
-        .limit(1)
-        .single();
-      if (data) setCurrentEvent(data);
-    }
-    fetchEvent();
-  }, []);
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
+    .single();
+  if (profile?.is_banned) redirect("/login");
 
-  // Prioriza a imagem do evento atual; senão usa o EVENT_BANNER_URL; senão null
-  const bannerUrl = currentEvent?.banner_image_url || EVENT_BANNER_URL || null;
+  const { data: events } = await supabase
+    .from("events")
+    .select("*")
+    .order("event_date", { ascending: true })
+    .limit(8);
+
+  const currentEvent = events?.find(
+    (e: Event) => e.status === "live" || e.status === "upcoming",
+  );
+  const upcomingEvents =
+    events?.filter((e: Event) => e.id !== currentEvent?.id) || [];
 
   return (
-    <main
-      className="min-h-screen flex flex-col"
+    <div
+      className="min-h-screen pb-20 md:pb-0"
       style={{ backgroundColor: "var(--bg)" }}
     >
-      <header style={{ borderBottom: "1px solid var(--border)" }}>
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <img src="/logo-dark.svg" alt="UFC Fantasy" className="h-5" />
-          </div>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/login"
-              className="font-condensed font-700 text-sm uppercase tracking-widest px-5 py-2 transition-all hover:opacity-70"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              Entrar
-            </Link>
-            <Link
-              href="/register"
-              className="font-condensed font-700 text-sm uppercase tracking-widest px-5 py-2.5 text-white transition-all hover:opacity-90"
-              style={{ backgroundColor: "var(--red)" }}
-            >
-              Registrar
-            </Link>
-          </div>
-        </div>
-      </header>
+      <Navbar profile={profile} />
 
-      {/* ── HERO BANNER ── */}
-      <section
-        className="relative w-full overflow-hidden"
-        style={{ minHeight: "60vh" }}
-      >
-        {/* Background: imagem (se houver) ou fallback pattern */}
-        {bannerUrl ? (
-          <div className="absolute inset-0 z-0">
-            <Image
-              src={bannerUrl}
-              alt={currentEvent?.name || "Evento"}
-              fill
-              className="object-cover transition-transform duration-500 group-hover:scale-105"
-              priority
-            />
-            {/* Overlay para legibilidade do texto */}
-            <div
-              className="absolute inset-0 z-10"
-              style={{
-                background:
-                  "linear-gradient(to right, rgba(0,0,0,0.85) 10%, rgba(0,0,0,0.2) 100%)",
-              }}
-            />
-          </div>
-        ) : (
-          <div
-            className="absolute inset-0 z-0"
-            style={{
-              backgroundImage:
-                "repeating-linear-gradient(0deg, var(--border) 0px, var(--border) 1px, transparent 1px, transparent 60px), repeating-linear-gradient(90deg, var(--border) 0px, var(--border) 1px, transparent 1px, transparent 60px)",
-            }}
-          />
-        )}
-
-        {/* Hero text overlay (conteúdo acima da imagem) */}
-        <div className="absolute inset-0 flex items-center">
-          <div className="relative z-20 max-w-6xl mx-auto px-6 w-full">
-            <h1
-              className="font-condensed font-900 uppercase leading-none mb-4"
-              style={{
-                fontSize: "clamp(3rem, 8vw, 7rem)",
-                color: "var(--text)",
-                letterSpacing: "0.02em",
-              }}
-            >
-              FAÇA SEUS
-              <br />
-              <span style={{ color: "var(--red)" }}>PICKS</span>
-            </h1>
-            {currentEvent && (
-              <p
-                className="font-condensed font-700 uppercase tracking-widest text-lg mb-8"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                {currentEvent.name} · {currentEvent.location}
-              </p>
-            )}
-            <Link
-              href="/register"
-              className="inline-flex items-center gap-3 font-condensed font-900 text-base uppercase tracking-widest px-8 py-4 text-white transition-all hover:opacity-90 active:scale-95"
-              style={{ backgroundColor: "var(--red)" }}
-            >
-              PARTICIPE AGORA
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-              >
-                <path d="M5 12h14M12 5l7 7-7 7" />
-              </svg>
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* ── SCORING INFO ── */}
-      <section className="max-w-6xl mx-auto px-6 py-16 w-full">
-        <div className="red-line">
-          <span className="section-title">Como funciona</span>
-        </div>
-
+      <main className="max-w-4xl mx-auto px-4 py-8">
+        {/* Welcome */}
         <div
-          className="grid grid-cols-1 md:grid-cols-3 gap-px"
-          style={{ backgroundColor: "var(--border)" }}
+          className="mb-8 pb-6"
+          style={{ borderBottom: "1px solid var(--border)" }}
         >
-          {[
-            {
-              num: "01",
-              title: "ACERTE O VENCEDOR",
-              desc: "Escolha quem você acha que vai ganhar cada luta do card.",
-              pts: "+1 PT",
-            },
-            {
-              num: "02",
-              title: "ACERTE O MÉTODO",
-              desc: "Decisão, finalização ou nocaute — seja preciso na via de vitória.",
-              pts: "+1 PT",
-            },
-            {
-              num: "03",
-              title: "ACERTE O ROUND",
-              desc: "Máxima precisão: em qual round a luta vai terminar.",
-              pts: "+1 PT",
-            },
-          ].map((item) => (
-            <div
-              key={item.num}
-              className="p-8 flex flex-col gap-4"
-              style={{ backgroundColor: "var(--bg-card)" }}
-            >
-              <div className="flex items-start justify-between">
-                <span
-                  className="font-condensed font-900 text-5xl leading-none"
-                  style={{ color: "var(--border)" }}
-                >
-                  {item.num}
-                </span>
-                <span
-                  className="font-condensed font-900 text-sm px-3 py-1"
-                  style={{ backgroundColor: "var(--red)", color: "white" }}
-                >
-                  {item.pts}
-                </span>
-              </div>
-              <div>
-                <p
-                  className="font-condensed font-900 text-lg uppercase tracking-wide mb-2"
-                  style={{ color: "var(--text)" }}
-                >
-                  {item.title}
-                </p>
-                <p
-                  className="text-sm leading-relaxed"
-                  style={{ color: "var(--text-secondary)" }}
-                >
-                  {item.desc}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div
-          className="mt-3 p-4 flex items-center justify-between"
-          style={{
-            backgroundColor: "var(--bg-elevated)",
-            border: "1px solid var(--border)",
-          }}
-        >
-          <span
-            className="font-condensed font-700 text-sm uppercase tracking-widest"
+          <p
+            className="font-condensed font-700 text-xs uppercase tracking-widest mb-1"
             style={{ color: "var(--text-secondary)" }}
           >
-            Máximo por luta
-          </span>
-          <span
-            className="font-condensed font-900 text-2xl"
-            style={{ color: "var(--red)" }}
+            Bem-vindo de volta
+          </p>
+          <h1
+            className="font-condensed font-900 text-3xl uppercase tracking-wide"
+            style={{ color: "var(--text)" }}
           >
-            3 PONTOS
-          </span>
+            <span style={{ color: "var(--red)" }}>{profile?.nickname}</span>
+          </h1>
+          <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
+            {profile?.total_points} pontos acumulados
+          </p>
         </div>
-      </section>
 
-      {/* ── CTA BOTTOM ── */}
-      <section
-        style={{
-          borderTop: "1px solid var(--border)",
-          backgroundColor: "var(--bg-secondary)",
-        }}
-      >
-        <div className="max-w-6xl mx-auto px-6 py-12 flex flex-col md:flex-row items-center justify-between gap-6">
-          <div>
+        {/* Current Event */}
+        {currentEvent ? (
+          <section className="mb-10">
+            <div className="red-line">
+              <span className="section-title">
+                {currentEvent.status === "live" ? "AO VIVO" : "EVENTO ATUAL"}
+              </span>
+              {currentEvent.status === "live" && (
+                <span
+                  className="ml-2 inline-flex items-center gap-1.5 font-condensed font-700 text-xs uppercase tracking-widest px-2 py-0.5"
+                  style={{ backgroundColor: "var(--red)", color: "white" }}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                  LIVE
+                </span>
+              )}
+            </div>
+
+            <Link href={`/event/${currentEvent.slug}`} className="block group">
+              {/* Banner */}
+              <div
+                className="relative w-full overflow-hidden"
+                style={{
+                  aspectRatio: "16/6",
+                  backgroundColor: "var(--bg-card)",
+                }}
+              >
+                {currentEvent.banner_image_url ? (
+                  <>
+                    <Image
+                      src={currentEvent.banner_image_url}
+                      alt={currentEvent.name}
+                      fill
+                      className="object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                    <div
+                      className="absolute inset-0"
+                      style={{
+                        background:
+                          "linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.3) 60%, transparent 100%)",
+                      }}
+                    />
+                  </>
+                ) : (
+                  <div
+                    className="absolute inset-0 flex items-center justify-center"
+                    style={{
+                      background:
+                        "linear-gradient(135deg, var(--bg-card) 0%, var(--bg-elevated) 100%)",
+                    }}
+                  >
+                    <div className="text-center">
+                      <p
+                        className="font-condensed font-900 text-xs uppercase tracking-ultra mb-2"
+                        style={{ color: "var(--red)" }}
+                      >
+                        UFC
+                      </p>
+                      <p
+                        className="font-condensed font-900 uppercase"
+                        style={{
+                          fontSize: "clamp(1.5rem, 4vw, 3rem)",
+                          color: "var(--text)",
+                          letterSpacing: "0.03em",
+                        }}
+                      >
+                        {currentEvent.name}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Overlay info */}
+                <div className="absolute bottom-0 left-0 right-0 p-5">
+                  <p
+                    className="font-condensed font-900 uppercase text-white"
+                    style={{
+                      fontSize: "clamp(1.25rem, 3.5vw, 2.5rem)",
+                      letterSpacing: "0.03em",
+                      lineHeight: 1,
+                    }}
+                  >
+                    {currentEvent.name}
+                  </p>
+                  <div className="flex items-center gap-4 mt-2">
+                    {currentEvent.location && (
+                      <span className="font-condensed font-600 text-xs uppercase tracking-widest text-white/60">
+                        {currentEvent.location}
+                      </span>
+                    )}
+                    <span className="font-condensed font-600 text-xs uppercase tracking-widest text-white/60">
+                      {formatEventDate(currentEvent.event_date)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Event footer bar */}
+              <div
+                className="flex items-center justify-between px-5 py-3"
+                style={{
+                  backgroundColor: "var(--bg-card)",
+                  borderLeft: "3px solid var(--red)",
+                }}
+              >
+                <p
+                  className="font-condensed font-700 text-xs uppercase tracking-widest"
+                  style={{
+                    color: isPicksLocked(currentEvent.picks_lock_at)
+                      ? "var(--text-muted)"
+                      : "var(--text-secondary)",
+                  }}
+                >
+                  {isPicksLocked(currentEvent.picks_lock_at)
+                    ? "PICKS ENCERRADOS"
+                    : `PICKS FECHAM ${timeUntilEvent(currentEvent.picks_lock_at).toUpperCase()}`}
+                </p>
+                <span
+                  className="flex items-center gap-2 font-condensed font-900 text-xs uppercase tracking-widest px-4 py-2 text-white"
+                  style={{ backgroundColor: "var(--red)" }}
+                >
+                  FAZER PICKS
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                  >
+                    <path d="M5 12h14M12 5l7 7-7 7" />
+                  </svg>
+                </span>
+              </div>
+            </Link>
+          </section>
+        ) : (
+          <div
+            className="mb-10 py-16 text-center"
+            style={{ border: "1px solid var(--border)" }}
+          >
             <p
-              className="font-condensed font-900 text-2xl uppercase tracking-wide"
+              className="font-condensed font-900 text-xl uppercase tracking-wide"
               style={{ color: "var(--text)" }}
             >
-              Pronto para competir?
+              Nenhum evento ativo
             </p>
             <p
-              className="text-sm mt-1"
+              className="text-sm mt-2"
               style={{ color: "var(--text-secondary)" }}
             >
-              Crie sua conta grátis e faça seus picks antes do lock.
+              Aguarde a divulgação do próximo evento
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/login"
-              className="font-condensed font-700 text-sm uppercase tracking-widest px-6 py-3 transition-all hover:opacity-70"
-              style={{
-                border: "1px solid var(--border)",
-                color: "var(--text)",
-              }}
-            >
-              Já tenho conta
-            </Link>
-            <Link
-              href="/register"
-              className="font-condensed font-900 text-sm uppercase tracking-widest px-6 py-3 text-white transition-all hover:opacity-90"
-              style={{ backgroundColor: "var(--red)" }}
-            >
-              Registre-se
-            </Link>
-          </div>
-        </div>
-      </section>
+        )}
 
-      <footer
-        className="py-5 text-center"
-        style={{ borderTop: "1px solid var(--border)" }}
-      >
-        <p
-          className="text-xs uppercase tracking-widest font-condensed"
-          style={{ color: "var(--text-muted)" }}
-        >
-          UFC FANTASY — NÃO AFILIADO AO UFC®
-        </p>
-      </footer>
-    </main>
+        {/* Upcoming */}
+        {upcomingEvents.length > 0 && (
+          <section>
+            <div className="red-line mb-4">
+              <span className="section-title">Próximos Eventos</span>
+            </div>
+            <div
+              className="space-y-0"
+              style={{ border: "1px solid var(--border)" }}
+            >
+              {upcomingEvents.map((event: Event, i: number) => (
+                <div
+                  key={event.id}
+                  className="flex items-center justify-between px-5 py-4"
+                  style={{
+                    borderBottom:
+                      i < upcomingEvents.length - 1
+                        ? "1px solid var(--border)"
+                        : "none",
+                    opacity: 0.5,
+                    cursor: "not-allowed",
+                  }}
+                >
+                  <div>
+                    <p
+                      className="font-condensed font-900 text-sm uppercase tracking-wide"
+                      style={{ color: "var(--text)" }}
+                    >
+                      {event.name}
+                    </p>
+                    <p
+                      className="font-condensed font-600 text-xs uppercase tracking-widest mt-0.5"
+                      style={{ color: "var(--text-muted)" }}
+                    >
+                      {formatEventDate(event.event_date)}
+                      {event.location && ` · ${event.location}`}
+                    </p>
+                  </div>
+                  <span
+                    className="font-condensed font-700 text-xs uppercase tracking-widest px-3 py-1"
+                    style={{
+                      border: "1px solid var(--border)",
+                      color: "var(--text-muted)",
+                    }}
+                  >
+                    EM BREVE
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+      </main>
+    </div>
   );
 }

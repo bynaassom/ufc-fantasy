@@ -14,12 +14,20 @@ interface EventPageProps {
   params: { slug: string };
 }
 
+export const revalidate = 30; // evento revalida a cada 30s
+
 export default async function EventPage({ params }: EventPageProps) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
+    .single();
 
   // Fetch event with fights and fighters
   const { data: event } = await supabase
@@ -55,8 +63,7 @@ export default async function EventPage({ params }: EventPageProps) {
       className="min-h-screen pb-24 md:pb-10"
       style={{ backgroundColor: "var(--bg)" }}
     >
-      <Navbar />
-
+      <Navbar profile={profile} />
       <main className="max-w-2xl mx-auto px-4 py-8">
         {/* Event header */}
         <div className="mb-8">

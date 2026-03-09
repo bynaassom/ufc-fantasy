@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 import FighterSearchInput from "./FighterSearchInput";
@@ -68,6 +68,27 @@ export default function AdminClient({
 }) {
   const [tab, setTab] = useState<Tab>("event");
 
+  // Memoiza tabs e listas para evitar recriação a cada render
+  const tabs = useMemo(
+    () => [
+      { key: "event" as Tab, label: "Novo Evento" },
+      { key: "fight" as Tab, label: "Nova Luta" },
+      { key: "result" as Tab, label: "Resultados" },
+      { key: "users" as Tab, label: "Usuários" },
+      { key: "import" as Tab, label: "Importar" },
+    ],
+    [],
+  );
+
+  const sortedEvents = useMemo(
+    () =>
+      [...events].sort(
+        (a, b) =>
+          new Date(b.event_date).getTime() - new Date(a.event_date).getTime(),
+      ),
+    [events],
+  );
+
   // ── Event form ──────────────────────────────────────────────
   const [eventForm, setEventForm] = useState({
     name: "",
@@ -77,7 +98,9 @@ export default function AdminClient({
   });
 
   // ── Fight form ─────────────────────────────────────────────
-  const [selectedEventId, setSelectedEventId] = useState(events[0]?.id || "");
+  const [selectedEventId, setSelectedEventId] = useState(
+    sortedEvents[0]?.id || "",
+  );
   const [fightForm, setFightForm] = useState<FightForm>({
     fighter_a: { name: "", headshot_url: "", country: "" },
     fighter_b: { name: "", headshot_url: "", country: "" },
@@ -112,10 +135,10 @@ export default function AdminClient({
   // ── Lutas do evento selecionado ────────────────────────────
   const [eventFights, setEventFights] = useState<any[]>([]);
 
-  // Carrega lutas automaticamente ao montar e ao trocar de aba
+  // Carrega lutas apenas quando o evento selecionado muda (não a cada troca de aba)
   useEffect(() => {
     if (selectedEventId) loadFights(selectedEventId);
-  }, [selectedEventId, tab]);
+  }, [selectedEventId]);
 
   async function loadFights(eventId: string) {
     const sb = createClient();
@@ -327,14 +350,6 @@ export default function AdminClient({
     );
     toast.success(currentBan ? "Usuário desbanido." : "Usuário banido.");
   }
-
-  const tabs: { key: Tab; label: string }[] = [
-    { key: "event", label: "Novo Evento" },
-    { key: "fight", label: "Nova Luta" },
-    { key: "result", label: "Resultado" },
-    { key: "users", label: "Usuários" },
-    { key: "import", label: "Importar" },
-  ];
 
   // ── Scrape ────────────────────────────────────────────────
   async function handleScrape() {
@@ -562,7 +577,7 @@ export default function AdminClient({
               onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
               onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
             >
-              {events.map((ev) => (
+              {sortedEvents.map((ev) => (
                 <option key={ev.id} value={ev.id}>
                   {ev.name}
                 </option>
@@ -770,7 +785,7 @@ export default function AdminClient({
               onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
               onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
             >
-              {events.map((ev) => (
+              {sortedEvents.map((ev) => (
                 <option key={ev.id} value={ev.id}>
                   {ev.name}
                 </option>
