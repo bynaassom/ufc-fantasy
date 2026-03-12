@@ -243,10 +243,63 @@ export default function FightCard({
                   className="font-condensed font-400 uppercase text-xs mt-0.5"
                   style={{ color: "var(--text-muted)" }}
                 >
-                  {" "}
                   {fighter.country}
                 </p>
               )}
+
+              {/* Odds */}
+              {(() => {
+                const odds = idx === 0 ? fight.odds_a : fight.odds_b;
+                if (!odds) return null;
+                const isFav = odds.startsWith("-");
+                return (
+                  <span
+                    className="font-condensed font-700 text-xs mt-1.5 px-2 py-0.5"
+                    style={{
+                      backgroundColor: isFav
+                        ? "rgba(232,0,26,0.12)"
+                        : "rgba(255,255,255,0.06)",
+                      color: isFav ? "var(--red)" : "var(--text-secondary)",
+                      border: `1px solid ${isFav ? "rgba(232,0,26,0.3)" : "var(--border)"}`,
+                    }}
+                  >
+                    {odds}
+                  </span>
+                );
+              })()}
+
+              {/* Link UFC */}
+              {(() => {
+                const slug = idx === 0 ? fight.ufc_slug_a : fight.ufc_slug_b;
+                if (!slug) return null;
+                return (
+                  <a
+                    href={`https://www.ufc.com/athlete/${slug}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="font-condensed font-600 uppercase text-xs mt-1.5 flex items-center gap-1 transition-opacity hover:opacity-70"
+                    style={{
+                      color: "var(--text-muted)",
+                      letterSpacing: "0.05em",
+                    }}
+                  >
+                    PERFIL UFC
+                    <svg
+                      width="9"
+                      height="9"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                      <polyline points="15 3 21 3 21 9" />
+                      <line x1="10" y1="14" x2="21" y2="3" />
+                    </svg>
+                  </a>
+                );
+              })()}
 
               {/* Check do pick selecionado (antes do resultado) */}
               {isSelected && !completed && (
