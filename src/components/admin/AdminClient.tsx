@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 import FighterSearchInput from "./FighterSearchInput";
 
-type Tab = "event" | "fight" | "result" | "users" | "import";
+type Tab = "event" | "fight" | "result" | "users" | "import" | "sync";
 
 interface FighterData {
   name: string;
@@ -74,6 +74,7 @@ export default function AdminClient({
       { key: "event" as Tab, label: "Novo Evento" },
       { key: "fight" as Tab, label: "Nova Luta" },
       { key: "result" as Tab, label: "Resultados" },
+      { key: "sync" as Tab, label: "Auto-Sync" },
       { key: "users" as Tab, label: "Usuários" },
       { key: "import" as Tab, label: "Importar" },
     ],
@@ -132,6 +133,17 @@ export default function AdminClient({
     loading: false,
     msg: "",
   });
+
+  // ── Results sync ───────────────────────────────────────────
+  const [syncForm, setSyncForm] = useState({
+    ufc_stats_url: "",
+    espn_event_id: "",
+  });
+  const [syncLoading, setSyncLoading] = useState(false);
+  const [syncResult, setSyncResult] = useState<{
+    message: string;
+    results?: string[];
+  } | null>(null);
 
   // ── Users ──────────────────────────────────────────────────
   const [userList, setUserList] = useState(users);
@@ -371,6 +383,42 @@ export default function AdminClient({
     toast.success("Odds e links salvos!");
     setOddsFightId("");
     setOddsForm({ odds_a: "", odds_b: "", ufc_matchup_url: "" });
+  }
+
+  // ────────────────────────────────────────────────────────────
+  // SYNC: importa resultados do UFCStats + ESPN
+  // ────────────────────────────────────────────────────────────
+  async function handleSyncResults(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selectedEventId || !syncForm.ufc_stats_url) {
+      toast.error("Selecione o evento e cole a URL do UFCStats");
+      return;
+    }
+    setSyncLoading(true);
+    setSyncResult(null);
+    try {
+      const res = await fetch("/api/sync-results", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          event_id: selectedEventId,
+          ufc_stats_url: syncForm.ufc_stats_url,
+          espn_event_id: syncForm.espn_event_id || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error);
+        setSyncLoading(false);
+        return;
+      }
+      setSyncResult(data);
+      toast.success(data.message);
+      loadFights(selectedEventId);
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+    setSyncLoading(false);
   }
 
   // ────────────────────────────────────────────────────────────
@@ -1324,6 +1372,157 @@ export default function AdminClient({
             </div>
           ))}
         </div>
+      )}
+
+      {/* ── TAB: AUTO-SYNC ────────────────────────────────────── */}
+      {tab === "sync" && (
+        <form onSubmit={handleSyncResults} className="max-w-lg space-y-5">
+          {/* Evento */}
+          <div>
+            <label
+              className={labelClass}
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Evento
+            </label>
+            <select
+              value={selectedEventId}
+              onChange={(e) => {
+                setSelectedEventId(e.target.value);
+                loadFights(e.target.value);
+              }}
+              style={selectStyle}
+              onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
+              onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
+            >
+              {sortedEvents.map((ev) => (
+                <option key={ev.id} value={ev.id}>
+                  {ev.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* UFCStats URL */}
+          <div>
+            <label
+              className={labelClass}
+              style={{ color: "var(--text-secondary)" }}
+            >
+              URL do Evento no UFCStats
+              <span
+                className="ml-2 font-400 normal-case"
+                style={{ color: "var(--text-muted)", fontSize: "11px" }}
+              >
+                método + round
+              </span>
+            </label>
+            <input
+              value={syncForm.ufc_stats_url}
+              onChange={(e) =>
+                setSyncForm((f) => ({ ...f, ufc_stats_url: e.target.value }))
+              }
+              placeholder="http://www.ufcstats.com/event-details/babc6b5745335f18"
+              style={inputStyle}
+              onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
+              onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
+            />
+            <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+              Busca em{" "}
+              <a
+                href="http://www.ufcstats.com/statistics/events/completed"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline"
+              >
+                ufcstats.com/statistics/events/completed
+              </a>
+            </p>
+          </div>
+
+          {/* ESPN Event ID (opcional) */}
+          <div>
+            <label
+              className={labelClass}
+              style={{ color: "var(--text-secondary)" }}
+            >
+              ESPN Event ID
+              <span
+                className="ml-2 font-400 normal-case"
+                style={{ color: "var(--text-muted)", fontSize: "11px" }}
+              >
+                opcional — confirma vencedor
+              </span>
+            </label>
+            <input
+              value={syncForm.espn_event_id}
+              onChange={(e) =>
+                setSyncForm((f) => ({ ...f, espn_event_id: e.target.value }))
+              }
+              placeholder="600057364"
+              style={inputStyle}
+              onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
+              onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
+            />
+            <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+              Visível na URL: espn.com/mma/fightcenter/_/id/
+              <strong>600057364</strong>/league/ufc
+            </p>
+          </div>
+
+          <button
+            type="submit"
+            disabled={syncLoading || !syncForm.ufc_stats_url}
+            className="w-full py-3 font-condensed font-900 text-sm uppercase tracking-widest text-white transition-all hover:opacity-90 disabled:opacity-40 flex items-center justify-center gap-2"
+            style={{ backgroundColor: "var(--red)" }}
+          >
+            {syncLoading ? (
+              <>
+                <svg
+                  className="animate-spin"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                </svg>
+                IMPORTANDO RESULTADOS…
+              </>
+            ) : (
+              "IMPORTAR RESULTADOS"
+            )}
+          </button>
+
+          {/* Resultado da operação */}
+          {syncResult && (
+            <div
+              className="p-4 space-y-2"
+              style={{
+                backgroundColor: "var(--bg-elevated)",
+                border: "1px solid var(--border)",
+              }}
+            >
+              <p
+                className="font-condensed font-700 text-sm"
+                style={{ color: "var(--red)" }}
+              >
+                {syncResult.message}
+              </p>
+              {syncResult.results?.map((r, i) => (
+                <p
+                  key={i}
+                  className="text-xs font-condensed"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  ✓ {r}
+                </p>
+              ))}
+            </div>
+          )}
+        </form>
       )}
 
       {/* ── TAB: IMPORTAR ────────────────────────────────────── */}
