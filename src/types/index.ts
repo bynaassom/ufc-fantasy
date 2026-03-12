@@ -57,8 +57,7 @@ export interface Fight {
   result_confirmed: boolean;
   odds_a?: string | null;
   odds_b?: string | null;
-  ufc_slug_a?: string | null;
-  ufc_slug_b?: string | null;
+  ufc_matchup_url?: string | null;
   fighter_a?: Fighter;
   fighter_b?: Fighter;
   winner?: Fighter;

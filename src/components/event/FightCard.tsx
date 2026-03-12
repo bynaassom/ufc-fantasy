@@ -268,39 +268,6 @@ export default function FightCard({
                 );
               })()}
 
-              {/* Link UFC */}
-              {(() => {
-                const slug = idx === 0 ? fight.ufc_slug_a : fight.ufc_slug_b;
-                if (!slug) return null;
-                return (
-                  <a
-                    href={`https://www.ufc.com/athlete/${slug}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    className="font-condensed font-600 uppercase text-xs mt-1.5 flex items-center gap-1 transition-opacity hover:opacity-70"
-                    style={{
-                      color: "var(--text-muted)",
-                      letterSpacing: "0.05em",
-                    }}
-                  >
-                    PERFIL UFC
-                    <svg
-                      width="9"
-                      height="9"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                      <polyline points="15 3 21 3 21 9" />
-                      <line x1="10" y1="14" x2="21" y2="3" />
-                    </svg>
-                  </a>
-                );
-              })()}
-
               {/* Check do pick selecionado (antes do resultado) */}
               {isSelected && !completed && (
                 <div
@@ -344,26 +311,62 @@ export default function FightCard({
 
         {/* VS ilha */}
         <div
-          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 flex items-center justify-center"
-          style={{
-            width: "34px",
-            height: "34px",
-            borderRadius: "50%",
-            backgroundColor: "var(--bg-card)",
-            border: "1px solid var(--border)",
-            pointerEvents: "none",
-          }}
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 flex flex-col items-center justify-center gap-1.5"
+          style={{ pointerEvents: "none" }}
         >
-          <span
-            className="font-condensed font-700"
+          <div
             style={{
-              color: "var(--text-muted)",
-              fontSize: "10px",
-              letterSpacing: "0.05em",
+              width: "34px",
+              height: "34px",
+              borderRadius: "50%",
+              backgroundColor: "var(--bg-card)",
+              border: "1px solid var(--border)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
-            VS
-          </span>
+            <span
+              className="font-condensed font-700"
+              style={{
+                color: "var(--text-muted)",
+                fontSize: "10px",
+                letterSpacing: "0.05em",
+              }}
+            >
+              VS
+            </span>
+          </div>
+          {fight.ufc_matchup_url && (
+            <a
+              href={fight.ufc_matchup_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="font-condensed font-700 uppercase flex items-center gap-0.5 transition-opacity hover:opacity-70"
+              style={{
+                fontSize: "8px",
+                letterSpacing: "0.06em",
+                color: "var(--text-muted)",
+                pointerEvents: "all",
+                whiteSpace: "nowrap",
+              }}
+            >
+              UFC.COM
+              <svg
+                width="7"
+                height="7"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+              >
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                <polyline points="15 3 21 3 21 9" />
+                <line x1="10" y1="14" x2="21" y2="3" />
+              </svg>
+            </a>
+          )}
         </div>
       </div>
 

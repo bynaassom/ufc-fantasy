@@ -124,8 +124,7 @@ export default function AdminClient({
   const [oddsForm, setOddsForm] = useState({
     odds_a: "",
     odds_b: "",
-    ufc_slug_a: "",
-    ufc_slug_b: "",
+    ufc_matchup_url: "",
   });
 
   // ── Users ──────────────────────────────────────────────────
@@ -356,8 +355,7 @@ export default function AdminClient({
       .update({
         odds_a: oddsForm.odds_a || null,
         odds_b: oddsForm.odds_b || null,
-        ufc_slug_a: oddsForm.ufc_slug_a || null,
-        ufc_slug_b: oddsForm.ufc_slug_b || null,
+        ufc_matchup_url: oddsForm.ufc_matchup_url || null,
       })
       .eq("id", oddsFightId);
     if (error) {
@@ -366,7 +364,7 @@ export default function AdminClient({
     }
     toast.success("Odds e links salvos!");
     setOddsFightId("");
-    setOddsForm({ odds_a: "", odds_b: "", ufc_slug_a: "", ufc_slug_b: "" });
+    setOddsForm({ odds_a: "", odds_b: "", ufc_matchup_url: "" });
   }
   async function toggleBan(userId: string, currentBan: boolean) {
     const sb = createClient();
@@ -1108,6 +1106,37 @@ export default function AdminClient({
                         }
                       />
                     </div>
+                  </div>
+                  <div>
+                    <label
+                      className={labelClass}
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      Link da Luta no UFC.com
+                    </label>
+                    <input
+                      value={oddsForm.ufc_matchup_url}
+                      onChange={(e) =>
+                        setOddsForm((o) => ({
+                          ...o,
+                          ufc_matchup_url: e.target.value,
+                        }))
+                      }
+                      placeholder="https://www.ufc.com.br/event/ufc-fight-night-march-14-2026#12617"
+                      style={inputStyle}
+                      onFocus={(e) =>
+                        (e.target.style.borderColor = "var(--red)")
+                      }
+                      onBlur={(e) =>
+                        (e.target.style.borderColor = "var(--border)")
+                      }
+                    />
+                    <p
+                      className="text-xs mt-1"
+                      style={{ color: "var(--text-muted)" }}
+                    >
+                      Cole a URL completa com o # da luta
+                    </p>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
