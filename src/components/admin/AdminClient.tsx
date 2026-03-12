@@ -1138,64 +1138,6 @@ export default function AdminClient({
                       Cole a URL completa com o # da luta
                     </p>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label
-                        className={labelClass}
-                        style={{ color: "var(--text-secondary)" }}
-                      >
-                        Slug UFC — {fight.fighter_a?.name}
-                      </label>
-                      <input
-                        value={oddsForm.ufc_slug_a}
-                        onChange={(e) =>
-                          setOddsForm((o) => ({
-                            ...o,
-                            ufc_slug_a: e.target.value,
-                          }))
-                        }
-                        placeholder="josh-emmett"
-                        style={inputStyle}
-                        onFocus={(e) =>
-                          (e.target.style.borderColor = "var(--red)")
-                        }
-                        onBlur={(e) =>
-                          (e.target.style.borderColor = "var(--border)")
-                        }
-                      />
-                    </div>
-                    <div>
-                      <label
-                        className={labelClass}
-                        style={{ color: "var(--text-secondary)" }}
-                      >
-                        Slug UFC — {fight.fighter_b?.name}
-                      </label>
-                      <input
-                        value={oddsForm.ufc_slug_b}
-                        onChange={(e) =>
-                          setOddsForm((o) => ({
-                            ...o,
-                            ufc_slug_b: e.target.value,
-                          }))
-                        }
-                        placeholder="kevin-vallejos"
-                        style={inputStyle}
-                        onFocus={(e) =>
-                          (e.target.style.borderColor = "var(--red)")
-                        }
-                        onBlur={(e) =>
-                          (e.target.style.borderColor = "var(--border)")
-                        }
-                      />
-                      <p
-                        className="text-xs mt-1"
-                        style={{ color: "var(--text-muted)" }}
-                      >
-                        ufc.com/athlete/<strong>slug</strong>
-                      </p>
-                    </div>
-                  </div>
                 </>
               );
             })()}
