@@ -127,6 +127,12 @@ export default function AdminClient({
     ufc_matchup_url: "",
   });
 
+  // ── Odds sync ─────────────────────────────────────────────
+  const [oddsSync, setOddsSync] = useState<{ loading: boolean; msg: string }>({
+    loading: false,
+    msg: "",
+  });
+
   // ── Users ──────────────────────────────────────────────────
   const [userList, setUserList] = useState(users);
 
@@ -366,6 +372,32 @@ export default function AdminClient({
     setOddsFightId("");
     setOddsForm({ odds_a: "", odds_b: "", ufc_matchup_url: "" });
   }
+
+  // ────────────────────────────────────────────────────────────
+  // SYNC: busca odds na The Odds API
+  // ────────────────────────────────────────────────────────────
+  async function handleSyncOdds() {
+    setOddsSync({ loading: true, msg: "" });
+    try {
+      const res = await fetch("/api/sync-odds", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        setOddsSync({ loading: false, msg: `Erro: ${data.error}` });
+        toast.error(data.error);
+      } else {
+        setOddsSync({
+          loading: false,
+          msg: `${data.message} (${data.requests_remaining} req restantes)`,
+        });
+        toast.success(data.message);
+        loadFights(selectedEventId);
+      }
+    } catch (e: any) {
+      setOddsSync({ loading: false, msg: e.message });
+      toast.error(e.message);
+    }
+  }
+
   async function toggleBan(userId: string, currentBan: boolean) {
     const sb = createClient();
     const { error } = await sb
@@ -1000,11 +1032,60 @@ export default function AdminClient({
           className="max-w-lg space-y-4 mt-10 pt-8"
           style={{ borderTop: "1px solid var(--border)" }}
         >
-          <div className="red-line">
+          <div className="red-line flex items-center justify-between">
             <span className="section-title" style={{ fontSize: "1rem" }}>
               ODDS & LINKS UFC
             </span>
+            <button
+              type="button"
+              onClick={handleSyncOdds}
+              disabled={oddsSync.loading}
+              className="font-condensed font-700 text-xs uppercase tracking-widest px-3 py-1.5 transition-all hover:opacity-80 disabled:opacity-40 flex items-center gap-1.5"
+              style={{
+                backgroundColor: "var(--bg-elevated)",
+                border: "1px solid var(--border)",
+                color: "var(--text)",
+              }}
+            >
+              {oddsSync.loading ? (
+                <>
+                  <svg
+                    className="animate-spin"
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                  </svg>
+                  BUSCANDO…
+                </>
+              ) : (
+                <>
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path d="M23 4v6h-6" />
+                    <path d="M1 20v-6h6" />
+                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                  </svg>
+                  AUTO-SYNC ODDS
+                </>
+              )}
+            </button>
           </div>
+          {oddsSync.msg && (
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+              {oddsSync.msg}
+            </p>
+          )}
 
           <div>
             <label
