@@ -121,7 +121,7 @@ async function scrapeUfcStats(url: string): Promise<UfcStatsResult[]> {
 }
 
 // ─── Handler do cron ─────────────────────────────────────────
-export async function GET(req: NextRequest) {
+export async function POST(req: NextRequest) {
   // Verifica autorização do cron do Vercel
   const authHeader = req.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
