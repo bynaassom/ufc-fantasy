@@ -19,19 +19,29 @@ function namesMatch(a: string, b: string): boolean {
 
 // ─── Mapeia método UFCStats → nosso enum ─────────────────────
 function mapMethod(raw: string): "decision" | "submission" | "knockout" | null {
-  const s = raw.toLowerCase();
+  const s = raw.toLowerCase().replace(/\s+/g, " ");
   if (s.includes("ko") || s.includes("tko")) return "knockout";
-  if (s.includes("sub")) return "submission";
+  if (
+    s.includes("sub") ||
+    s.includes("choke") ||
+    s.includes("lock") ||
+    s.includes("triangle") ||
+    s.includes("armbar") ||
+    s.includes("rear naked")
+  )
+    return "submission";
   if (s.includes("dec")) return "decision";
   return null;
 }
 
 // ─── Scrape UFCStats ─────────────────────────────────────────
 async function scrapeUfcStats(url: string): Promise<UfcStatsResult[]> {
-  const res = await fetch(url, {
+  const res = await fetch(`${url}?_=${Date.now()}`, {
     headers: {
       "User-Agent":
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      "Cache-Control": "no-cache, no-store",
+      Pragma: "no-cache",
     },
     cache: "no-store",
   });
