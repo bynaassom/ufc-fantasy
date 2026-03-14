@@ -96,6 +96,7 @@ export default function AdminClient({
     location: "",
     event_date: "",
     banner_image_url: "",
+    ufc_stats_url: "",
   });
 
   // ── Fight form ─────────────────────────────────────────────
@@ -205,6 +206,7 @@ export default function AdminClient({
       location: "",
       event_date: "",
       banner_image_url: "",
+      ufc_stats_url: "",
     });
   }
 
@@ -648,6 +650,30 @@ export default function AdminClient({
                 setEventForm({ ...eventForm, banner_image_url: e.target.value })
               }
               placeholder="https://..."
+              style={inputStyle}
+              onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
+              onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
+            />
+          </div>
+          <div>
+            <label
+              className={labelClass}
+              style={{ color: "var(--text-secondary)" }}
+            >
+              URL UFCStats
+              <span
+                className="ml-2 font-400 normal-case"
+                style={{ color: "var(--text-muted)", fontSize: "11px" }}
+              >
+                para auto-sync de resultados
+              </span>
+            </label>
+            <input
+              value={eventForm.ufc_stats_url}
+              onChange={(e) =>
+                setEventForm({ ...eventForm, ufc_stats_url: e.target.value })
+              }
+              placeholder="http://www.ufcstats.com/event-details/..."
               style={inputStyle}
               onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
               onBlur={(e) => (e.target.style.borderColor = "var(--border)")}

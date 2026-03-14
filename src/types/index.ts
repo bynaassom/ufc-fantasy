@@ -27,6 +27,7 @@ export interface Event {
   status: EventStatus;
   picks_lock_at: string;
   picks_open_at: string | null;
+  ufc_stats_url?: string | null;
   created_at: string;
   updated_at: string;
 }
