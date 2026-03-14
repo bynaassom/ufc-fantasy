@@ -14,7 +14,7 @@ interface EventPageProps {
   params: { slug: string };
 }
 
-export const revalidate = 30; // evento revalida a cada 30s
+export const revalidate = 30; // revalida a cada 30s, e imediatamente via revalidatePath
 
 export default async function EventPage({ params }: EventPageProps) {
   const supabase = await createClient();

@@ -135,10 +135,7 @@ export default function AdminClient({
   });
 
   // ── Results sync ───────────────────────────────────────────
-  const [syncForm, setSyncForm] = useState({
-    ufc_stats_url: "",
-    espn_event_id: "",
-  });
+  const [syncForm, setSyncForm] = useState({ ufc_stats_url: "" });
   const [syncLoading, setSyncLoading] = useState(false);
   const [syncResult, setSyncResult] = useState<{
     message: string;
@@ -403,7 +400,6 @@ export default function AdminClient({
         body: JSON.stringify({
           event_id: selectedEventId,
           ufc_stats_url: syncForm.ufc_stats_url,
-          espn_event_id: syncForm.espn_event_id || undefined,
         }),
       });
       const data = await res.json();
@@ -1437,36 +1433,6 @@ export default function AdminClient({
               >
                 ufcstats.com/statistics/events/completed
               </a>
-            </p>
-          </div>
-
-          {/* ESPN Event ID (opcional) */}
-          <div>
-            <label
-              className={labelClass}
-              style={{ color: "var(--text-secondary)" }}
-            >
-              ESPN Event ID
-              <span
-                className="ml-2 font-400 normal-case"
-                style={{ color: "var(--text-muted)", fontSize: "11px" }}
-              >
-                opcional — confirma vencedor
-              </span>
-            </label>
-            <input
-              value={syncForm.espn_event_id}
-              onChange={(e) =>
-                setSyncForm((f) => ({ ...f, espn_event_id: e.target.value }))
-              }
-              placeholder="600057364"
-              style={inputStyle}
-              onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
-              onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
-            />
-            <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
-              Visível na URL: espn.com/mma/fightcenter/_/id/
-              <strong>600057364</strong>/league/ufc
             </p>
           </div>
 

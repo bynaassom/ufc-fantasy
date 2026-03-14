@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 import { Profile } from "@/types";
 
-export const revalidate = 120; // ranking revalida a cada 2min
+export const revalidate = 3600; // cache longo — invalidado pelo revalidatePath ao inserir resultado
 
 export default async function RankingPage({
   searchParams,
@@ -145,7 +145,8 @@ export default async function RankingPage({
                 className="font-condensed font-900 text-base uppercase tracking-wide"
                 style={{ color: "var(--red)" }}
               >
-                {myRank.nickname}{" "}
+                {myRank.nickname ||
+                  `${myRank.first_name} ${myRank.last_name}`.trim()}{" "}
                 <span
                   className="text-xs font-700"
                   style={{ color: "var(--text-muted)" }}
@@ -153,12 +154,14 @@ export default async function RankingPage({
                   (você)
                 </span>
               </p>
-              <p
-                className="font-condensed font-600 text-xs uppercase tracking-widest"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                {myRank.first_name} {myRank.last_name}
-              </p>
+              {myRank.nickname && (
+                <p
+                  className="font-condensed font-600 text-xs uppercase tracking-widest"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  {myRank.first_name} {myRank.last_name}
+                </p>
+              )}
             </div>
             <div className="text-right">
               <p
@@ -281,21 +284,26 @@ export default async function RankingPage({
                           color: isMe ? "white" : "var(--text-secondary)",
                         }}
                       >
-                        {entry.nickname[0].toUpperCase()}
+                        {(entry.nickname ||
+                          entry.first_name ||
+                          "?")[0].toUpperCase()}
                       </div>
                       <div>
                         <p
                           className="font-condensed font-900 text-sm uppercase tracking-wide leading-tight"
                           style={{ color: isMe ? "var(--red)" : "var(--text)" }}
                         >
-                          {entry.nickname}
+                          {entry.nickname ||
+                            `${entry.first_name} ${entry.last_name}`.trim()}
                         </p>
-                        <p
-                          className="font-condensed font-600 text-xs uppercase tracking-widest"
-                          style={{ color: "var(--text-muted)" }}
-                        >
-                          {entry.first_name} {entry.last_name}
-                        </p>
+                        {entry.nickname && (
+                          <p
+                            className="font-condensed font-600 text-xs uppercase tracking-widest"
+                            style={{ color: "var(--text-muted)" }}
+                          >
+                            {entry.first_name} {entry.last_name}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="col-span-2 text-right">
