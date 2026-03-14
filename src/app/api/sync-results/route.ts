@@ -39,8 +39,10 @@ async function scrapeUfcStats(url: string): Promise<UfcStatsResult[]> {
   const res = await fetch(`${url}?_=${Date.now()}`, {
     headers: {
       "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-      "Cache-Control": "no-cache, no-store",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0",
+      Accept: "text/html,application/xhtml+xml",
+      "Accept-Language": "en-US,en;q=0.9",
+      "Cache-Control": "no-cache",
       Pragma: "no-cache",
     },
     cache: "no-store",
@@ -50,54 +52,93 @@ async function scrapeUfcStats(url: string): Promise<UfcStatsResult[]> {
 
   const results: UfcStatsResult[] = [];
 
-  // UFCStats usa <tr class="b-fight-details__table-row b-fight-details__table-row__hover js-fight-details-click">
-  // mas também aceita qualquer <tr> que tenha data-link com fight-details
-  // Captura todas as <tr> que contenham links para fighter-details (= linhas de luta)
-  const rowRegex = /<tr[^>]*b-fight-details__table-row[^>]*>([\s\S]*?)<\/tr>/g;
+  // Pega todas as <tr> que contenham links para fighter-details
+  // (= linhas de luta, independente de classes CSS)
+  const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/g;
   let rowMatch;
 
   while ((rowMatch = rowRegex.exec(html)) !== null) {
     const row = rowMatch[1];
 
-    // Extrai todas as células
-    const cells: string[] = [];
-    const cellRegex = /<td[^>]*>([\s\S]*?)<\/td>/g;
-    let cellMatch;
-    while ((cellMatch = cellRegex.exec(row)) !== null) {
-      cells.push(
-        cellMatch[1]
-          .replace(/<[^>]+>/g, " ")
-          .replace(/\s+/g, " ")
-          .trim(),
-      );
-    }
-    if (cells.length < 8) continue; // linhas de resultado têm 10 colunas
+    // Só processa linhas que têm links de fighter
+    if (!row.includes("fighter-details")) continue;
 
-    // Nomes dos lutadores via <a href="fighter-details"> na primeira célula
-    const fighterCell = row.match(/<td[^>]*>([\s\S]*?)<\/td>/)?.[1] ?? "";
+    // Extrai nomes dos lutadores via href="fighter-details"
     const fighterNames: string[] = [];
-    const anchorRegex = /<a[^>]*fighter-details[^>]*>\s*([\s\S]*?)\s*<\/a>/g;
+    const anchorRegex = /<a[^>]*fighter-details[^>]*>\s*([^<]+)\s*<\/a>/g;
     let anchorMatch;
-    while ((anchorMatch = anchorRegex.exec(fighterCell)) !== null) {
+    while ((anchorMatch = anchorRegex.exec(row)) !== null) {
       const name = anchorMatch[1].replace(/\s+/g, " ").trim();
       if (name) fighterNames.push(name);
     }
     if (fighterNames.length < 2) continue;
 
-    // Layout: [W/L, fighters, kd, str, td, sub, weight, method, round, time]
-    // método está na coluna 7 (índice 7), round na 8
-    const method = mapMethod(cells[7] ?? "");
-    const round = parseInt(cells[8] ?? "", 10) || null;
+    // Extrai todas as células de texto
+    const cells: string[] = [];
+    const cellRegex = /<td[^>]*>([\s\S]*?)<\/td>/g;
+    let cellMatch;
+    while ((cellMatch = cellRegex.exec(row)) !== null) {
+      const text = cellMatch[1]
+        .replace(/<[^>]+>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      cells.push(text);
+    }
+
+    // Linhas sem resultado têm "View Matchup" — pula
+    const rowText = cells.join(" ");
+    if (rowText.includes("View Matchup") || rowText.includes("view matchup"))
+      continue;
+
+    // Procura método e round em todas as células
+    let method: "decision" | "submission" | "knockout" | null = null;
+    let round: number | null = null;
+
+    for (const cell of cells) {
+      const m = mapMethod(cell);
+      if (m && !method) method = m;
+
+      const r = parseInt(cell, 10);
+      if (!isNaN(r) && r >= 1 && r <= 5 && !round) round = r;
+    }
+
     if (!method || !round) continue;
 
-    // Vencedor: a célula W/L (cells[0]) contém "W" para o primeiro lutador quando ganhou
-    // O UFCStats lista o vencedor primeiro na linha
     results.push({
       winner: fighterNames[0],
       loser: fighterNames[1],
       method,
       round,
     });
+  }
+
+  if (results.length > 0) return results;
+
+  // ── Fallback: parse tabela markdown ─────────────────────────
+  // O servidor às vezes recebe versão simplificada sem HTML completo
+  // Formato das linhas: | W/L | [Fighter A](url)\n[Fighter B](url) | ... | Method | Round | Time |
+  for (const line of html.split("\n")) {
+    const cols = line
+      .split("|")
+      .map((c) => c.trim())
+      .filter(Boolean);
+    if (cols.length < 9) continue;
+
+    const methodRaw = cols[7] ?? "";
+    const roundRaw = cols[8] ?? "";
+    const method = mapMethod(methodRaw);
+    const round = parseInt(roundRaw, 10) || null;
+    if (!method || !round) continue;
+
+    // Remove markdown links: [Name](url) → Name
+    const fighterCol = (cols[1] ?? "").replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
+    const parts = fighterCol
+      .split(/\s{2,}|\n/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (parts.length < 2) continue;
+
+    results.push({ winner: parts[0], loser: parts[1], method, round });
   }
 
   return results;
@@ -161,9 +202,25 @@ export async function POST(req: NextRequest) {
   }
 
   if (!ufcResults.length) {
+    // Busca amostra do HTML para diagnóstico
+    let htmlSample = "";
+    try {
+      const r = await fetch(`${ufc_stats_url}?_=${Date.now()}`, {
+        cache: "no-store",
+        headers: { "User-Agent": "Mozilla/5.0" },
+      });
+      const h = await r.text();
+      // Pega trecho ao redor da palavra "Method" para ver a estrutura
+      const idx = h.indexOf("Method");
+      htmlSample =
+        idx >= 0
+          ? h.substring(Math.max(0, idx - 200), idx + 500)
+          : h.substring(0, 500);
+    } catch {}
     return NextResponse.json({
       ok: true,
       message: "Nenhum resultado no UFCStats ainda — tente em breve",
+      debug_html: htmlSample,
     });
   }
 
