@@ -29,19 +29,27 @@ function mapMethod(raw: string): "decision" | "submission" | "knockout" | null {
 // ─── Scrape UFCStats ─────────────────────────────────────────
 async function scrapeUfcStats(url: string): Promise<UfcStatsResult[]> {
   const res = await fetch(url, {
-    headers: { "User-Agent": "Mozilla/5.0" },
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    },
     cache: "no-store",
   });
   if (!res.ok) throw new Error(`UFCStats HTTP ${res.status}`);
   const html = await res.text();
 
   const results: UfcStatsResult[] = [];
-  const rowRegex = /js-fight-details-click[^>]*>([\s\S]*?)<\/tr>/g;
+
+  // UFCStats usa <tr class="b-fight-details__table-row b-fight-details__table-row__hover js-fight-details-click">
+  // mas também aceita qualquer <tr> que tenha data-link com fight-details
+  // Captura todas as <tr> que contenham links para fighter-details (= linhas de luta)
+  const rowRegex = /<tr[^>]*b-fight-details__table-row[^>]*>([\s\S]*?)<\/tr>/g;
   let rowMatch;
 
   while ((rowMatch = rowRegex.exec(html)) !== null) {
     const row = rowMatch[1];
 
+    // Extrai todas as células
     const cells: string[] = [];
     const cellRegex = /<td[^>]*>([\s\S]*?)<\/td>/g;
     let cellMatch;
@@ -53,11 +61,12 @@ async function scrapeUfcStats(url: string): Promise<UfcStatsResult[]> {
           .trim(),
       );
     }
-    if (cells.length < 4) continue;
+    if (cells.length < 8) continue; // linhas de resultado têm 10 colunas
 
+    // Nomes dos lutadores via <a href="fighter-details"> na primeira célula
     const fighterCell = row.match(/<td[^>]*>([\s\S]*?)<\/td>/)?.[1] ?? "";
     const fighterNames: string[] = [];
-    const anchorRegex = /<a[^>]*>\s*([\s\S]*?)\s*<\/a>/g;
+    const anchorRegex = /<a[^>]*fighter-details[^>]*>\s*([\s\S]*?)\s*<\/a>/g;
     let anchorMatch;
     while ((anchorMatch = anchorRegex.exec(fighterCell)) !== null) {
       const name = anchorMatch[1].replace(/\s+/g, " ").trim();
@@ -65,10 +74,14 @@ async function scrapeUfcStats(url: string): Promise<UfcStatsResult[]> {
     }
     if (fighterNames.length < 2) continue;
 
-    const method = mapMethod(cells[2] ?? "");
-    const round = parseInt(cells[3] ?? "", 10) || null;
+    // Layout: [W/L, fighters, kd, str, td, sub, weight, method, round, time]
+    // método está na coluna 7 (índice 7), round na 8
+    const method = mapMethod(cells[7] ?? "");
+    const round = parseInt(cells[8] ?? "", 10) || null;
     if (!method || !round) continue;
 
+    // Vencedor: a célula W/L (cells[0]) contém "W" para o primeiro lutador quando ganhou
+    // O UFCStats lista o vencedor primeiro na linha
     results.push({
       winner: fighterNames[0],
       loser: fighterNames[1],
