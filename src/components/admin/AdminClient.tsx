@@ -136,7 +136,7 @@ export default function AdminClient({
   });
 
   // ── Results sync ───────────────────────────────────────────
-  const [syncForm, setSyncForm] = useState({ ufc_stats_url: "" });
+  const [syncForm, setSyncForm] = useState({});
   const [syncLoading, setSyncLoading] = useState(false);
   const [syncResult, setSyncResult] = useState<{
     message: string;
@@ -389,8 +389,8 @@ export default function AdminClient({
   // ────────────────────────────────────────────────────────────
   async function handleSyncResults(e: React.FormEvent) {
     e.preventDefault();
-    if (!selectedEventId || !syncForm.ufc_stats_url) {
-      toast.error("Selecione o evento e cole a URL do UFCStats");
+    if (!selectedEventId) {
+      toast.error("Selecione o evento");
       return;
     }
     setSyncLoading(true);
@@ -399,10 +399,7 @@ export default function AdminClient({
       const res = await fetch("/api/sync-results", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          event_id: selectedEventId,
-          ufc_stats_url: syncForm.ufc_stats_url,
-        }),
+        body: JSON.stringify({ event_id: selectedEventId }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -1425,46 +1422,14 @@ export default function AdminClient({
             </select>
           </div>
 
-          {/* UFCStats URL */}
-          <div>
-            <label
-              className={labelClass}
-              style={{ color: "var(--text-secondary)" }}
-            >
-              URL do Evento no UFCStats
-              <span
-                className="ml-2 font-400 normal-case"
-                style={{ color: "var(--text-muted)", fontSize: "11px" }}
-              >
-                método + round
-              </span>
-            </label>
-            <input
-              value={syncForm.ufc_stats_url}
-              onChange={(e) =>
-                setSyncForm((f) => ({ ...f, ufc_stats_url: e.target.value }))
-              }
-              placeholder="http://www.ufcstats.com/event-details/babc6b5745335f18"
-              style={inputStyle}
-              onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
-              onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
-            />
-            <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
-              Busca em{" "}
-              <a
-                href="http://www.ufcstats.com/statistics/events/completed"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline"
-              >
-                ufcstats.com/statistics/events/completed
-              </a>
-            </p>
-          </div>
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+            A URL do UFCStats é configurada na aba <strong>Novo Evento</strong>.
+            Certifique-se de que está preenchida para o evento selecionado.
+          </p>
 
           <button
             type="submit"
-            disabled={syncLoading || !syncForm.ufc_stats_url}
+            disabled={syncLoading}
             className="w-full py-3 font-condensed font-900 text-sm uppercase tracking-widest text-white transition-all hover:opacity-90 disabled:opacity-40 flex items-center justify-center gap-2"
             style={{ backgroundColor: "var(--red)" }}
           >
