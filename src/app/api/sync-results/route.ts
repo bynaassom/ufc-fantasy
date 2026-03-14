@@ -146,22 +146,62 @@ async function scrapeUfcStats(url: string): Promise<UfcStatsResult[]> {
 
 // ─── Handler ─────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
-  const supabase = await createClient();
   const adminSupabase = await createAdminClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const { data: profile } = await adminSupabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-  if (!profile || profile.role !== "admin")
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const { event_id, ufc_stats_url } = await req.json();
+  // Auth: aceita session de admin OU SYNC_SECRET no header (para chamadas externas)
+  const authHeader = req.headers.get("authorization");
+  const syncSecret = process.env.SYNC_SECRET;
+  const isExternalCall = syncSecret && authHeader === `Bearer ${syncSecret}`;
+
+  if (!isExternalCall) {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const { data: profile } = await adminSupabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+    if (!profile || profile.role !== "admin")
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  let { event_id, ufc_stats_url } = await req.json().catch(() => ({}));
+
+  // Chamada externa sem parâmetros: busca evento ativo automaticamente
+  if (!event_id && isExternalCall) {
+    const now = new Date();
+    const { data: activeEvent } = await adminSupabase
+      .from("events")
+      .select("id, slug, event_date, picks_lock_at, ufc_stats_url")
+      .in("status", ["upcoming", "live"])
+      .not("ufc_stats_url", "is", null)
+      .order("event_date", { ascending: true })
+      .limit(1)
+      .single();
+
+    if (!activeEvent)
+      return NextResponse.json({ ok: true, message: "Nenhum evento ativo" });
+
+    // Verifica janela de tempo: picks_lock_at ≤ agora ≤ event_date + 6h
+    const lockAt = new Date(activeEvent.picks_lock_at);
+    const endAt = new Date(
+      new Date(activeEvent.event_date).getTime() + 6 * 60 * 60 * 1000,
+    );
+    if (now < lockAt || now > endAt) {
+      return NextResponse.json({
+        ok: true,
+        message: "Fora da janela do evento",
+      });
+    }
+
+    event_id = activeEvent.id;
+    ufc_stats_url = activeEvent.ufc_stats_url;
+  }
+
   if (!event_id)
     return NextResponse.json(
       { error: "event_id obrigatório" },
