@@ -123,11 +123,9 @@ export default function AdminClient({
 
   // ── Odds & Links form ──────────────────────────────────────
   const [oddsFightId, setOddsFightId] = useState("");
-  const [oddsForm, setOddsForm] = useState({
-    odds_a: "",
-    odds_b: "",
-    ufc_matchup_url: "",
-  });
+  const [oddsForm, setOddsForm] = useState({ odds_a: "", odds_b: "" });
+  const [linkForm, setLinkForm] = useState({ ufc_matchup_url: "" });
+  const [linkFightId, setLinkFightId] = useState("");
 
   // ── Odds sync ─────────────────────────────────────────────
   const [oddsSync, setOddsSync] = useState<{ loading: boolean; msg: string }>({
@@ -372,16 +370,40 @@ export default function AdminClient({
       .update({
         odds_a: oddsForm.odds_a || null,
         odds_b: oddsForm.odds_b || null,
-        ufc_matchup_url: oddsForm.ufc_matchup_url || null,
       })
       .eq("id", oddsFightId);
     if (error) {
       toast.error(error.message);
       return;
     }
-    toast.success("Odds e links salvos!");
+    toast.success("Odds salvas!");
     setOddsFightId("");
-    setOddsForm({ odds_a: "", odds_b: "", ufc_matchup_url: "" });
+    setOddsForm({ odds_a: "", odds_b: "" });
+  }
+
+  // ────────────────────────────────────────────────────────────
+  // SUBMIT: salvar link UFC (separado das odds)
+  // ────────────────────────────────────────────────────────────
+  async function handleSaveLink(e: React.FormEvent) {
+    e.preventDefault();
+    if (!linkFightId) {
+      toast.error("Selecione uma luta.");
+      return;
+    }
+    const sb = createClient();
+    const { error } = await sb
+      .from("fights")
+      .update({
+        ufc_matchup_url: linkForm.ufc_matchup_url || null,
+      })
+      .eq("id", linkFightId);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Link UFC salvo!");
+    setLinkFightId("");
+    setLinkForm({ ufc_matchup_url: "" });
   }
 
   // ────────────────────────────────────────────────────────────
@@ -1092,7 +1114,7 @@ export default function AdminClient({
         </form>
       )}
 
-      {/* ── TAB: ODDS & LINKS ─────────────────────────────────── */}
+      {/* ── TAB: ODDS ─────────────────────────────────────────── */}
       {tab === "result" && (
         <form
           onSubmit={handleSaveOdds}
@@ -1101,7 +1123,7 @@ export default function AdminClient({
         >
           <div className="red-line flex items-center justify-between">
             <span className="section-title" style={{ fontSize: "1rem" }}>
-              ODDS & LINKS UFC
+              ODDS
             </span>
             <button
               type="button"
@@ -1208,69 +1230,20 @@ export default function AdminClient({
               const fight = eventFights.find((f) => f.id === oddsFightId);
               if (!fight) return null;
               return (
-                <>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label
-                        className={labelClass}
-                        style={{ color: "var(--text-secondary)" }}
-                      >
-                        Odds — {fight.fighter_a?.name}
-                      </label>
-                      <input
-                        value={oddsForm.odds_a}
-                        onChange={(e) =>
-                          setOddsForm((o) => ({ ...o, odds_a: e.target.value }))
-                        }
-                        placeholder="-150"
-                        style={inputStyle}
-                        onFocus={(e) =>
-                          (e.target.style.borderColor = "var(--red)")
-                        }
-                        onBlur={(e) =>
-                          (e.target.style.borderColor = "var(--border)")
-                        }
-                      />
-                    </div>
-                    <div>
-                      <label
-                        className={labelClass}
-                        style={{ color: "var(--text-secondary)" }}
-                      >
-                        Odds — {fight.fighter_b?.name}
-                      </label>
-                      <input
-                        value={oddsForm.odds_b}
-                        onChange={(e) =>
-                          setOddsForm((o) => ({ ...o, odds_b: e.target.value }))
-                        }
-                        placeholder="+120"
-                        style={inputStyle}
-                        onFocus={(e) =>
-                          (e.target.style.borderColor = "var(--red)")
-                        }
-                        onBlur={(e) =>
-                          (e.target.style.borderColor = "var(--border)")
-                        }
-                      />
-                    </div>
-                  </div>
+                <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label
                       className={labelClass}
                       style={{ color: "var(--text-secondary)" }}
                     >
-                      Link da Luta no UFC.com
+                      Odds — {fight.fighter_a?.name}
                     </label>
                     <input
-                      value={oddsForm.ufc_matchup_url}
+                      value={oddsForm.odds_a}
                       onChange={(e) =>
-                        setOddsForm((o) => ({
-                          ...o,
-                          ufc_matchup_url: e.target.value,
-                        }))
+                        setOddsForm((o) => ({ ...o, odds_a: e.target.value }))
                       }
-                      placeholder="https://www.ufc.com.br/event/ufc-fight-night-march-14-2026#12617"
+                      placeholder="-150"
                       style={inputStyle}
                       onFocus={(e) =>
                         (e.target.style.borderColor = "var(--red)")
@@ -1279,14 +1252,30 @@ export default function AdminClient({
                         (e.target.style.borderColor = "var(--border)")
                       }
                     />
-                    <p
-                      className="text-xs mt-1"
-                      style={{ color: "var(--text-muted)" }}
-                    >
-                      Cole a URL completa com o # da luta
-                    </p>
                   </div>
-                </>
+                  <div>
+                    <label
+                      className={labelClass}
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      Odds — {fight.fighter_b?.name}
+                    </label>
+                    <input
+                      value={oddsForm.odds_b}
+                      onChange={(e) =>
+                        setOddsForm((o) => ({ ...o, odds_b: e.target.value }))
+                      }
+                      placeholder="+120"
+                      style={inputStyle}
+                      onFocus={(e) =>
+                        (e.target.style.borderColor = "var(--red)")
+                      }
+                      onBlur={(e) =>
+                        (e.target.style.borderColor = "var(--border)")
+                      }
+                    />
+                  </div>
+                </div>
               );
             })()}
 
@@ -1296,7 +1285,81 @@ export default function AdminClient({
             className="w-full py-3 font-condensed font-900 text-sm uppercase tracking-widest text-white transition-all hover:opacity-90 disabled:opacity-40"
             style={{ backgroundColor: "var(--red)" }}
           >
-            SALVAR ODDS & LINKS
+            SALVAR ODDS
+          </button>
+        </form>
+      )}
+
+      {/* ── TAB: LINKS UFC ────────────────────────────────────── */}
+      {tab === "result" && (
+        <form
+          onSubmit={handleSaveLink}
+          className="max-w-lg space-y-4 mt-10 pt-8"
+          style={{ borderTop: "1px solid var(--border)" }}
+        >
+          <div className="red-line">
+            <span className="section-title" style={{ fontSize: "1rem" }}>
+              LINKS UFC
+            </span>
+          </div>
+
+          <div>
+            <label
+              className={labelClass}
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Luta
+            </label>
+            <select
+              value={linkFightId}
+              onChange={(e) => setLinkFightId(e.target.value)}
+              style={selectStyle}
+              onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
+              onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
+            >
+              <option value="">Selecione uma luta…</option>
+              {eventFights.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.fighter_a?.name} vs {f.fighter_b?.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {linkFightId && (
+            <div>
+              <label
+                className={labelClass}
+                style={{ color: "var(--text-secondary)" }}
+              >
+                Link da Luta no UFC.com
+              </label>
+              <input
+                value={linkForm.ufc_matchup_url}
+                onChange={(e) =>
+                  setLinkForm({ ufc_matchup_url: e.target.value })
+                }
+                placeholder="https://www.ufc.com.br/event/ufc-fight-night-march-21-2026#12617"
+                style={inputStyle}
+                onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
+                onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
+              />
+              <p
+                className="text-xs mt-1"
+                style={{ color: "var(--text-muted)" }}
+              >
+                Cole a URL completa com o # da luta
+              </p>
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={!linkFightId}
+            className="w-full py-3 font-condensed font-900 text-sm uppercase tracking-widest text-white transition-all hover:opacity-90 disabled:opacity-40"
+            style={{ backgroundColor: "var(--red)" }}
+          >
+            SALVAR LINK
           </button>
         </form>
       )}
