@@ -249,7 +249,7 @@ export async function POST(req: NextRequest) {
     // Extrai categoria de peso — linha com "Peso" ou "Weight"
     const weightLines = block.match(/(?:Peso|Weight)[^<\n,]{3,40}/gi) || [];
     const weight_class =
-      weightLines.length > 0
+      weightLines.length > 0 && weightLines[0]
         ? normalizeWeightClass(weightLines[0])
         : "Catchweight";
 
