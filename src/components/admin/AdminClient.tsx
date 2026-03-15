@@ -518,22 +518,33 @@ export default function AdminClient({
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "");
 
+    // event_date e picks_lock_at
+    const eventDate = event.event_date || "";
+    const picksLockAt = event.picks_lock_at || "";
+    // picks_open_at: sugestão baseada no event_date (12h antes como placeholder)
+    const picksOpenAt = eventDate
+      ? new Date(
+          new Date(eventDate).getTime() - 12 * 60 * 60 * 1000,
+        ).toISOString()
+      : "NOW()";
+
     const lines: string[] = [
       "-- ============================================================",
       `-- ${event.name}`,
       "-- ============================================================",
       "",
       "-- 1. Evento",
-      `INSERT INTO events (id, name, slug, event_date, location, banner_image_url, status, picks_open_at)`,
+      `INSERT INTO events (id, name, slug, event_date, location, banner_image_url, status, picks_lock_at, picks_open_at)`,
       `VALUES (`,
       `  gen_random_uuid(),`,
       `  '${(event.name || "").replace(/'/g, "''")}',`,
       `  '${slug}',`,
-      `  '${event.event_date || ""}',`,
+      `  '${eventDate}',`,
       `  '${(event.location || "").replace(/'/g, "''")}',`,
       `  '${event.banner_image_url || ""}',`,
       `  'upcoming',`,
-      `  NOW() -- ajuste: picks_open_at (ex: data_evento_anterior + 12h)`,
+      `  '${picksLockAt}', -- 30min antes do main card`,
+      `  '${picksOpenAt}' -- ajuste: picks_open_at (ex: data_evento_anterior + 12h)`,
       `);`,
       "",
       "-- 2. Lutadores e Lutas",
@@ -543,11 +554,12 @@ export default function AdminClient({
       const fa = fight.fighter_a;
       const fb = fight.fighter_b;
       lines.push(`-- Luta ${i + 1}: ${fa.name} vs ${fb.name}`);
+      // ON CONFLICT DO NOTHING: preserva headshot e dados existentes no banco
       lines.push(
-        `INSERT INTO fighters (id, name, headshot_url, country) VALUES (gen_random_uuid(), '${fa.name.replace(/'/g, "''")}', '${fa.headshot_url || ""}', '${(fa.country || "").replace(/'/g, "''")}') ON CONFLICT (name) DO UPDATE SET headshot_url = EXCLUDED.headshot_url, country = EXCLUDED.country;`,
+        `INSERT INTO fighters (id, name, headshot_url, country) VALUES (gen_random_uuid(), '${fa.name.replace(/'/g, "''")}', '${fa.headshot_url || ""}', '${(fa.country || "").replace(/'/g, "''")}') ON CONFLICT (name) DO NOTHING;`,
       );
       lines.push(
-        `INSERT INTO fighters (id, name, headshot_url, country) VALUES (gen_random_uuid(), '${fb.name.replace(/'/g, "''")}', '${fb.headshot_url || ""}', '${(fb.country || "").replace(/'/g, "''")}') ON CONFLICT (name) DO UPDATE SET headshot_url = EXCLUDED.headshot_url, country = EXCLUDED.country;`,
+        `INSERT INTO fighters (id, name, headshot_url, country) VALUES (gen_random_uuid(), '${fb.name.replace(/'/g, "''")}', '${fb.headshot_url || ""}', '${(fb.country || "").replace(/'/g, "''")}') ON CONFLICT (name) DO NOTHING;`,
       );
       lines.push(
         `INSERT INTO fights (event_id, fighter_a_id, fighter_b_id, card_type, fight_order, weight_class, is_title_fight, total_rounds, ufc_matchup_url)`,

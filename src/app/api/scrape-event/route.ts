@@ -140,15 +140,44 @@ export async function POST(req: NextRequest) {
   const eventName =
     rawTitle.replace(/\s*[|\-]\s*UFC.*$/i, "").trim() || rawTitle;
 
-  const dateMatch = html.match(
-    /(\d{2})\.(\d{2})\.(\d{2})\s*\/\s*(\d{1,2}):(\d{2})\s*(EDT|EST)?/i,
+  // Data: padrão "28.03.26 / 20:00 EDT" — pega o horário do main card
+  // Pode aparecer múltiplas vezes (prelims e main), pega o último (main card)
+  const dateMatches = Array.from(
+    html.matchAll(
+      /(\d{2})\.(\d{2})\.(\d{2})\s*\/\s*(\d{1,2}):(\d{2})\s*(EDT|EST|UTC)?/gi,
+    ),
   );
   let event_date = "";
-  if (dateMatch) {
-    const [, day, month, year, hour, min, tz] = dateMatch;
-    const offset = tz?.toUpperCase() === "EST" ? 5 : 4;
-    const utcHour = parseInt(hour) + offset;
-    event_date = `20${year}-${month}-${day}T${String(utcHour).padStart(2, "0")}:${min}:00Z`;
+  let picks_lock_at = "";
+
+  if (dateMatches.length > 0) {
+    // Pega o último horário encontrado = main card
+    const last = dateMatches[dateMatches.length - 1];
+    const [, day, month, year, hour, min, tz] = last;
+    const offset = tz?.toUpperCase() === "EST" ? 5 : 4; // EDT=UTC-4, EST=UTC-5
+    let utcHour = parseInt(hour) + offset;
+    let utcDay = parseInt(day);
+    let utcMonth = parseInt(month);
+    let utcYear = 2000 + parseInt(year);
+
+    // Normaliza overflow de hora (ex: hora 24 → dia seguinte hora 0)
+    if (utcHour >= 24) {
+      utcHour -= 24;
+      utcDay += 1;
+      // Normalização simples de dia/mês
+      const d = new Date(Date.UTC(utcYear, utcMonth - 1, utcDay));
+      utcYear = d.getUTCFullYear();
+      utcMonth = d.getUTCMonth() + 1;
+      utcDay = d.getUTCDate();
+    }
+
+    const pad = (n: number) => String(n).padStart(2, "0");
+    event_date = `${utcYear}-${pad(utcMonth)}-${pad(utcDay)}T${pad(utcHour)}:${min}:00Z`;
+
+    // picks_lock_at = 30 minutos antes do início do main card
+    const lockDate = new Date(`${event_date}`);
+    lockDate.setMinutes(lockDate.getMinutes() - 30);
+    picks_lock_at = lockDate.toISOString();
   }
 
   const locationMatch = html.match(
@@ -302,7 +331,13 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({
-    event: { name: eventName, event_date, location, banner_image_url },
+    event: {
+      name: eventName,
+      event_date,
+      picks_lock_at,
+      location,
+      banner_image_url,
+    },
     fights,
   });
 }
