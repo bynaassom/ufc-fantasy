@@ -146,65 +146,28 @@ async function scrapeUfcStats(url: string): Promise<UfcStatsResult[]> {
 
 // ─── Handler ─────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
+  const supabase = await createClient();
   const adminSupabase = await createAdminClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { data: profile } = await adminSupabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+  if (!profile || profile.role !== "admin")
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  // Aceita session de admin OU SYNC_SECRET no header (cron-job.org)
-  const authHeader = req.headers.get("authorization");
-  const syncSecret = process.env.SYNC_SECRET;
-  const isExternalCall = syncSecret && authHeader === `Bearer ${syncSecret}`;
-
-  if (!isExternalCall) {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    const { data: profile } = await adminSupabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-    if (!profile || profile.role !== "admin")
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  const body = await req.json().catch(() => ({}));
-  let { event_id } = body;
-
-  // Chamada externa: busca evento ativo automaticamente
-  if (!event_id && isExternalCall) {
-    const now = new Date();
-    const { data: activeEvent } = await adminSupabase
-      .from("events")
-      .select("id, event_date, picks_lock_at, ufc_stats_url")
-      .in("status", ["upcoming", "live"])
-      .not("ufc_stats_url", "is", null)
-      .order("event_date", { ascending: true })
-      .limit(1)
-      .single();
-
-    if (!activeEvent)
-      return NextResponse.json({ ok: true, message: "Nenhum evento ativo" });
-
-    const lockAt = new Date(activeEvent.picks_lock_at);
-    const endAt = new Date(
-      new Date(activeEvent.event_date).getTime() + 6 * 60 * 60 * 1000,
-    );
-    if (now < lockAt || now > endAt)
-      return NextResponse.json({
-        ok: true,
-        message: "Fora da janela do evento",
-      });
-
-    event_id = activeEvent.id;
-  }
-
+  const { event_id } = await req.json();
   if (!event_id)
     return NextResponse.json(
       { error: "event_id obrigatório" },
       { status: 400 },
     );
+
   // Busca ufc_stats_url do próprio evento
   const { data: event } = await adminSupabase
     .from("events")
@@ -261,25 +224,9 @@ export async function POST(req: NextRequest) {
   }
 
   if (!ufcResults.length) {
-    // Busca amostra do HTML para diagnóstico
-    let htmlSample = "";
-    try {
-      const r = await fetch(`${ufc_stats_url}?_=${Date.now()}`, {
-        cache: "no-store",
-        headers: { "User-Agent": "Mozilla/5.0" },
-      });
-      const h = await r.text();
-      // Pega trecho ao redor da palavra "Method" para ver a estrutura
-      const idx = h.indexOf("Method");
-      htmlSample =
-        idx >= 0
-          ? h.substring(Math.max(0, idx - 200), idx + 500)
-          : h.substring(0, 500);
-    } catch {}
     return NextResponse.json({
       ok: true,
       message: "Nenhum resultado no UFCStats ainda — tente em breve",
-      debug_html: htmlSample,
     });
   }
 
