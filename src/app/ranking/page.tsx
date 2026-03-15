@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 import { Profile } from "@/types";
 
-export const revalidate = 3600; // cache longo — invalidado pelo revalidatePath ao inserir resultado
+export const dynamic = "force-dynamic";
 
 export default async function RankingPage({
   searchParams,
@@ -47,10 +47,11 @@ export default async function RankingPage({
     const { data } = await supabase
       .from("event_scores")
       .select(
-        "user_id, total_points, profile:profiles(id, nickname, first_name, last_name, is_banned)",
+        "user_id, total_points, perfect_picks, profile:profiles(id, nickname, first_name, last_name, is_banned)",
       )
       .eq("event_id", currentEvent.id)
       .order("total_points", { ascending: false })
+      .order("perfect_picks", { ascending: false })
       .limit(100);
     eventRanking = (data || []).filter(
       (r: any) => r.profile && !r.profile.is_banned,
@@ -72,6 +73,7 @@ export default async function RankingPage({
     first_name: r.profile.first_name,
     last_name: r.profile.last_name,
     points: r.total_points,
+    perfect_picks: r.perfect_picks,
     userId: r.user_id,
   }));
 
@@ -315,6 +317,15 @@ export default async function RankingPage({
                       >
                         {entry.points}
                       </span>
+                      {tab === "evento" && entry.perfect_picks > 0 && (
+                        <p
+                          className="font-condensed font-600 text-xs"
+                          style={{ color: "var(--text-muted)" }}
+                        >
+                          {entry.perfect_picks} cravada
+                          {entry.perfect_picks > 1 ? "s" : ""}
+                        </p>
+                      )}
                     </div>
                   </div>
                 );
