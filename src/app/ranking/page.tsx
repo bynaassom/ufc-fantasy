@@ -64,6 +64,7 @@ export default async function RankingPage({
     first_name: p.first_name,
     last_name: p.last_name,
     points: p.total_points,
+    perfect_picks: 0,
     userId: p.id,
   }));
 
