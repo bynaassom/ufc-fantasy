@@ -550,7 +550,7 @@ export default function AdminClient({
         `INSERT INTO fighters (id, name, headshot_url, country) VALUES (gen_random_uuid(), '${fb.name.replace(/'/g, "''")}', '${fb.headshot_url || ""}', '${(fb.country || "").replace(/'/g, "''")}') ON CONFLICT (name) DO UPDATE SET headshot_url = EXCLUDED.headshot_url, country = EXCLUDED.country;`,
       );
       lines.push(
-        `INSERT INTO fights (event_id, fighter_a_id, fighter_b_id, card_type, fight_order, weight_class, is_title_fight, total_rounds)`,
+        `INSERT INTO fights (event_id, fighter_a_id, fighter_b_id, card_type, fight_order, weight_class, is_title_fight, total_rounds, ufc_matchup_url)`,
       );
       lines.push(`VALUES (`);
       lines.push(`  (SELECT id FROM events WHERE slug = '${slug}'),`);
@@ -561,7 +561,10 @@ export default function AdminClient({
         `  (SELECT id FROM fighters WHERE name = '${fb.name.replace(/'/g, "''")}'),`,
       );
       lines.push(
-        `  '${fight.card_type}', ${fight.fight_order}, '${fight.weight_class}', ${fight.is_title_fight}, ${fight.total_rounds}`,
+        `  '${fight.card_type}', ${fight.fight_order}, '${fight.weight_class}', ${fight.is_title_fight}, ${fight.total_rounds},`,
+      );
+      lines.push(
+        `  ${fight.ufc_matchup_url ? `'${fight.ufc_matchup_url}'` : "NULL"}`,
       );
       lines.push(`);`);
       lines.push("");
