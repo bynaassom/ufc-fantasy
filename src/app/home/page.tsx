@@ -30,7 +30,7 @@ export default async function HomePage() {
   const { data: events } = await supabase
     .from("events")
     .select("*")
-    .order("event_date", { ascending: false })
+    .order("event_date", { ascending: true })
     .limit(10);
 
   const currentEvent = events?.find(
@@ -41,7 +41,13 @@ export default async function HomePage() {
       (e: Event) => e.status === "upcoming" && e.id !== currentEvent?.id,
     ) || [];
   const completedEvents =
-    events?.filter((e: Event) => e.status === "completed").slice(0, 3) || [];
+    events
+      ?.filter((e: Event) => e.status === "completed")
+      .sort(
+        (a: Event, b: Event) =>
+          new Date(b.event_date).getTime() - new Date(a.event_date).getTime(),
+      )
+      .slice(0, 3) || [];
 
   return (
     <div
