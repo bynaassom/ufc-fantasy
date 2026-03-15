@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 
-// ─── Mapa de categorias de peso PT → enum ────────────────────
 const WEIGHT_CLASS_MAP: Record<string, string> = {
   "peso pesado": "Heavyweight",
   heavyweight: "Heavyweight",
@@ -55,17 +54,21 @@ const FLAG_COUNTRY: Record<string, string> = {
   KR: "Coreia do Sul",
   SE: "Suécia",
   NO: "Noruega",
-  DK: "Dinamarca",
   NL: "Holanda",
   DE: "Alemanha",
   IT: "Itália",
   ES: "Espanha",
+  CL: "Chile",
+  AR: "Argentina",
+  CO: "Colômbia",
+  VE: "Venezuela",
 };
 
 function normalizeWeightClass(raw: string): string {
   const lower = raw
     .toLowerCase()
-    .replace(/\s*(luta|feminino|masculino|fight)\s*/gi, "")
+    .replace(/\s*(luta|feminino|masculino|fight|peso\s*)/gi, " ")
+    .replace(/\s+/g, " ")
     .trim();
   for (const [key, val] of Object.entries(WEIGHT_CLASS_MAP)) {
     if (lower.includes(key)) return val;
@@ -78,6 +81,14 @@ function slugToName(slug: string): string {
     .split("-")
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
+}
+
+// Extrai texto limpo de um trecho HTML
+function extractText(html: string): string {
+  return html
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export async function POST(req: NextRequest) {
@@ -102,7 +113,6 @@ export async function POST(req: NextRequest) {
   if (!url)
     return NextResponse.json({ error: "URL obrigatória" }, { status: 400 });
 
-  // ── Fetch HTML ───────────────────────────────────────────────
   let html = "";
   try {
     const res = await fetch(url, {
@@ -124,7 +134,7 @@ export async function POST(req: NextRequest) {
 
   const eventPath = url.replace(/^https?:\/\/[^/]+/, "").replace(/\/$/, "");
 
-  // ── Evento: nome, data, local, banner ────────────────────────
+  // ── Evento ───────────────────────────────────────────────────
   const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
   const rawTitle = titleMatch?.[1]?.trim() || "";
   const eventName =
@@ -136,24 +146,27 @@ export async function POST(req: NextRequest) {
   let event_date = "";
   if (dateMatch) {
     const [, day, month, year, hour, min, tz] = dateMatch;
-    const offset = tz?.toUpperCase() === "EST" ? 5 : 4; // EDT=UTC-4, EST=UTC-5
+    const offset = tz?.toUpperCase() === "EST" ? 5 : 4;
     const utcHour = parseInt(hour) + offset;
     event_date = `20${year}-${month}-${day}T${String(utcHour).padStart(2, "0")}:${min}:00Z`;
   }
 
   const locationMatch = html.match(
-    /(?:O2 Arena|APEX|Arena|Center|Centre|Stadium|Garden|Coliseum)[^<,\n]*/i,
+    /(?:O2 Arena|APEX|Arena|Center|Centre|Stadium|Garden|Coliseum|Climate Pledge)[^<,\n]*/i,
   );
-  const location = locationMatch
-    ? locationMatch[0].replace(/<[^>]+>/g, "").trim()
-    : "";
+  const location = locationMatch ? extractText(locationMatch[0]) : "";
 
   const bannerMatch = html.match(
-    /styles\/background_image[^"]*(?:src=)?["']([^"']+)["']/i,
+    /styles\/background_image[^"']*['"]\s*([^"']+)['"]/i,
   );
   const banner_image_url = bannerMatch ? bannerMatch[1] : "";
 
-  // ── Lutas: extrai via data-fmid ──────────────────────────────
+  // ── Posições das seções ──────────────────────────────────────
+  const mainPos = html.indexOf('id="main-card"');
+  const prelimPos = html.indexOf('id="prelims-card"');
+  const earlyPos = html.indexOf('id="early-prelims"');
+
+  // ── Extrai lutas via data-fmid ───────────────────────────────
   interface ScrapedFight {
     card_type: string;
     fight_order: number;
@@ -166,108 +179,107 @@ export async function POST(req: NextRequest) {
   }
 
   const fights: ScrapedFight[] = [];
-  const mainCounts: Record<string, number> = {
+  const counts: Record<string, number> = {
     main: 0,
     preliminary: 0,
     early_preliminary: 0,
   };
 
-  // Posições das seções no HTML para determinar card_type
-  const mainPos = Math.max(
-    html.indexOf('id="main-card"'),
-    html.toLowerCase().indexOf("card principal"),
-  );
-  const prelimPos = Math.max(
-    html.indexOf('id="prelims-card"'),
-    html.toLowerCase().indexOf('"prelims-card"'),
-  );
-  const earlyPos = Math.max(html.indexOf('id="early-prelims"'), -1);
+  // Divide HTML em blocos por data-fmid
+  const fmidPositions: { fmid: string; pos: number }[] = [];
+  const fmidFindRegex = /data-fmid="(\d+)"/g;
+  let fm;
+  while ((fm = fmidFindRegex.exec(html)) !== null) {
+    fmidPositions.push({ fmid: fm[1], pos: fm.index });
+  }
+  // Remove duplicatas (mesmo fmid pode aparecer múltiplas vezes)
+  const seenFmids = new Set<string>();
+  const uniqueFmids = fmidPositions.filter((f) => {
+    if (seenFmids.has(f.fmid)) return false;
+    seenFmids.add(f.fmid);
+    return true;
+  });
 
-  // Extrai cada bloco de luta por data-fmid
-  const fightBlockRegex =
-    /(<[^>]+data-fmid="(\d+)"[^>]*>)([\s\S]*?)(?=<[^>]+data-fmid="\d+"|$)/g;
-  let m;
+  for (let i = 0; i < uniqueFmids.length; i++) {
+    const { fmid, pos } = uniqueFmids[i];
+    const nextPos = uniqueFmids[i + 1]?.pos ?? pos + 5000;
+    const block = html.slice(pos, nextPos);
 
-  while ((m = fightBlockRegex.exec(html)) !== null) {
-    const [, , fmid, block] = m;
-    const pos = m.index;
-
-    // Determina card_type pela posição
+    // card_type por posição
     let card_type = "preliminary";
-    if (mainPos > 0 && earlyPos > 0 && pos > earlyPos) {
-      card_type = "early_preliminary";
-    } else if (
-      mainPos > 0 &&
-      prelimPos > 0 &&
-      pos < prelimPos &&
-      pos > mainPos
-    ) {
-      card_type = "main";
-    } else if (mainPos > 0 && prelimPos < 0 && pos > mainPos) {
-      card_type = "main";
+    if (mainPos > 0 && pos > mainPos) {
+      if (earlyPos > 0 && pos > earlyPos) card_type = "early_preliminary";
+      else if (prelimPos > 0 && pos > prelimPos) card_type = "preliminary";
+      else card_type = "main";
     }
 
-    // Extrai atletas
-    const athletes: { name: string; headshot: string }[] = [];
-    const seen = new Set<string>();
-    const aRegex = /href="[^"]*\/athlete\/([^"?#]+)"[^>]*>[\s\S]*?<\/a>/g;
-    let aMatch;
-    while ((aMatch = aRegex.exec(block)) !== null) {
-      const slug = aMatch[1].trim();
-      if (seen.has(slug)) continue;
-      seen.add(slug);
-      // Extrai nome do anchor text
-      const inner = aMatch[0]
-        .replace(/<[^>]+>/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-      const name = inner || slugToName(slug);
-      // Extrai headshot do bloco próximo
-      const headshotMatch = block.match(
-        /event_fight_card_upper_body[^"]*"([^"]+)"/,
+    // Extrai slugs dos atletas — pega os 2 primeiros únicos
+    const slugs: string[] = [];
+    const seenSlugs = new Set<string>();
+    const slugRegex = /\/athlete\/([a-z0-9-]+)/g;
+    let sm;
+    while ((sm = slugRegex.exec(block)) !== null) {
+      const s = sm[1];
+      if (!seenSlugs.has(s)) {
+        seenSlugs.add(s);
+        slugs.push(s);
+      }
+      if (slugs.length === 2) break;
+    }
+    if (slugs.length < 2) continue;
+
+    // Extrai nomes via padrão de anchor: <a href="...athlete/slug...">NOME</a>
+    // O nome fica APÓS o > e ANTES do </a>, sem tags internas
+    const names: string[] = [];
+    for (const slug of slugs) {
+      // Procura <a href="...slug...">...NOME...</a> e extrai o texto
+      const anchorRe = new RegExp(
+        `href="[^"]*${slug}[^"]*"[^>]*>([\\s\\S]*?)<\\/a>`,
+        "i",
       );
-      athletes.push({ name, headshot: headshotMatch?.[1] || "" });
+      const anchorMatch = block.match(anchorRe);
+      if (anchorMatch) {
+        const text = extractText(anchorMatch[1]);
+        names.push(text || slugToName(slug));
+      } else {
+        names.push(slugToName(slug));
+      }
     }
 
-    if (athletes.length < 2) continue;
-    // Pula duplicatas (o UFC às vezes repete o bloco)
-    if (
-      fights.some(
-        (f) =>
-          f.fighter_a.name === athletes[0].name &&
-          f.fighter_b.name === athletes[1].name,
-      )
-    )
-      continue;
+    // Extrai categoria de peso — linha com "Peso" ou "Weight"
+    const weightLines = block.match(/(?:Peso|Weight)[^<\n,]{3,40}/gi) || [];
+    const weight_class =
+      weightLines.length > 0
+        ? normalizeWeightClass(weightLines[0])
+        : "Catchweight";
 
-    // Extrai peso
-    const weightMatch = block.match(/(?:Peso|Weight)[^<\n,]*/i);
-    const weight_class = weightMatch
-      ? normalizeWeightClass(weightMatch[0])
-      : "Catchweight";
+    // Title fight: só se tiver expressão explícita de disputa de título
+    const is_title_fight =
+      /title\s+fight|disputa\s+de\s+t[ií]tulo|championship\s+bout|disputa\s+de\s+cintur[aã]o|cintur[aã]o/i.test(
+        block,
+      );
 
-    // Extrai países via bandeiras
+    // Países via bandeiras
     const countries: string[] = [];
     const flagRe = /\/flags\/([A-Z]{2})\.PNG/gi;
-    let flagM;
-    while ((flagM = flagRe.exec(block)) !== null) {
-      const code = flagM[1].toUpperCase();
-      countries.push(FLAG_COUNTRY[code] || "");
+    let flM;
+    while ((flM = flagRe.exec(block)) !== null) {
+      countries.push(FLAG_COUNTRY[flM[1].toUpperCase()] || "");
     }
 
-    // Extrai headshots individuais
-    const headshotRe = /event_fight_card_upper_body[^"]*"([^"]+)"/g;
+    // Headshots
     const headshots: string[] = [];
+    const hsRe = /event_fight_card_upper_body[^"']*['"]\s*([^"']+)['"]/g;
     let hsM;
-    while ((hsM = headshotRe.exec(block)) !== null) {
+    while ((hsM = hsRe.exec(block)) !== null) {
       headshots.push(hsM[1]);
     }
 
-    const is_title_fight = /title|título|championship/i.test(block);
-    mainCounts[card_type] = (mainCounts[card_type] || 0) + 1;
-    const fight_order = mainCounts[card_type];
+    counts[card_type] = (counts[card_type] || 0) + 1;
+    const fight_order = counts[card_type];
+    // 5 rounds só para: main event (main card fight_order 1) ou title fights
     const total_rounds =
-      is_title_fight || (card_type === "main" && fight_order === 1) ? 5 : 3;
+      (card_type === "main" && fight_order === 1) || is_title_fight ? 5 : 3;
 
     fights.push({
       card_type,
@@ -277,12 +289,12 @@ export async function POST(req: NextRequest) {
       total_rounds,
       ufc_matchup_url: `https://www.ufc.com.br${eventPath}#${fmid}`,
       fighter_a: {
-        name: athletes[0].name,
+        name: names[0],
         country: countries[0] || "",
         headshot_url: headshots[0] || "",
       },
       fighter_b: {
-        name: athletes[1].name,
+        name: names[1],
         country: countries[1] || "",
         headshot_url: headshots[1] || "",
       },
