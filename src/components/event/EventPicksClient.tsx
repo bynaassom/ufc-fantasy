@@ -12,6 +12,7 @@ interface EventPicksClientProps {
   event: EventWithFights;
   existingPicks: Pick[];
   userId: string;
+  picksOpen: boolean;
 }
 
 type PendingPick = {
@@ -24,6 +25,7 @@ export default function EventPicksClient({
   event,
   existingPicks,
   userId,
+  picksOpen,
 }: EventPicksClientProps) {
   const router = useRouter();
   const [pendingPicks, setPendingPicks] = useState<Record<string, PendingPick>>(
@@ -31,7 +33,7 @@ export default function EventPicksClient({
   );
   const [saving, setSaving] = useState(false);
 
-  const locked = isPicksLocked(event.picks_lock_at);
+  const locked = isPicksLocked(event.picks_lock_at) || !picksOpen;
 
   const mainCard = event.fights
     .filter((f) => f.card_type === "main")
@@ -243,8 +245,41 @@ export default function EventPicksClient({
         </div>
       )}
 
-      {/* Locked message */}
-      {locked && (
+      {/* Locked / not open message */}
+      {locked && !picksOpen && (
+        <div
+          className="mt-6 p-5 rounded-xl text-center"
+          style={{
+            backgroundColor: "var(--bg-card)",
+            border: "1px solid var(--red)",
+          }}
+        >
+          <svg
+            className="mx-auto mb-3"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            style={{ color: "var(--red)" }}
+          >
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
+          </svg>
+          <p className="font-bold" style={{ color: "var(--text)" }}>
+            Picks ainda não abertos
+          </p>
+          <p
+            className="text-sm mt-1"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            Os picks para este evento ainda não estão disponíveis. Fique de
+            olho!
+          </p>
+        </div>
+      )}
+      {locked && picksOpen && (
         <div
           className="mt-6 p-5 rounded-xl text-center"
           style={{

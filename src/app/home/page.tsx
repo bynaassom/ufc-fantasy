@@ -4,7 +4,14 @@ import Navbar from "@/components/layout/Navbar";
 import Link from "next/link";
 import Image from "next/image";
 import { Event } from "@/types";
-import { formatEventDate, isPicksLocked, timeUntilEvent } from "@/lib/utils";
+import {
+  formatEventDate,
+  isPicksLocked,
+  timeUntilEvent,
+  getDisplayName,
+} from "@/lib/utils";
+
+export const revalidate = 60; // revalida a cada 60s
 
 export default async function HomePage() {
   const supabase = await createClient();
@@ -24,20 +31,30 @@ export default async function HomePage() {
     .from("events")
     .select("*")
     .order("event_date", { ascending: true })
-    .limit(8);
+    .limit(10);
 
   const currentEvent = events?.find(
     (e: Event) => e.status === "live" || e.status === "upcoming",
   );
   const upcomingEvents =
-    events?.filter((e: Event) => e.id !== currentEvent?.id) || [];
+    events?.filter(
+      (e: Event) => e.status === "upcoming" && e.id !== currentEvent?.id,
+    ) || [];
+  const completedEvents =
+    events
+      ?.filter((e: Event) => e.status === "completed")
+      .sort(
+        (a: Event, b: Event) =>
+          new Date(b.event_date).getTime() - new Date(a.event_date).getTime(),
+      )
+      .slice(0, 3) || [];
 
   return (
     <div
       className="min-h-screen pb-20 md:pb-0"
       style={{ backgroundColor: "var(--bg)" }}
     >
-      <Navbar />
+      <Navbar profile={profile} />
 
       <main className="max-w-4xl mx-auto px-4 py-8">
         {/* Welcome */}
@@ -55,7 +72,9 @@ export default async function HomePage() {
             className="font-condensed font-900 text-3xl uppercase tracking-wide"
             style={{ color: "var(--text)" }}
           >
-            <span style={{ color: "var(--red)" }}>{profile?.nickname}</span>
+            <span style={{ color: "var(--red)" }}>
+              {profile ? getDisplayName(profile) : ""}
+            </span>
           </h1>
           <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
             {profile?.total_points} pontos acumulados
@@ -220,7 +239,7 @@ export default async function HomePage() {
 
         {/* Upcoming */}
         {upcomingEvents.length > 0 && (
-          <section>
+          <section className="mb-10">
             <div className="red-line mb-4">
               <span className="section-title">Próximos Eventos</span>
             </div>
@@ -266,6 +285,74 @@ export default async function HomePage() {
                     EM BREVE
                   </span>
                 </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Completed */}
+        {completedEvents.length > 0 && (
+          <section>
+            <div className="flex items-center justify-between mb-4">
+              <div className="red-line flex-1">
+                <span className="section-title">Eventos Anteriores</span>
+              </div>
+              <Link
+                href="/historico"
+                className="font-condensed font-700 text-xs uppercase tracking-widest ml-4 transition-opacity hover:opacity-70"
+                style={{ color: "var(--red)" }}
+              >
+                VER TODOS →
+              </Link>
+            </div>
+            <div
+              className="space-y-0"
+              style={{ border: "1px solid var(--border)" }}
+            >
+              {completedEvents.map((event: Event, i: number) => (
+                <Link
+                  key={event.id}
+                  href={`/historico/${event.slug}`}
+                  className="flex items-center justify-between px-5 py-4 transition-colors hover:bg-white/5"
+                  style={{
+                    borderBottom:
+                      i < completedEvents.length - 1
+                        ? "1px solid var(--border)"
+                        : "none",
+                  }}
+                >
+                  <div>
+                    <p
+                      className="font-condensed font-900 text-sm uppercase tracking-wide"
+                      style={{ color: "var(--text)" }}
+                    >
+                      {event.name}
+                    </p>
+                    <p
+                      className="font-condensed font-600 text-xs uppercase tracking-widest mt-0.5"
+                      style={{ color: "var(--text-muted)" }}
+                    >
+                      {formatEventDate(event.event_date)}
+                      {event.location && ` · ${event.location}`}
+                    </p>
+                  </div>
+                  <span
+                    className="font-condensed font-700 text-xs uppercase tracking-widest px-3 py-1 flex items-center gap-2"
+                    style={{ color: "var(--text-muted)" }}
+                  >
+                    ENCERRADO
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path d="M5 12h14M12 5l7 7-7 7" />
+                    </svg>
+                  </span>
+                </Link>
               ))}
             </div>
           </section>

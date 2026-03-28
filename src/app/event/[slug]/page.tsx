@@ -2,11 +2,19 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 import EventPicksClient from "@/components/event/EventPicksClient";
-import { formatEventDate, isPicksLocked, timeUntilEvent } from "@/lib/utils";
+import {
+  formatEventDate,
+  isPicksLocked,
+  isPicksOpen,
+  timeUntilEvent,
+  timeUntilPicksOpen,
+} from "@/lib/utils";
 
 interface EventPageProps {
   params: { slug: string };
 }
+
+export const revalidate = 30; // revalida a cada 30s, e imediatamente via revalidatePath
 
 export default async function EventPage({ params }: EventPageProps) {
   const supabase = await createClient();
@@ -14,6 +22,12 @@ export default async function EventPage({ params }: EventPageProps) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
+    .single();
 
   // Fetch event with fights and fighters
   const { data: event } = await supabase
@@ -42,14 +56,14 @@ export default async function EventPage({ params }: EventPageProps) {
     .eq("event_id", event.id);
 
   const locked = isPicksLocked(event.picks_lock_at);
+  const open = isPicksOpen(event.picks_open_at);
 
   return (
     <div
       className="min-h-screen pb-24 md:pb-10"
       style={{ backgroundColor: "var(--bg)" }}
     >
-      <Navbar />
-
+      <Navbar profile={profile} />
       <main className="max-w-2xl mx-auto px-4 py-8">
         {/* Event header */}
         <div className="mb-8">
@@ -63,7 +77,19 @@ export default async function EventPage({ params }: EventPageProps) {
                 AO VIVO
               </span>
             )}
-            {locked && event.status !== "live" && (
+            {!open && (
+              <span
+                className="text-xs font-bold px-2 py-1 rounded"
+                style={{
+                  backgroundColor: "var(--bg-card)",
+                  color: "var(--red)",
+                  border: "1px solid var(--red)",
+                }}
+              >
+                PICKS EM BREVE
+              </span>
+            )}
+            {open && locked && event.status !== "live" && (
               <span
                 className="text-xs font-bold px-2 py-1 rounded"
                 style={{
@@ -123,7 +149,26 @@ export default async function EventPage({ params }: EventPageProps) {
                 {event.location}
               </span>
             )}
-            {!locked && (
+            {!open && event.picks_open_at && (
+              <span
+                className="flex items-center gap-1.5 text-sm font-semibold"
+                style={{ color: "var(--red)" }}
+              >
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+                Picks abrem {timeUntilPicksOpen(event.picks_open_at)}
+              </span>
+            )}
+            {open && !locked && (
               <span
                 className="flex items-center gap-1.5 text-sm font-semibold"
                 style={{ color: "var(--red)" }}
@@ -149,6 +194,7 @@ export default async function EventPage({ params }: EventPageProps) {
           event={event}
           existingPicks={existingPicks || []}
           userId={user.id}
+          picksOpen={open}
         />
       </main>
     </div>

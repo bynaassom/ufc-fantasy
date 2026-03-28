@@ -2,10 +2,45 @@ import type { Metadata } from "next";
 import { Toaster } from "react-hot-toast";
 import "./globals.css";
 
+import type { Viewport } from "next";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover", // iPhone notch/home bar
+};
+
 export const metadata: Metadata = {
   title: "UFC Fantasy | Faça seus picks",
-  description: "Plataforma de fantasy para eventos do UFC com amigos",
+  description:
+    "Faça seus picks, acerte os resultados e suba no ranking com seus amigos.",
   icons: { icon: "/favicon.ico" },
+  openGraph: {
+    title: "UFC Fantasy | Faça seus picks",
+    description:
+      "Faça seus picks, acerte os resultados e suba no ranking com seus amigos.",
+    url: process.env.NEXT_PUBLIC_APP_URL,
+    siteName: "UFC Fantasy",
+    images: [
+      {
+        url: `${process.env.NEXT_PUBLIC_APP_URL}/og-image.png`,
+        width: 1200,
+        height: 630,
+        alt: "UFC Fantasy",
+      },
+    ],
+    locale: "pt_BR",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "UFC Fantasy | Faça seus picks",
+    description:
+      "Faça seus picks, acerte os resultados e suba no ranking com seus amigos.",
+    images: [`${process.env.NEXT_PUBLIC_APP_URL}/og-image.png`],
+  },
 };
 
 export default function RootLayout({

@@ -26,6 +26,8 @@ export interface Event {
   ufc_event_id?: string;
   status: EventStatus;
   picks_lock_at: string;
+  picks_open_at: string | null;
+  ufc_stats_url?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -54,6 +56,9 @@ export interface Fight {
   result_method?: FightMethod;
   result_round?: number;
   result_confirmed: boolean;
+  odds_a?: string | null;
+  odds_b?: string | null;
+  ufc_matchup_url?: string | null;
   fighter_a?: Fighter;
   fighter_b?: Fighter;
   winner?: Fighter;

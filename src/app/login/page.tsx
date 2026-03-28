@@ -48,18 +48,11 @@ export default function LoginPage() {
       <header style={{ borderBottom: "1px solid var(--border)" }}>
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
-            <span
-              className="font-condensed font-900 text-xl tracking-widest uppercase"
-              style={{ color: "var(--red)" }}
-            >
-              UFC
-            </span>
-            <span
-              className="font-condensed font-900 text-xl tracking-widest uppercase"
-              style={{ color: "var(--text)" }}
-            >
-              FANTASY
-            </span>
+            <img
+              src="/logo-dark.svg"
+              alt="UFC Fantasy"
+              style={{ height: "28px", width: "auto" }}
+            />
           </Link>
         </div>
       </header>

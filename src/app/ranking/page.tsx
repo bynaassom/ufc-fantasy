@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 import { Profile } from "@/types";
 
+export const dynamic = "force-dynamic";
+
 export default async function RankingPage({
   searchParams,
 }: {
@@ -13,6 +15,12 @@ export default async function RankingPage({
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
+    .single();
 
   const tab = searchParams.tab === "evento" ? "evento" : "geral";
 
@@ -39,10 +47,11 @@ export default async function RankingPage({
     const { data } = await supabase
       .from("event_scores")
       .select(
-        "user_id, total_points, profile:profiles(id, nickname, first_name, last_name, is_banned)",
+        "user_id, total_points, perfect_picks, profile:profiles(id, nickname, first_name, last_name, is_banned)",
       )
       .eq("event_id", currentEvent.id)
       .order("total_points", { ascending: false })
+      .order("perfect_picks", { ascending: false })
       .limit(100);
     eventRanking = (data || []).filter(
       (r: any) => r.profile && !r.profile.is_banned,
@@ -55,6 +64,7 @@ export default async function RankingPage({
     first_name: p.first_name,
     last_name: p.last_name,
     points: p.total_points,
+    perfect_picks: 0,
     userId: p.id,
   }));
 
@@ -64,6 +74,7 @@ export default async function RankingPage({
     first_name: r.profile.first_name,
     last_name: r.profile.last_name,
     points: r.total_points,
+    perfect_picks: r.perfect_picks,
     userId: r.user_id,
   }));
 
@@ -75,8 +86,7 @@ export default async function RankingPage({
       className="min-h-screen pb-24 md:pb-0"
       style={{ backgroundColor: "var(--bg)" }}
     >
-      <Navbar />
-
+      <Navbar profile={profile} />
       <main className="max-w-3xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-6">
@@ -138,7 +148,8 @@ export default async function RankingPage({
                 className="font-condensed font-900 text-base uppercase tracking-wide"
                 style={{ color: "var(--red)" }}
               >
-                {myRank.nickname}{" "}
+                {myRank.nickname ||
+                  `${myRank.first_name} ${myRank.last_name}`.trim()}{" "}
                 <span
                   className="text-xs font-700"
                   style={{ color: "var(--text-muted)" }}
@@ -146,12 +157,14 @@ export default async function RankingPage({
                   (você)
                 </span>
               </p>
-              <p
-                className="font-condensed font-600 text-xs uppercase tracking-widest"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                {myRank.first_name} {myRank.last_name}
-              </p>
+              {myRank.nickname && (
+                <p
+                  className="font-condensed font-600 text-xs uppercase tracking-widest"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  {myRank.first_name} {myRank.last_name}
+                </p>
+              )}
             </div>
             <div className="text-right">
               <p
@@ -274,21 +287,26 @@ export default async function RankingPage({
                           color: isMe ? "white" : "var(--text-secondary)",
                         }}
                       >
-                        {entry.nickname[0].toUpperCase()}
+                        {(entry.nickname ||
+                          entry.first_name ||
+                          "?")[0].toUpperCase()}
                       </div>
                       <div>
                         <p
                           className="font-condensed font-900 text-sm uppercase tracking-wide leading-tight"
                           style={{ color: isMe ? "var(--red)" : "var(--text)" }}
                         >
-                          {entry.nickname}
+                          {entry.nickname ||
+                            `${entry.first_name} ${entry.last_name}`.trim()}
                         </p>
-                        <p
-                          className="font-condensed font-600 text-xs uppercase tracking-widest"
-                          style={{ color: "var(--text-muted)" }}
-                        >
-                          {entry.first_name} {entry.last_name}
-                        </p>
+                        {entry.nickname && (
+                          <p
+                            className="font-condensed font-600 text-xs uppercase tracking-widest"
+                            style={{ color: "var(--text-muted)" }}
+                          >
+                            {entry.first_name} {entry.last_name}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="col-span-2 text-right">
@@ -300,6 +318,15 @@ export default async function RankingPage({
                       >
                         {entry.points}
                       </span>
+                      {tab === "evento" && entry.perfect_picks > 0 && (
+                        <p
+                          className="font-condensed font-600 text-xs"
+                          style={{ color: "var(--text-muted)" }}
+                        >
+                          {entry.perfect_picks} cravada
+                          {entry.perfect_picks > 1 ? "s" : ""}
+                        </p>
+                      )}
                     </div>
                   </div>
                 );

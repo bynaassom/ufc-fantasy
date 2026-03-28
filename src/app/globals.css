@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800;900&family=Encode+Sans:wght@300;400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Khand:wght@400;500;600;700&family=Encode+Sans:wght@300;400;500;600;700&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -39,18 +39,36 @@ body {
         background-color 0.15s ease,
         color 0.15s ease;
     -webkit-font-smoothing: antialiased;
+    /* Mobile: remove tap highlight e overflow lateral */
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+    overflow-x: hidden;
+}
+
+/* Safe area para iPhone com notch/home bar */
+.navbar-mobile-safe {
+    padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* ============================================================
    TYPOGRAPHY UTILITIES
    ============================================================ */
 .font-condensed {
+<<<<<<< HEAD
     font-family: "Barlow Condensed", sans-serif;
 }
 
 .section-title {
     font-family: "Barlow Condensed", sans-serif;
     font-weight: 900;
+=======
+    font-family: "Khand", sans-serif;
+}
+
+.section-title {
+    font-family: "Khand", sans-serif;
+    font-weight: 700;
+>>>>>>> 7516f2e71a383f35ec02cbdb6c6b0b804959b044
     text-transform: uppercase;
     letter-spacing: 0.05em;
     font-size: 1.1rem;
@@ -153,4 +171,13 @@ body {
 }
 .pulse-red {
     animation: pulse-red 2s ease-in-out infinite;
+}
+
+/* ============================================================
+   MOBILE SAFE AREA — iPhone home bar
+   ============================================================ */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+    .pb-safe {
+        padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+    }
 }

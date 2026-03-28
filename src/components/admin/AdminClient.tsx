@@ -619,10 +619,13 @@ function EventoEditar({
   const [fights, setFights] = useState<any[]>([]);
   const [editFight, setEditFight] = useState<any>(null);
   const [saving, setSaving] = useState(false);
+<<<<<<< HEAD
   const [diff, setDiff] = useState<any>(null);
   const [diffLoading, setDiffLoading] = useState(false);
   const [removeIds, setRemoveIds] = useState<string[]>([]);
   const [applying, setApplying] = useState(false);
+=======
+>>>>>>> 7516f2e71a383f35ec02cbdb6c6b0b804959b044
   const dragItem = useRef<number | null>(null);
   const dragOverItem = useRef<number | null>(null);
 
@@ -1068,6 +1071,7 @@ function EventoEditar({
           </div>
         ))}
       </div>
+<<<<<<< HEAD
 
       {/* Atualizar Card */}
       <div
@@ -1291,6 +1295,8 @@ function EventoEditar({
           </div>
         )}
       </div>
+=======
+>>>>>>> 7516f2e71a383f35ec02cbdb6c6b0b804959b044
     </div>
   );
 }
