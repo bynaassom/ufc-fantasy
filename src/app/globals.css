@@ -54,21 +54,12 @@ body {
    TYPOGRAPHY UTILITIES
    ============================================================ */
 .font-condensed {
-<<<<<<< HEAD
     font-family: "Barlow Condensed", sans-serif;
 }
 
 .section-title {
     font-family: "Barlow Condensed", sans-serif;
     font-weight: 900;
-=======
-    font-family: "Khand", sans-serif;
-}
-
-.section-title {
-    font-family: "Khand", sans-serif;
-    font-weight: 700;
->>>>>>> 7516f2e71a383f35ec02cbdb6c6b0b804959b044
     text-transform: uppercase;
     letter-spacing: 0.05em;
     font-size: 1.1rem;
