@@ -402,11 +402,13 @@ export async function POST(req: NextRequest) {
         .limit(1)
         .single();
       if (!existing) {
-        await adminSupabase.from("fighters").insert({
-          name: f.name,
-          headshot_url: f.headshot_url || "",
-          country: f.country || "",
-        });
+        await adminSupabase
+          .from("fighters")
+          .insert({
+            name: f.name,
+            headshot_url: f.headshot_url || "",
+            country: f.country || "",
+          });
       }
     }
     const { data: fa } = await adminSupabase
