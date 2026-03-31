@@ -4,7 +4,17 @@ import Image from "next/image";
 import { useState } from "react";
 import { FightWithFighters, FightMethod, Pick } from "@/types";
 import { getFallbackHeadshot, getMethodLabel } from "@/lib/utils";
+import FightStatsCompare from "./FightStatsCompare";
 import { WEIGHT_CLASS_PT } from "@/lib/ufc-api";
+
+function nameToSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 interface FightCardProps {
@@ -337,6 +347,13 @@ export default function FightCard({
               VS
             </span>
           </div>
+          {/* Stats comparativas */}
+          <FightStatsCompare
+            slugA={nameToSlug(fight.fighter_a.name)}
+            slugB={nameToSlug(fight.fighter_b.name)}
+            nameA={fight.fighter_a.name}
+            nameB={fight.fighter_b.name}
+          />
           {fight.ufc_matchup_url && (
             <a
               href={fight.ufc_matchup_url}
