@@ -347,13 +347,6 @@ export default function FightCard({
               VS
             </span>
           </div>
-          {/* Stats comparativas */}
-          <FightStatsCompare
-            slugA={nameToSlug(fight.fighter_a.name)}
-            slugB={nameToSlug(fight.fighter_b.name)}
-            nameA={fight.fighter_a.name}
-            nameB={fight.fighter_b.name}
-          />
           {fight.ufc_matchup_url && (
             <a
               href={fight.ufc_matchup_url}
@@ -386,6 +379,14 @@ export default function FightCard({
           )}
         </div>
       </div>
+
+      {/* Comparativo de stats — inline, expansível */}
+      <FightStatsCompare
+        slugA={nameToSlug(fight.fighter_a.name)}
+        slugB={nameToSlug(fight.fighter_b.name)}
+        nameA={fight.fighter_a.name}
+        nameB={fight.fighter_b.name}
+      />
 
       {/* Method + Round (apenas antes do resultado, com pick selecionado) */}
       {!completed && selectedWinnerId && !locked && (

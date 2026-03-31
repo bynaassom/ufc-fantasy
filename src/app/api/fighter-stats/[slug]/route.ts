@@ -17,7 +17,7 @@ export async function GET(
         Accept: "text/html,application/xhtml+xml",
         "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
       },
-      next: { revalidate: 3600 }, // cache 1h
+      next: { revalidate: 3600 },
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     html = await res.text();
@@ -25,105 +25,128 @@ export async function GET(
     return NextResponse.json({ error: e.message }, { status: 502 });
   }
 
-  function extractText(pattern: RegExp): string {
+  // Helper: extrai valor numérico/texto antes de um label
+  function before(label: string | RegExp): string {
+    const pattern =
+      typeof label === "string"
+        ? new RegExp(
+            `([\\d:.,]+[\\s\\w]*?)\\s*\\n?\\s*${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`,
+            "i",
+          )
+        : label;
     const m = html.match(pattern);
     return m
       ? m[1]
           .replace(/<[^>]+>/g, "")
           .replace(/\s+/g, " ")
           .trim()
-      : "";
+      : "--";
   }
 
-  function extractNumber(pattern: RegExp): string {
-    const m = html.match(pattern);
-    if (!m) return "--";
-    return m[1]
-      .replace(/<[^>]+>/g, "")
-      .replace(/\s+/g, " ")
-      .trim();
+  // Helper: extrai percentual de um padrão "XX%"
+  function pct(label: string): string {
+    const m =
+      html.match(
+        new RegExp(
+          `(\\d+)\\s*%[\\s\\S]{0,30}?${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`,
+          "i",
+        ),
+      ) ||
+      html.match(
+        new RegExp(
+          `${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[\\s\\S]{0,30}?(\\d+)\\s*%`,
+          "i",
+        ),
+      );
+    return m ? m[1] : "--";
   }
 
-  // ── Dados básicos ────────────────────────────────────────────
-  const record = extractNumber(/(\d+-\d+-\d+)\s*\(V-D-E\)/);
-  const nickname = extractNumber(/"([^"]+)"\s*\n\s*#?\s*\n?\s*[A-Z]/);
+  // Cartel: "24-6-0(V-D-E)"
+  const recordMatch = html.match(/(\d+-\d+-\d+)\s*\(V-D-E\)/);
+  const record = recordMatch ? recordMatch[1] : "--";
+
+  // Nome
   const nameMatch = html.match(/<h1[^>]*>\s*([^<]+)\s*<\/h1>/);
   const name = nameMatch ? nameMatch[1].trim() : slug;
 
-  // Ranking
-  const rankMatch = html.match(/#(\d+)\s*\n?\s*Peso/);
-  const rank = rankMatch ? `#${rankMatch[1]}` : "";
+  // Físico — aparecem antes dos labels
+  const height =
+    before("Altura") !== "--"
+      ? before("Altura")
+      : before(/(\d+[.,]\d+\s*cm)\s*\n?\s*(?:Altura|Height)/i);
+  const weight =
+    before("Peso") !== "--"
+      ? before("Peso")
+      : before(/(\d+[.,]\d+\s*KG)\s*\n?\s*(?:Peso|Weight)/i);
+  const reach = before("Envergadura");
+  const legReach = before("Alcance das Pernas");
 
-  // ── Estatísticas principais ──────────────────────────────────
-  // Striking
-  const slpm = extractNumber(
-    /(\d+\.\d+)\s*\n?\s*Golpes Sig\. Conectados\s*\n?\s*Por Minuto/,
+  // Striking — formato "4.03\nGolpes Sig. Conectados\nPor Minuto"
+  const slpmMatch = html.match(
+    /(\d+\.\d+)\s*\n?\s*Golpes Sig\. Conectados\s*\n?\s*Por Minuto/i,
   );
-  const sapm = extractNumber(
-    /(\d+\.\d+)\s*\n?\s*Golpes Sig\. Absorvidos\s*\n?\s*Por Minuto/,
+  const sapmMatch = html.match(
+    /(\d+\.\d+)\s*\n?\s*Golpes Sig\. Absorvidos\s*\n?\s*Por Minuto/i,
   );
-  const strAcc = extractNumber(/Precisão de striking (\d+)%/i);
-  const strDef = extractNumber(/(\d+)\s*\n?\s*%\s*\n?\s*Defesa de Golpes Sig/i);
+  const slpm = slpmMatch ? slpmMatch[1] : "--";
+  const sapm = sapmMatch ? sapmMatch[1] : "--";
+
+  // Precisão striking — "Precisão de striking 48%\n\n\n48%"
+  const strAccMatch = html.match(/Precisão de striking\s+(\d+)%/i);
+  const strAcc = strAccMatch ? strAccMatch[1] : "--";
+
+  // Defesa striking — "56\n%\nDefesa de Golpes Sig."
+  const strDefMatch = html.match(
+    /(\d+)\s*\n?\s*%\s*\n?\s*Defesa de Golpes Sig/i,
+  );
+  const strDef = strDefMatch ? strDefMatch[1] : "--";
 
   // Grappling
-  const tdAvg = extractNumber(
+  const tdAvgMatch = html.match(
     /(\d+\.\d+)\s*\n?\s*Média de quedas\s*\n?\s*Por 15 Min/i,
   );
-  const tdAcc = extractNumber(/Precisão De Quedas (\d+)%/i);
-  const tdDef = extractNumber(/(\d+)\s*\n?\s*%\s*\n?\s*Defesa De Quedas/i);
-  const subAvg = extractNumber(
+  const subAvgMatch = html.match(
     /(\d+\.\d+)\s*\n?\s*Média de finalizações\s*\n?\s*Por 15 Min/i,
   );
+  const tdAvg = tdAvgMatch ? tdAvgMatch[1] : "--";
+  const subAvg = subAvgMatch ? subAvgMatch[1] : "--";
 
-  // Outros
-  const kdAvg = extractNumber(/(\d+\.\d+)\s*\n?\s*Média de Knockdowns/i);
-  const avgFightTime = extractNumber(/(\d+:\d+)\s*\n?\s*Tempo médio de luta/i);
+  // Precisão quedas — "Precisão De Quedas 9%"
+  const tdAccMatch = html.match(/Precisão De Quedas\s+(\d+)%/i);
+  const tdAcc = tdAccMatch ? tdAccMatch[1] : "--";
 
-  // Vitórias por método
-  const koWins = extractNumber(/KO\/TKO\s*\n?\s*(\d+)\s*\(/);
-  const decWins = extractNumber(/DEC\s*\n?\s*(\d+)\s*\(/);
-  const subWins = extractNumber(/FIN\s*\n?\s*(\d+)\s*\(/);
+  // Defesa quedas — "76\n%\nDefesa De Quedas"
+  const tdDefMatch = html.match(/(\d+)\s*\n?\s*%\s*\n?\s*Defesa De Quedas/i);
+  const tdDef = tdDefMatch ? tdDefMatch[1] : "--";
 
-  // Percentuais de vitória por método
-  const koPct = extractNumber(/KO\/TKO\s*\n?\s*\d+\s*\((\d+)%\)/);
-  const decPct = extractNumber(/DEC\s*\n?\s*\d+\s*\((\d+)%\)/);
-  const subPct = extractNumber(/FIN\s*\n?\s*\d+\s*\((\d+)%\)/);
+  // Knockdowns e tempo médio
+  const kdMatch = html.match(/(\d+\.\d+)\s*\n?\s*Média de Knockdowns/i);
+  const kdAvg = kdMatch ? kdMatch[1] : "--";
+  const timeMatch = html.match(/(\d+:\d+)\s*\n?\s*Tempo médio de luta/i);
+  const avgFightTime = timeMatch ? timeMatch[1] : "--";
 
-  // Físico
-  const height = extractNumber(/(\d+[\.,]\d+\s*cm)\s*\n?\s*(?:Altura|Height)/i);
-  const weight = extractNumber(/(\d+[\.,]\d+\s*KG)\s*\n?\s*(?:Peso|Weight)/i);
-  const reach = extractNumber(
-    /(\d+[\.,]\d+\s*cm)\s*\n?\s*(?:Envergadura|Reach)/i,
-  );
-  const legReach = extractNumber(
-    /(\d+[\.,]\d+\s*cm)\s*\n?\s*(?:Alcance das Pernas|Leg Reach)/i,
-  );
-  const country = extractNumber(
-    /\n\s*([A-Za-záàâãéèêíïóôõöúüçñ\s]+)\s*\n?\s*PAÍS/i,
-  );
-
-  // Foto principal
-  const photoMatch = html.match(
-    /athlete_bio_full_body[^"']*["']\s*(https?:\/\/[^"']+)["']/i,
-  );
-  const photo = photoMatch ? photoMatch[1] : "";
+  // Vitórias por método — "KO/TKO\n16 (67%)"
+  const koMatch = html.match(/KO\/TKO\s*\n?\s*(\d+)\s*\((\d+)%\)/i);
+  const decMatch = html.match(/DEC\s*\n?\s*(\d+)\s*\((\d+)%\)/i);
+  const subMatch = html.match(/FIN\s*\n?\s*(\d+)\s*\((\d+)%\)/i);
 
   return NextResponse.json({
     name,
     slug,
     record,
-    rank,
-    nickname,
-    photo,
-    country,
+    physical: {
+      height: height !== "--" ? height : "",
+      weight: weight !== "--" ? weight : "",
+      reach: reach !== "--" ? reach : "",
+      legReach: legReach !== "--" ? legReach : "",
+    },
     striking: { slpm, sapm, strAcc, strDef },
     grappling: { tdAvg, tdAcc, tdDef, subAvg },
     other: { kdAvg, avgFightTime },
     wins_by: {
-      ko: { count: koWins, pct: koPct },
-      dec: { count: decWins, pct: decPct },
-      sub: { count: subWins, pct: subPct },
+      ko: { count: koMatch?.[1] || "--", pct: koMatch?.[2] || "0" },
+      dec: { count: decMatch?.[1] || "--", pct: decMatch?.[2] || "0" },
+      sub: { count: subMatch?.[1] || "--", pct: subMatch?.[2] || "0" },
     },
-    physical: { height, weight, reach, legReach },
   });
 }
