@@ -46,9 +46,11 @@ CREATE TABLE events (
   banner_image_url TEXT,
   ufc_event_id TEXT UNIQUE,
   status event_status NOT NULL DEFAULT 'upcoming',
-  picks_lock_at TIMESTAMPTZ GENERATED ALWAYS AS (event_date - INTERVAL '30 minutes') STORED,
+  picks_lock_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  picks_open_at TIMESTAMPTZ,
+  ufc_stats_url TEXT
 );
 
 -- ============================================================
@@ -85,6 +87,9 @@ CREATE TABLE fights (
   result_confirmed_by UUID REFERENCES profiles(id),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  odds_a TEXT,
+  odds_b TEXT,
+  ufc_matchup_url TEXT,
   CONSTRAINT different_fighters CHECK (fighter_a_id != fighter_b_id),
   CONSTRAINT result_round_valid CHECK (result_round IS NULL OR result_round <= total_rounds)
 );
@@ -122,6 +127,7 @@ CREATE TABLE event_scores (
   fights_scored INTEGER NOT NULL DEFAULT 0,
   rank_position INTEGER,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  perfect_picks INTEGER,
   UNIQUE(user_id, event_id)
 );
 
@@ -181,6 +187,29 @@ RETURNS BOOLEAN AS $$
   );
 $$ LANGUAGE SQL SECURITY DEFINER STABLE;
 
+CREATE OR REPLACE FUNCTION pick_update_is_safe(
+  p_pick_id UUID,
+  p_user_id UUID,
+  p_fight_id UUID,
+  p_event_id UUID,
+  p_points_winner INTEGER,
+  p_points_method INTEGER,
+  p_points_round INTEGER
+)
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM picks original_pick
+    WHERE original_pick.id = p_pick_id
+      AND original_pick.user_id = p_user_id
+      AND original_pick.fight_id = p_fight_id
+      AND original_pick.event_id = p_event_id
+      AND p_points_winner = 0
+      AND p_points_method = 0
+      AND p_points_round = 0
+  );
+$$ LANGUAGE SQL SECURITY DEFINER STABLE;
+
 -- PROFILES policies
 CREATE POLICY "profiles_select_public" ON profiles FOR SELECT USING (true);
 CREATE POLICY "profiles_insert_own" ON profiles FOR INSERT WITH CHECK (auth.uid() = id);
@@ -208,8 +237,11 @@ CREATE POLICY "fights_admin_all" ON fights FOR ALL USING (is_admin());
 -- PICKS policies
 CREATE POLICY "picks_select_own" ON picks FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "picks_select_admin" ON picks FOR SELECT USING (is_admin());
-CREATE POLICY "picks_select_public_after_lock" ON picks FOR SELECT
-  USING (picks_are_locked(event_id));
+CREATE POLICY "picks_select_secure" ON picks FOR SELECT
+  USING (
+    auth.uid() = user_id
+    OR (auth.uid() IS NOT NULL AND picks_are_locked(event_id))
+  );
 
 CREATE POLICY "picks_insert_own" ON picks FOR INSERT
   WITH CHECK (
@@ -226,12 +258,15 @@ CREATE POLICY "picks_update_own" ON picks FOR UPDATE
   )
   WITH CHECK (
     auth.uid() = user_id
-    AND user_id = (SELECT user_id FROM picks WHERE id = picks.id)
-    AND fight_id = (SELECT fight_id FROM picks WHERE id = picks.id)
-    AND event_id = (SELECT event_id FROM picks WHERE id = picks.id)
-    AND points_winner = 0
-    AND points_method = 0
-    AND points_round = 0
+    AND pick_update_is_safe(
+      id,
+      user_id,
+      fight_id,
+      event_id,
+      points_winner,
+      points_method,
+      points_round
+    )
   );
 
 CREATE POLICY "picks_delete_own" ON picks FOR DELETE
@@ -336,56 +371,57 @@ CREATE TRIGGER monitor_pick_activity
 CREATE OR REPLACE FUNCTION score_picks_for_fight(p_fight_id UUID)
 RETURNS VOID AS $$
 DECLARE
-  fight_record fights%ROWTYPE;
+  fight_record RECORD;
 BEGIN
   SELECT * INTO fight_record FROM fights WHERE id = p_fight_id;
+  IF NOT FOUND OR NOT fight_record.result_confirmed THEN RETURN; END IF;
 
-  IF NOT fight_record.result_confirmed THEN
-    RAISE EXCEPTION 'Fight result not confirmed yet';
-  END IF;
+  ALTER TABLE picks DISABLE TRIGGER enforce_pick_lock_on_update;
 
-  -- Update picks points
   UPDATE picks SET
-    points_winner = CASE WHEN picked_winner_id = fight_record.winner_id THEN 1 ELSE 0 END,
-    points_method = CASE WHEN picked_method = fight_record.result_method AND picked_winner_id = fight_record.winner_id THEN 1 ELSE 0 END,
-    points_round = CASE WHEN picked_round = fight_record.result_round AND picked_method = fight_record.result_method AND picked_winner_id = fight_record.winner_id THEN 1 ELSE 0 END
+    points_winner = CASE
+      WHEN picked_winner_id = fight_record.winner_id THEN 1 ELSE 0 END,
+    points_method = CASE
+      WHEN picked_winner_id = fight_record.winner_id
+       AND picked_method = fight_record.result_method THEN 1 ELSE 0 END,
+    points_round = CASE
+      WHEN fight_record.result_method = 'decision'
+       AND picked_winner_id = fight_record.winner_id
+       AND picked_method = fight_record.result_method THEN 1
+      WHEN fight_record.result_method != 'decision'
+       AND picked_winner_id = fight_record.winner_id
+       AND picked_method = fight_record.result_method
+       AND picked_round = fight_record.result_round THEN 1
+      ELSE 0 END
   WHERE fight_id = p_fight_id;
 
-  -- Update event_scores for all users who picked this fight
-  INSERT INTO event_scores (user_id, event_id, total_points, fights_scored)
+  ALTER TABLE picks ENABLE TRIGGER enforce_pick_lock_on_update;
+
+  -- Atualiza event_scores com total_points e perfect_picks
+  INSERT INTO event_scores (user_id, event_id, total_points, fights_scored, perfect_picks)
   SELECT
     p.user_id,
     fight_record.event_id,
-    SUM(p.total_points),
-    COUNT(*)
+    SUM(p.points_winner + p.points_method + p.points_round),
+    COUNT(*),
+    SUM(CASE WHEN p.points_winner = 1 AND p.points_method = 1 AND p.points_round = 1 THEN 1 ELSE 0 END)
   FROM picks p
-  JOIN fights f ON p.fight_id = f.id
-  WHERE f.event_id = fight_record.event_id
+  WHERE p.event_id = fight_record.event_id
   GROUP BY p.user_id
   ON CONFLICT (user_id, event_id) DO UPDATE SET
-    total_points = EXCLUDED.total_points,
-    fights_scored = EXCLUDED.fights_scored,
-    updated_at = NOW();
+    total_points   = EXCLUDED.total_points,
+    fights_scored  = EXCLUDED.fights_scored,
+    perfect_picks  = EXCLUDED.perfect_picks,
+    updated_at     = NOW();
 
-  -- Update global total_points on profiles
+  -- Atualiza total global nos profiles
   UPDATE profiles SET
     total_points = (
       SELECT COALESCE(SUM(total_points), 0)
       FROM event_scores
       WHERE user_id = profiles.id
     )
-  WHERE id IN (SELECT user_id FROM picks WHERE fight_id = p_fight_id);
-
-  -- Update event ranking positions
-  WITH ranked AS (
-    SELECT user_id, RANK() OVER (ORDER BY total_points DESC) as pos
-    FROM event_scores
-    WHERE event_id = fight_record.event_id
-  )
-  UPDATE event_scores SET rank_position = ranked.pos
-  FROM ranked
-  WHERE event_scores.user_id = ranked.user_id
-    AND event_scores.event_id = fight_record.event_id;
+  WHERE id IN (SELECT DISTINCT user_id FROM picks WHERE fight_id = p_fight_id);
 
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

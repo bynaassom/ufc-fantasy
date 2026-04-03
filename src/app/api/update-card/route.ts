@@ -111,7 +111,6 @@ async function scrapeCard(url: string) {
   const counts: Record<string, number> = {
     main: 0,
     preliminary: 0,
-    early_preliminary: 0,
   };
   const seenFmids = new Set<string>();
 
@@ -135,8 +134,12 @@ async function scrapeCard(url: string) {
 
     let card_type = "preliminary";
     if (mainPos > 0 && pos > mainPos) {
-      if (earlyPos > 0 && pos > earlyPos) card_type = "early_preliminary";
-      else if (prelimPos > 0 && pos > prelimPos) card_type = "preliminary";
+      if (
+        (earlyPos > 0 && pos > earlyPos) ||
+        (prelimPos > 0 && pos > prelimPos)
+      ) {
+        card_type = "preliminary";
+      }
       else card_type = "main";
     }
 
@@ -238,10 +241,10 @@ export async function POST(req: NextRequest) {
 
   const { data: profile } = await adminSupabase
     .from("profiles")
-    .select("role")
+    .select("role, is_banned")
     .eq("id", user.id)
     .single();
-  if (!profile || profile.role !== "admin")
+  if (!profile || profile.role !== "admin" || profile.is_banned)
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { event_id, confirm_removals } = await req.json();

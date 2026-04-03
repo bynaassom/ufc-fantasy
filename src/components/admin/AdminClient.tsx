@@ -49,7 +49,6 @@ const WEIGHT_CLASSES = [
 const CARD_TYPES = [
   { value: "main", label: "Main Card" },
   { value: "preliminary", label: "Preliminares" },
-  { value: "early_preliminary", label: "Early Prelims" },
 ];
 
 const inp: React.CSSProperties = {
@@ -725,12 +724,9 @@ function EventoEditar({
     const sb = createClient();
     const mainFights = newFights.filter((f) => f.card_type === "main");
     const prelimFights = newFights.filter((f) => f.card_type === "preliminary");
-    const earlyFights = newFights.filter(
-      (f) => f.card_type === "early_preliminary",
-    );
 
     const updates: Promise<any>[] = [];
-    [...mainFights, ...prelimFights, ...earlyFights].forEach((f) => {
+    [...mainFights, ...prelimFights].forEach((f) => {
       const sameCard = newFights.filter((x) => x.card_type === f.card_type);
       const orderInCard = sameCard.indexOf(f) + 1;
       updates.push(

@@ -162,10 +162,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { data: profile } = await adminSupabase
       .from("profiles")
-      .select("role")
+      .select("role, is_banned")
       .eq("id", user.id)
       .single();
-    if (!profile || profile.role !== "admin")
+    if (!profile || profile.role !== "admin" || profile.is_banned)
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

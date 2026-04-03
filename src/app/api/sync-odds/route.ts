@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient, createClient } from "@/lib/supabase/server";
 
 const ODDS_API_KEY  = process.env.ODDS_API_KEY!;
 const ODDS_API_BASE = "https://api.the-odds-api.com/v4";
@@ -30,8 +30,26 @@ function namesMatch(apiName: string, dbName: string): boolean {
 }
 
 export async function POST(req: NextRequest) {
-  // Auth: só admin pode chamar
-  const supabase = await createAdminClient();
+  // Auth: só admin autenticado pode chamar
+  const supabase = await createClient();
+  const adminSupabase = await createAdminClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { data: profile } = await adminSupabase
+    .from("profiles")
+    .select("role, is_banned")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile || profile.role !== "admin" || profile.is_banned) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   if (!ODDS_API_KEY) {
     return NextResponse.json({ error: "ODDS_API_KEY não configurada" }, { status: 500 });
@@ -39,7 +57,7 @@ export async function POST(req: NextRequest) {
 
   try {
     // ── 1. Busca eventos UFC próximos no banco ──────────────────
-    const { data: events, error: evError } = await supabase
+    const { data: events, error: evError } = await adminSupabase
       .from("events")
       .select("id, name, slug, status")
       .in("status", ["upcoming", "live"])
@@ -65,7 +83,7 @@ export async function POST(req: NextRequest) {
 
     // ── 3. Busca lutas do banco para os eventos ────────────────
     const eventIds = events.map((e) => e.id);
-    const { data: fights } = await supabase
+    const { data: fights } = await adminSupabase
       .from("fights")
       .select(`
         id, event_id,
@@ -124,7 +142,7 @@ export async function POST(req: NextRequest) {
     // ── 5. Salva no banco ──────────────────────────────────────
     let saved = 0;
     for (const upd of updates) {
-      const { error } = await supabase
+      const { error } = await adminSupabase
         .from("fights")
         .update({ odds_a: upd.odds_a, odds_b: upd.odds_b })
         .eq("id", upd.id);

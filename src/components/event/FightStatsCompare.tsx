@@ -144,8 +144,12 @@ export default function FightStatsCompare({
     setLoading(true);
     setError(false);
     Promise.all([
-      fetch(`/api/fighter-stats/${slugA}`).then((r) => r.json()),
-      fetch(`/api/fighter-stats/${slugB}`).then((r) => r.json()),
+      fetch(
+        `/api/fighter-stats/${slugA}?name=${encodeURIComponent(nameA)}`,
+      ).then((r) => r.json()),
+      fetch(
+        `/api/fighter-stats/${slugB}?name=${encodeURIComponent(nameB)}`,
+      ).then((r) => r.json()),
     ])
       .then(([a, b]) => {
         if (a.error || b.error) {
