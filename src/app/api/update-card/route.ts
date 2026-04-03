@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
+import { isAllowedScrapeUrl } from "@/lib/security";
 
 const WEIGHT_CLASS_MAP: Record<string, string> = {
   "peso pesado": "Heavyweight",
@@ -269,6 +270,12 @@ export async function POST(req: NextRequest) {
 
   // Monta URL do UFC.com a partir do slug do evento
   const ufcUrl = `https://www.ufc.com.br/event/${event.slug}`;
+  if (!isAllowedScrapeUrl(ufcUrl)) {
+    return NextResponse.json(
+      { error: "Host não permitido para scraping" },
+      { status: 400 },
+    );
+  }
 
   // Busca card atualizado do UFC.com
   let scrapedFights: any[] = [];

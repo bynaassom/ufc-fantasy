@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 import Link from "next/link";
 import { formatEventDate } from "@/lib/utils";
+import { PROFILE_SELECT_FIELDS } from "@/lib/security";
 
 export const revalidate = 3600;
 
@@ -15,7 +16,7 @@ export default async function HistoricoPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("*")
+    .select(PROFILE_SELECT_FIELDS)
     .eq("id", user.id)
     .single();
 

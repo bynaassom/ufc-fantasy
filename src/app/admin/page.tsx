@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 import AdminClient from "@/components/admin/AdminClient";
+import { PROFILE_SELECT_FIELDS } from "@/lib/security";
 
 export default async function AdminPage() {
   const supabase = await createClient();
@@ -12,7 +13,7 @@ export default async function AdminPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("*")
+    .select(PROFILE_SELECT_FIELDS)
     .eq("id", user.id)
     .single();
 

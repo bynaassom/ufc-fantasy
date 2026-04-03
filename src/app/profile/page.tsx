@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { PROFILE_SELECT_FIELDS } from "@/lib/security";
 import { Profile } from "@/types";
 import toast from "react-hot-toast";
 import Navbar from "@/components/layout/Navbar";
@@ -24,7 +25,11 @@ export default function ProfilePage({ searchParams }: { searchParams: { tab?: st
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
-      const { data } = await supabase.from("profiles").select("*").eq("id", user.id).single();
+      const { data } = await supabase
+        .from("profiles")
+        .select(PROFILE_SELECT_FIELDS)
+        .eq("id", user.id)
+        .single();
       if (data) { setProfile(data); setNickname(data.nickname); }
     }
     load();

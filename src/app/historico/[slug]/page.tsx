@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import Navbar from "@/components/layout/Navbar";
 import FightCard from "@/components/event/FightCard";
 import { formatEventDate } from "@/lib/utils";
+import { PROFILE_SELECT_FIELDS } from "@/lib/security";
 import { FightWithFighters, Pick, Profile } from "@/types";
 
 export default function HistoricoEventoPage() {
@@ -39,7 +40,10 @@ export default function HistoricoEventoPage() {
         { data: userPicks },
         { data: userScore },
       ] = await Promise.all([
-        sb.from("profiles").select("*").eq("id", user.id).single(),
+        sb.from("profiles")
+          .select(PROFILE_SELECT_FIELDS)
+          .eq("id", user.id)
+          .single(),
         sb
           .from("events")
           .select(

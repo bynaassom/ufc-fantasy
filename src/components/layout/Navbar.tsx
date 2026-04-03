@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { PROFILE_SELECT_FIELDS } from "@/lib/security";
 import { Profile } from "@/types";
 import { getDisplayName, getDisplaySubtitle } from "@/lib/utils";
 
@@ -35,7 +36,7 @@ export default function Navbar({ profile: profileProp }: NavbarProps) {
       if (!user) return;
       supabase
         .from("profiles")
-        .select("*")
+        .select(PROFILE_SELECT_FIELDS)
         .eq("id", user.id)
         .single()
         .then(({ data }) => {

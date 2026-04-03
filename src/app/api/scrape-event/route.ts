@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
+import { isAllowedScrapeUrl } from "@/lib/security";
 
 const WEIGHT_CLASS_MAP: Record<string, string> = {
   "peso pesado": "Heavyweight",
@@ -112,6 +113,12 @@ export async function POST(req: NextRequest) {
   const { url } = await req.json();
   if (!url)
     return NextResponse.json({ error: "URL obrigatória" }, { status: 400 });
+  if (!isAllowedScrapeUrl(url)) {
+    return NextResponse.json(
+      { error: "Host não permitido para scraping" },
+      { status: 400 },
+    );
+  }
 
   let html = "";
   try {

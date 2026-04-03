@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 import EventPicksClient from "@/components/event/EventPicksClient";
+import { PROFILE_SELECT_FIELDS } from "@/lib/security";
 import {
   formatEventDate,
   isPicksLocked,
@@ -25,7 +26,7 @@ export default async function EventPage({ params }: EventPageProps) {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("*")
+    .select(PROFILE_SELECT_FIELDS)
     .eq("id", user.id)
     .single();
 

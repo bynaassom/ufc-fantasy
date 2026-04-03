@@ -1,8 +1,10 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { applySecurityHeaders } from "@/lib/security";
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
+  applySecurityHeaders(supabaseResponse.headers);
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -49,11 +51,15 @@ export async function middleware(request: NextRequest) {
   const isAuthRoute = authRoutes.some((r) => pathname.startsWith(r));
 
   if (isProtected && !user) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    const response = NextResponse.redirect(new URL("/login", request.url));
+    applySecurityHeaders(response.headers);
+    return response;
   }
 
   if (isAuthRoute && user) {
-    return NextResponse.redirect(new URL("/home", request.url));
+    const response = NextResponse.redirect(new URL("/home", request.url));
+    applySecurityHeaders(response.headers);
+    return response;
   }
 
   // Admin protection
@@ -65,10 +71,13 @@ export async function middleware(request: NextRequest) {
       .single();
 
     if (!profile || profile.role !== "admin" || profile.is_banned) {
-      return NextResponse.redirect(new URL("/home", request.url));
+      const response = NextResponse.redirect(new URL("/home", request.url));
+      applySecurityHeaders(response.headers);
+      return response;
     }
   }
 
+  applySecurityHeaders(supabaseResponse.headers);
   return supabaseResponse;
 }
 

@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
-import { Profile } from "@/types";
+import { PROFILE_SELECT_FIELDS } from "@/lib/security";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +18,7 @@ export default async function RankingPage({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("*")
+    .select(PROFILE_SELECT_FIELDS)
     .eq("id", user.id)
     .single();
 
@@ -26,9 +26,8 @@ export default async function RankingPage({
 
   // Ranking geral
   const { data: globalRanking } = await supabase
-    .from("profiles")
+    .from("ranking_profiles")
     .select("id, nickname, first_name, last_name, total_points")
-    .eq("is_banned", false)
     .order("total_points", { ascending: false })
     .limit(100);
 
@@ -46,16 +45,30 @@ export default async function RankingPage({
   if (currentEvent) {
     const { data } = await supabase
       .from("event_scores")
-      .select(
-        "user_id, total_points, perfect_picks, profile:profiles(id, nickname, first_name, last_name, is_banned)",
-      )
+      .select("user_id, total_points, perfect_picks")
       .eq("event_id", currentEvent.id)
       .order("total_points", { ascending: false })
       .order("perfect_picks", { ascending: false })
       .limit(100);
-    eventRanking = (data || []).filter(
-      (r: any) => r.profile && !r.profile.is_banned,
+
+    const userIds = (data || []).map((r: any) => r.user_id);
+    const { data: rankingProfiles } = userIds.length
+      ? await supabase
+          .from("ranking_profiles")
+          .select("id, nickname, first_name, last_name, total_points")
+          .in("id", userIds)
+      : { data: [] };
+
+    const rankingProfilesMap = new Map(
+      (rankingProfiles || []).map((entry: any) => [entry.id, entry]),
     );
+
+    eventRanking = (data || [])
+      .map((entry: any) => ({
+        ...entry,
+        profile: rankingProfilesMap.get(entry.user_id) || null,
+      }))
+      .filter((entry: any) => entry.profile);
   }
 
   const geralList = (globalRanking || []).map((p: any, i: number) => ({

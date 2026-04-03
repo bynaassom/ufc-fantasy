@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { isAllowedScrapeUrl } from "@/lib/security";
 
 // ─── Normalização de nomes ───────────────────────────────────
 function normalize(name: string) {
@@ -231,6 +232,12 @@ export async function POST(req: NextRequest) {
       { error: "ufc_stats_url obrigatório" },
       { status: 400 },
     );
+  if (!isAllowedScrapeUrl(ufc_stats_url)) {
+    return NextResponse.json(
+      { error: "Host não permitido para scraping" },
+      { status: 400 },
+    );
+  }
 
   const { data: fights } = await adminSupabase
     .from("fights")

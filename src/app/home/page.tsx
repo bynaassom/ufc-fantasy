@@ -10,6 +10,7 @@ import {
   timeUntilEvent,
   getDisplayName,
 } from "@/lib/utils";
+import { PROFILE_SELECT_FIELDS } from "@/lib/security";
 
 export const revalidate = 60; // revalida a cada 60s
 
@@ -22,7 +23,7 @@ export default async function HomePage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("*")
+    .select(PROFILE_SELECT_FIELDS)
     .eq("id", user.id)
     .single();
   if (profile?.is_banned) redirect("/login");

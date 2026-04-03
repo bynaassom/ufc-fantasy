@@ -211,7 +211,8 @@ RETURNS BOOLEAN AS $$
 $$ LANGUAGE SQL SECURITY DEFINER STABLE;
 
 -- PROFILES policies
-CREATE POLICY "profiles_select_public" ON profiles FOR SELECT USING (true);
+CREATE POLICY "profiles_select_own" ON profiles FOR SELECT USING (auth.uid() = id);
+CREATE POLICY "profiles_select_admin" ON profiles FOR SELECT USING (is_admin());
 CREATE POLICY "profiles_insert_own" ON profiles FOR INSERT WITH CHECK (auth.uid() = id);
 CREATE POLICY "profiles_update_own" ON profiles FOR UPDATE
   USING (auth.uid() = id AND NOT is_admin())
@@ -221,6 +222,11 @@ CREATE POLICY "profiles_update_own" ON profiles FOR UPDATE
     AND is_banned = (SELECT is_banned FROM profiles WHERE id = auth.uid())
   );
 CREATE POLICY "profiles_admin_all" ON profiles FOR ALL USING (is_admin());
+
+CREATE OR REPLACE VIEW ranking_profiles AS
+  SELECT id, nickname, first_name, last_name, total_points
+  FROM profiles
+  WHERE is_banned = false;
 
 -- EVENTS policies
 CREATE POLICY "events_select_public" ON events FOR SELECT USING (true);
