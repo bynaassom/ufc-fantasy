@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { UFCEvent, fetchUpcomingUFCEvents } from "@/lib/ufc-api";
+import { logAdminAction } from "@/lib/admin-audit";
 
 function slugify(value: string) {
   return value
@@ -108,7 +109,7 @@ async function requireAdmin() {
     return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
 
-  return { adminSupabase };
+  return { adminSupabase, userId: user.id };
 }
 
 async function loadExistingEvents(adminSupabase: Awaited<ReturnType<typeof createAdminClient>>) {
@@ -380,6 +381,18 @@ export async function POST(req: NextRequest) {
       }
       updated.push(candidate.name);
     }
+
+    await logAdminAction(auth.adminSupabase, {
+      userId: auth.userId,
+      action: "admin_sync_events",
+      details: {
+        selected_count: selectedCandidates.length,
+        created_count: created.length,
+        updated_count: updated.length,
+        unchanged_count: unchanged.length,
+        selected_source_ids: selectedCandidates.map((candidate) => candidate.source_id),
+      },
+    });
 
     return NextResponse.json({
       ok: true,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { isAllowedScrapeUrl } from "@/lib/security";
+import { logAdminAction } from "@/lib/admin-audit";
 
 // ─── Normalização de nomes ───────────────────────────────────
 function normalize(name: string) {
@@ -148,6 +149,7 @@ async function scrapeUfcStats(url: string): Promise<UfcStatsResult[]> {
 // ─── Handler ─────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   const adminSupabase = await createAdminClient();
+  let adminUserId: string | null = null;
 
   // Aceita session de admin OU SYNC_SECRET no header (cron-job.org)
   const authHeader = req.headers.get("authorization");
@@ -168,10 +170,12 @@ export async function POST(req: NextRequest) {
       .single();
     if (!profile || profile.role !== "admin" || profile.is_banned)
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    adminUserId = user.id;
   }
 
   const body = await req.json().catch(() => ({}));
   let { event_id } = body;
+  const dryRun = body?.dry_run === true;
 
   // Chamada externa: busca evento ativo automaticamente
   if (!event_id && isExternalCall) {
@@ -310,6 +314,16 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  if (dryRun) {
+    return NextResponse.json({
+      ok: true,
+      dry_run: true,
+      message: `${updates.length} resultado(s) prontos para importar`,
+      results: updates.map((update) => update.label),
+      ufc_results_count: ufcResults.length,
+    });
+  }
+
   let saved = 0;
   const savedLabels: string[] = [];
   const slugsToRevalidate = new Set<string>();
@@ -339,6 +353,17 @@ export async function POST(req: NextRequest) {
   revalidatePath("/home");
   Array.from(slugsToRevalidate).forEach((slug) => {
     revalidatePath(`/event/${slug}`);
+  });
+
+  await logAdminAction(adminSupabase, {
+    userId: adminUserId || null,
+    action: "admin_sync_results",
+    details: {
+      event_id,
+      imported_count: saved,
+      scraped_count: ufcResults.length,
+      event_slug: event?.slug || null,
+    },
   });
 
   return NextResponse.json({
