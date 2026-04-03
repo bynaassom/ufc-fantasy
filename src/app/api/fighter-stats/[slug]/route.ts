@@ -1,5 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 
+// Converte polegadas para cm
+function inToCm(val: string): string {
+  const n = parseFloat(val);
+  if (!n) return "--";
+  return (n * 2.54).toFixed(1) + " cm";
+}
+
+// Converte libras para kg
+function lbToKg(val: string): string {
+  const n = parseFloat(val);
+  if (!n) return "--";
+  return (n * 0.453592).toFixed(1) + " kg";
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: { slug: string } },
@@ -25,121 +39,93 @@ export async function GET(
     return NextResponse.json({ error: e.message }, { status: 502 });
   }
 
-  // Helper: extrai valor numérico/texto antes de um label
-  function before(label: string | RegExp): string {
-    const pattern =
-      typeof label === "string"
-        ? new RegExp(
-            `([\\d:.,]+[\\s\\w]*?)\\s*\\n?\\s*${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`,
-            "i",
-          )
-        : label;
+  // ── Helper: extrai valor antes de um label exato ─────────────
+  function grab(pattern: RegExp): string {
     const m = html.match(pattern);
-    return m
-      ? m[1]
-          .replace(/<[^>]+>/g, "")
-          .replace(/\s+/g, " ")
-          .trim()
-      : "--";
+    if (!m) return "--";
+    return (m[1] || "")
+      .replace(/<[^>]+>/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
   }
 
-  // Helper: extrai percentual de um padrão "XX%"
-  function pct(label: string): string {
-    const m =
-      html.match(
-        new RegExp(
-          `(\\d+)\\s*%[\\s\\S]{0,30}?${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`,
-          "i",
-        ),
-      ) ||
-      html.match(
-        new RegExp(
-          `${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[\\s\\S]{0,30}?(\\d+)\\s*%`,
-          "i",
-        ),
-      );
-    return m ? m[1] : "--";
-  }
-
-  // Cartel: "24-6-0(V-D-E)"
-  const recordMatch = html.match(/(\d+-\d+-\d+)\s*\(V-D-E\)/);
-  const record = recordMatch ? recordMatch[1] : "--";
-
-  // Nome
+  // ── Cartel & nome ────────────────────────────────────────────
+  const record = grab(/(\d+-\d+-\d+)\(V-D-E\)/);
   const nameMatch = html.match(/<h1[^>]*>\s*([^<]+)\s*<\/h1>/);
   const name = nameMatch ? nameMatch[1].trim() : slug;
 
-  // Físico — aparecem antes dos labels
-  const height =
-    before("Altura") !== "--"
-      ? before("Altura")
-      : before(/(\d+[.,]\d+\s*cm)\s*\n?\s*(?:Altura|Height)/i);
-  const weight =
-    before("Peso") !== "--"
-      ? before("Peso")
-      : before(/(\d+[.,]\d+\s*KG)\s*\n?\s*(?:Peso|Weight)/i);
-  const reach = before("Envergadura");
-  const legReach = before("Alcance das Pernas");
-
-  // Striking — formato "4.03\nGolpes Sig. Conectados\nPor Minuto"
-  const slpmMatch = html.match(
-    /(\d+\.\d+)\s*\n?\s*Golpes Sig\. Conectados\s*\n?\s*Por Minuto/i,
+  // ── Estatísticas de striking ─────────────────────────────────
+  // Formato no HTML: "4.03\n\nGolpes Sig. Conectados\n\nPor Minuto"
+  const slpm = grab(
+    /(\d+\.\d+)\s*\n\s*\n?\s*Golpes Sig\. Conectados\s*\n\s*\n?\s*Por Minuto/i,
   );
-  const sapmMatch = html.match(
-    /(\d+\.\d+)\s*\n?\s*Golpes Sig\. Absorvidos\s*\n?\s*Por Minuto/i,
+  const sapm = grab(
+    /(\d+\.\d+)\s*\n\s*\n?\s*Golpes Sig\. Absorvidos\s*\n\s*\n?\s*Por Minuto/i,
   );
-  const slpm = slpmMatch ? slpmMatch[1] : "--";
-  const sapm = sapmMatch ? sapmMatch[1] : "--";
 
-  // Precisão striking — "Precisão de striking 48%\n\n\n48%"
-  const strAccMatch = html.match(/Precisão de striking\s+(\d+)%/i);
-  const strAcc = strAccMatch ? strAccMatch[1] : "--";
+  // Formato: "Precisão de striking 48%\n\n\n48%"
+  const strAcc = grab(/Precisão de striking\s+(\d+)%/i);
 
-  // Defesa striking — "56\n%\nDefesa de Golpes Sig."
-  const strDefMatch = html.match(
-    /(\d+)\s*\n?\s*%\s*\n?\s*Defesa de Golpes Sig/i,
+  // Formato: "56\n\n%\n\nDefesa de Golpes Sig."
+  const strDef = grab(
+    /(\d+)\s*\n\s*\n?\s*%\s*\n\s*\n?\s*Defesa de Golpes Sig/i,
   );
-  const strDef = strDefMatch ? strDefMatch[1] : "--";
 
-  // Grappling
-  const tdAvgMatch = html.match(
-    /(\d+\.\d+)\s*\n?\s*Média de quedas\s*\n?\s*Por 15 Min/i,
+  // ── Grappling ────────────────────────────────────────────────
+  // Formato: "0.05\n\nMédia de quedas\n\nPor 15 Min"
+  const tdAvg = grab(
+    /(\d+\.\d+)\s*\n\s*\n?\s*Média de quedas\s*\n\s*\n?\s*Por 15 Min/i,
   );
-  const subAvgMatch = html.match(
-    /(\d+\.\d+)\s*\n?\s*Média de finalizações\s*\n?\s*Por 15 Min/i,
+  const subAvg = grab(
+    /(\d+\.\d+)\s*\n\s*\n?\s*Média de finalizações\s*\n\s*\n?\s*Por 15 Min/i,
   );
-  const tdAvg = tdAvgMatch ? tdAvgMatch[1] : "--";
-  const subAvg = subAvgMatch ? subAvgMatch[1] : "--";
 
-  // Precisão quedas — "Precisão De Quedas 9%"
-  const tdAccMatch = html.match(/Precisão De Quedas\s+(\d+)%/i);
-  const tdAcc = tdAccMatch ? tdAccMatch[1] : "--";
+  // Formato: "Precisão De Quedas 9%"
+  const tdAcc = grab(/Precisão De Quedas\s+(\d+)%/i);
 
-  // Defesa quedas — "76\n%\nDefesa De Quedas"
-  const tdDefMatch = html.match(/(\d+)\s*\n?\s*%\s*\n?\s*Defesa De Quedas/i);
-  const tdDef = tdDefMatch ? tdDefMatch[1] : "--";
+  // Formato: "76\n\n%\n\nDefesa De Quedas"
+  const tdDef = grab(/(\d+)\s*\n\s*\n?\s*%\s*\n\s*\n?\s*Defesa De Quedas/i);
 
-  // Knockdowns e tempo médio
-  const kdMatch = html.match(/(\d+\.\d+)\s*\n?\s*Média de Knockdowns/i);
-  const kdAvg = kdMatch ? kdMatch[1] : "--";
-  const timeMatch = html.match(/(\d+:\d+)\s*\n?\s*Tempo médio de luta/i);
-  const avgFightTime = timeMatch ? timeMatch[1] : "--";
+  // ── Outros ───────────────────────────────────────────────────
+  const kdAvg = grab(/(\d+\.\d+)\s*\n\s*\n?\s*Média de Knockdowns/i);
+  const avgFightTime = grab(/(\d+:\d+)\s*\n\s*\n?\s*Tempo médio de luta/i);
 
-  // Vitórias por método — "KO/TKO\n16 (67%)"
-  const koMatch = html.match(/KO\/TKO\s*\n?\s*(\d+)\s*\((\d+)%\)/i);
-  const decMatch = html.match(/DEC\s*\n?\s*(\d+)\s*\((\d+)%\)/i);
-  const subMatch = html.match(/FIN\s*\n?\s*(\d+)\s*\((\d+)%\)/i);
+  // ── Vitórias por método ──────────────────────────────────────
+  // Formato: "KO/TKO\n\n16 (67%)"
+  const koMatch = html.match(/KO\/TKO\s*\n\s*\n?\s*(\d+)\s*\((\d+)%\)/i);
+  const decMatch = html.match(/DEC\s*\n\s*\n?\s*(\d+)\s*\((\d+)%\)/i);
+  const subMatch = html.match(/FIN\s*\n\s*\n?\s*(\d+)\s*\((\d+)%\)/i);
+
+  // ── Físico — seção "Informações" (valores em unidades americanas) ──
+  // Formato: "Altura\n\n76.00" (polegadas) e "Peso\n\n185.00" (libras)
+  // A seção de Bio fica após "## Informações"
+  const bioSection =
+    html.split(/##\s*Informações|Saiba mais sobre/i)[1] || html;
+
+  const heightRaw =
+    grab.call(null, /Altura\s*\n\s*\n?\s*([\d.]+)/i) !== "--"
+      ? grab.call(null, /Altura\s*\n\s*\n?\s*([\d.]+)/i)
+      : bioSection.match(/Altura\s*\n\s*\n?\s*([\d.]+)/i)?.[1] || "--";
+
+  const weightRaw =
+    bioSection.match(/Peso\s*\n\s*\n?\s*([\d.]+)/i)?.[1] || "--";
+  const reachRaw =
+    bioSection.match(/Envergadura\s*\n\s*\n?\s*([\d.]+)/i)?.[1] || "--";
+  const legRaw =
+    bioSection.match(/Alcance das [Pp]ernas\s*\n\s*\n?\s*([\d.]+)/i)?.[1] ||
+    "--";
+
+  // Converte de imperial para métrico
+  const height = heightRaw !== "--" ? inToCm(heightRaw) : "--";
+  const weight = weightRaw !== "--" ? lbToKg(weightRaw) : "--";
+  const reach = reachRaw !== "--" ? inToCm(reachRaw) : "--";
+  const legReach = legRaw !== "--" ? inToCm(legRaw) : "--";
 
   return NextResponse.json({
     name,
     slug,
     record,
-    physical: {
-      height: height !== "--" ? height : "",
-      weight: weight !== "--" ? weight : "",
-      reach: reach !== "--" ? reach : "",
-      legReach: legReach !== "--" ? legReach : "",
-    },
+    physical: { height, weight, reach, legReach },
     striking: { slpm, sapm, strAcc, strDef },
     grappling: { tdAvg, tdAcc, tdDef, subAvg },
     other: { kdAvg, avgFightTime },
