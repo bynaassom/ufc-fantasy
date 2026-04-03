@@ -4,6 +4,7 @@
 
 const UFC_API_BASE = "https://api.beta.ufc.com/v1";
 const UFC_EVENTS_PAGE = "https://www.ufc.com.br/events";
+const UFC_SITE_BASE = "https://www.ufc.com.br";
 
 export interface UFCEvent {
   id: string;
@@ -59,6 +60,76 @@ function stripTags(value: string) {
   return decodeHtml(value.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
 }
 
+function absolutizeUfcUrl(pathOrUrl: string) {
+  if (!pathOrUrl) return UFC_SITE_BASE;
+  if (pathOrUrl.startsWith("http://") || pathOrUrl.startsWith("https://")) {
+    return pathOrUrl;
+  }
+  return `${UFC_SITE_BASE}${pathOrUrl.startsWith("/") ? pathOrUrl : `/${pathOrUrl}`}`;
+}
+
+function normalizeEventName(name: string) {
+  return stripTags(name)
+    .replace(/\s+\|\s+UFC\s+[A-Za-zÀ-ÿ' -]+$/i, "")
+    .replace(/^UFC Fight Night\s+\|\s+/i, "UFC Fight Night: ")
+    .replace(/^UFC\s+(\d+)\s+\|\s+/i, "UFC $1: ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function needsFullEventTitle(name: string) {
+  return !/^UFC\b/i.test(name);
+}
+
+function parseEventPageTitle(html: string) {
+  const titleTag = html.match(/<title>([\s\S]*?)<\/title>/i)?.[1];
+  const ogTitle =
+    html.match(/<meta[^>]+property="og:title"[^>]+content="([^"]+)"/i)?.[1] ||
+    html.match(/<meta[^>]+content="([^"]+)"[^>]+property="og:title"/i)?.[1];
+
+  const candidates = [titleTag, ogTitle].filter(Boolean) as string[];
+  for (const candidate of candidates) {
+    const normalized = normalizeEventName(
+      candidate
+      .replace(/\s*\|\s*UFC\s*$/i, "")
+      .replace(/\s*\|\s*Ultimate Fighting Championship\s*$/i, ""),
+    );
+
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  return null;
+}
+
+async function enrichUpcomingEventNames(events: UFCEvent[]): Promise<UFCEvent[]> {
+  return Promise.all(
+    events.map(async (event) => {
+      if (!needsFullEventTitle(event.name)) return event;
+
+      try {
+        const response = await fetch(absolutizeUfcUrl(event.id), {
+          next: { revalidate: 3600 },
+          headers: { Accept: "text/html,application/xhtml+xml" },
+        });
+        if (!response.ok) return event;
+
+        const html = await response.text();
+        const fullTitle = parseEventPageTitle(html);
+        if (!fullTitle) return event;
+
+        return {
+          ...event,
+          name: fullTitle,
+        };
+      } catch {
+        return event;
+      }
+    }),
+  );
+}
+
 function parseUpcomingEventsFromHtml(html: string): UFCEvent[] {
   const upcomingStart = html.indexOf('id="events-list-upcoming"');
   const pastStart = html.indexOf('id="events-list-past"');
@@ -90,7 +161,7 @@ function parseUpcomingEventsFromHtml(html: string): UFCEvent[] {
 
     events.push({
       id: href,
-      name: stripTags(headline),
+      name: normalizeEventName(headline),
       date,
       location,
       image: image || undefined,
@@ -122,7 +193,8 @@ export async function fetchUpcomingUFCEvents(): Promise<UFCEvent[]> {
       });
       if (!response.ok) throw new Error("Failed to fetch UFC events page");
       const html = await response.text();
-      return parseUpcomingEventsFromHtml(html).slice(0, 5);
+      const parsedEvents = parseUpcomingEventsFromHtml(html).slice(0, 5);
+      return enrichUpcomingEventNames(parsedEvents);
     } catch (fallbackError) {
       console.error("UFC events page fallback error:", fallbackError);
       return [];

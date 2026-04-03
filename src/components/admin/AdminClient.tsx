@@ -433,18 +433,76 @@ function EventoManual({ sortedEvents }: { sortedEvents: any[] }) {
 
 // ─── EVENTOS: Importar ───────────────────────────────────────
 function EventoImportar() {
+  type SyncAction = "create" | "update" | "unchanged";
+  type MatchStrategy =
+    | "ufc_event_id"
+    | "slug"
+    | "date_matchup"
+    | "matchup_time_window"
+    | "date_only"
+    | null;
+  type UpcomingSyncEvent = {
+    source_id: string;
+    name: string;
+    slug: string;
+    event_date: string;
+    location: string;
+    action: SyncAction;
+    matched_by: MatchStrategy;
+    existing_event: {
+      id: string;
+      name: string;
+      slug: string;
+      event_date: string;
+      ufc_event_id?: string | null;
+    } | null;
+  };
+
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingUpcoming, setLoadingUpcoming] = useState(true);
   const [syncingUpcoming, setSyncingUpcoming] = useState(false);
   const [sql, setSql] = useState("");
   const [error, setError] = useState("");
   const [data, setData] = useState<any>(null);
+  const [upcomingEvents, setUpcomingEvents] = useState<UpcomingSyncEvent[]>([]);
+  const [selectedUpcomingIds, setSelectedUpcomingIds] = useState<string[]>([]);
   const [syncResult, setSyncResult] = useState<{
     message: string;
     created: string[];
     updated: string[];
     unchanged: string[];
   } | null>(null);
+
+  const actionLabels: Record<SyncAction, string> = {
+    create: "NOVO",
+    update: "ATUALIZAR",
+    unchanged: "SEM MUDANÇA",
+  };
+
+  const actionColors: Record<SyncAction, React.CSSProperties> = {
+    create: {
+      backgroundColor: "rgba(34,197,94,0.12)",
+      border: "1px solid rgba(34,197,94,0.35)",
+      color: "#22c55e",
+    },
+    update: {
+      backgroundColor: "rgba(232,0,26,0.1)",
+      border: "1px solid rgba(232,0,26,0.3)",
+      color: "var(--red)",
+    },
+    unchanged: {
+      backgroundColor: "var(--bg-card)",
+      border: "1px solid var(--border)",
+      color: "var(--text-muted)",
+    },
+  };
+
+  const selectedCount = selectedUpcomingIds.length;
+
+  useEffect(() => {
+    loadUpcomingEventsPreview();
+  }, []);
 
   function generateSql(d: { event: any; fights: any[] }): string {
     const { event, fights } = d;
@@ -526,12 +584,66 @@ function EventoImportar() {
     }
   }
 
+  async function loadUpcomingEventsPreview() {
+    setLoadingUpcoming(true);
+    setError("");
+    try {
+      const res = await fetch("/api/sync-events");
+      const json = await res.json();
+      if (!res.ok) {
+        setError(json.error || "Erro ao carregar próximos eventos");
+        setUpcomingEvents([]);
+        setSelectedUpcomingIds([]);
+        return;
+      }
+
+      const events = (json.events || []) as UpcomingSyncEvent[];
+      setUpcomingEvents(events);
+      setSelectedUpcomingIds(
+        events
+          .filter((event) => event.action === "create" || event.action === "update")
+          .map((event) => event.source_id),
+      );
+    } catch (err) {
+      setError(String(err));
+      setUpcomingEvents([]);
+      setSelectedUpcomingIds([]);
+    } finally {
+      setLoadingUpcoming(false);
+    }
+  }
+
+  function toggleUpcomingSelection(sourceId: string) {
+    setSelectedUpcomingIds((current) =>
+      current.includes(sourceId)
+        ? current.filter((id) => id !== sourceId)
+        : [...current, sourceId],
+    );
+  }
+
+  function selectUpcomingByAction(actions: SyncAction[]) {
+    setSelectedUpcomingIds(
+      upcomingEvents
+        .filter((event) => actions.includes(event.action))
+        .map((event) => event.source_id),
+    );
+  }
+
   async function handleSyncUpcomingEvents() {
+    if (!selectedUpcomingIds.length) {
+      toast.error("Selecione pelo menos um evento.");
+      return;
+    }
+
     setSyncingUpcoming(true);
     setError("");
     setSyncResult(null);
     try {
-      const res = await fetch("/api/sync-events", { method: "POST" });
+      const res = await fetch("/api/sync-events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ selectedEventIds: selectedUpcomingIds }),
+      });
       const json = await res.json();
       if (!res.ok) {
         setError(json.error || "Erro ao sincronizar eventos");
@@ -539,11 +651,19 @@ function EventoImportar() {
       }
       setSyncResult(json);
       toast.success("Eventos sincronizados!");
+      await loadUpcomingEventsPreview();
     } catch (err) {
       setError(String(err));
     } finally {
       setSyncingUpcoming(false);
     }
+  }
+
+  function formatUpcomingEventDate(value: string) {
+    return new Intl.DateTimeFormat("pt-BR", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(new Date(value));
   }
 
   return (
@@ -562,17 +682,130 @@ function EventoImportar() {
           Sincronizar próximos eventos
         </p>
         <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-          Busca eventos futuros do UFC e cria ou atualiza automaticamente por
-          <code> ufc_event_id </code>.
+          Busca os próximos eventos no UFC, compara com a sua base e deixa você
+          escolher em lote o que criar ou atualizar.
         </p>
-        <button
-          onClick={handleSyncUpcomingEvents}
-          disabled={syncingUpcoming}
-          className="w-full py-3 font-condensed font-900 text-sm uppercase tracking-widest text-white disabled:opacity-40"
-          style={{ backgroundColor: "var(--red)" }}
-        >
-          {syncingUpcoming ? "SINCRONIZANDO..." : "SINCRONIZAR PRÓXIMOS EVENTOS"}
-        </button>
+        <div className="flex gap-2 flex-wrap">
+          <button
+            onClick={loadUpcomingEventsPreview}
+            disabled={loadingUpcoming || syncingUpcoming}
+            className="flex-1 min-w-[180px] py-3 font-condensed font-900 text-sm uppercase tracking-widest disabled:opacity-40"
+            style={{
+              backgroundColor: "var(--bg-card)",
+              border: "1px solid var(--border)",
+              color: "var(--text)",
+            }}
+          >
+            {loadingUpcoming ? "CARREGANDO..." : "ATUALIZAR LISTA"}
+          </button>
+          <button
+            onClick={handleSyncUpcomingEvents}
+            disabled={syncingUpcoming || selectedCount === 0}
+            className="flex-1 min-w-[180px] py-3 font-condensed font-900 text-sm uppercase tracking-widest text-white disabled:opacity-40"
+            style={{ backgroundColor: "var(--red)" }}
+          >
+            {syncingUpcoming
+              ? "SINCRONIZANDO..."
+              : `SINCRONIZAR SELECIONADOS (${selectedCount})`}
+          </button>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          <button
+            onClick={() => selectUpcomingByAction(["create", "update"])}
+            className="font-condensed font-700 text-xs uppercase tracking-widest px-3 py-1.5 transition-all hover:opacity-80"
+            style={{
+              border: "1px solid var(--border)",
+              color: "var(--text-secondary)",
+            }}
+          >
+            Selecionar Novos + Updates
+          </button>
+          <button
+            onClick={() => selectUpcomingByAction(["create"])}
+            className="font-condensed font-700 text-xs uppercase tracking-widest px-3 py-1.5 transition-all hover:opacity-80"
+            style={{
+              border: "1px solid var(--border)",
+              color: "var(--text-secondary)",
+            }}
+          >
+            Só Novos
+          </button>
+          <button
+            onClick={() => setSelectedUpcomingIds([])}
+            className="font-condensed font-700 text-xs uppercase tracking-widest px-3 py-1.5 transition-all hover:opacity-80"
+            style={{
+              border: "1px solid var(--border)",
+              color: "var(--text-muted)",
+            }}
+          >
+            Limpar
+          </button>
+        </div>
+        <div className="space-y-2">
+          {loadingUpcoming ? (
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+              Carregando próximos eventos...
+            </p>
+          ) : upcomingEvents.length === 0 ? (
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+              Nenhum evento futuro encontrado.
+            </p>
+          ) : (
+            upcomingEvents.map((event) => {
+              const checked = selectedUpcomingIds.includes(event.source_id);
+              return (
+                <label
+                  key={event.source_id}
+                  className="block p-3 cursor-pointer transition-all hover:opacity-90"
+                  style={{
+                    backgroundColor: checked
+                      ? "rgba(232,0,26,0.06)"
+                      : "var(--bg-card)",
+                    border: `1px solid ${checked ? "var(--red)" : "var(--border)"}`,
+                  }}
+                >
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleUpcomingSelection(event.source_id)}
+                      className="mt-1"
+                    />
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p
+                          className="font-condensed font-700 text-sm uppercase"
+                          style={{ color: "var(--text)" }}
+                        >
+                          {event.name}
+                        </p>
+                        <span
+                          className="px-2 py-0.5 text-[10px] font-condensed font-900 uppercase tracking-widest"
+                          style={actionColors[event.action]}
+                        >
+                          {actionLabels[event.action]}
+                        </span>
+                      </div>
+                      <p
+                        className="text-xs"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
+                        {formatUpcomingEventDate(event.event_date)}
+                        {event.location ? ` · ${event.location}` : ""}
+                      </p>
+                      {event.existing_event && (
+                        <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                          Já existe: {event.existing_event.name}
+                          {event.matched_by ? ` · match por ${event.matched_by}` : ""}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </label>
+              );
+            })
+          )}
+        </div>
       </div>
 
       {syncResult && (
