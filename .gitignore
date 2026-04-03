@@ -3,5 +3,5 @@ node_modules/
 .env*.local
 .DS_Store
 .zed-settings.json
-/supabase
+/supabase/.temp/
 .README.md

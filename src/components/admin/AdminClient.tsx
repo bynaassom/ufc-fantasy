@@ -435,9 +435,16 @@ function EventoManual({ sortedEvents }: { sortedEvents: any[] }) {
 function EventoImportar() {
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
+  const [syncingUpcoming, setSyncingUpcoming] = useState(false);
   const [sql, setSql] = useState("");
   const [error, setError] = useState("");
   const [data, setData] = useState<any>(null);
+  const [syncResult, setSyncResult] = useState<{
+    message: string;
+    created: string[];
+    updated: string[];
+    unchanged: string[];
+  } | null>(null);
 
   function generateSql(d: { event: any; fights: any[] }): string {
     const { event, fights } = d;
@@ -519,8 +526,87 @@ function EventoImportar() {
     }
   }
 
+  async function handleSyncUpcomingEvents() {
+    setSyncingUpcoming(true);
+    setError("");
+    setSyncResult(null);
+    try {
+      const res = await fetch("/api/sync-events", { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) {
+        setError(json.error || "Erro ao sincronizar eventos");
+        return;
+      }
+      setSyncResult(json);
+      toast.success("Eventos sincronizados!");
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setSyncingUpcoming(false);
+    }
+  }
+
   return (
     <div className="max-w-2xl space-y-6">
+      <div
+        className="p-4 space-y-3"
+        style={{
+          backgroundColor: "var(--bg-elevated)",
+          border: "1px solid var(--border)",
+        }}
+      >
+        <p
+          className="font-condensed font-700 text-sm uppercase"
+          style={{ color: "var(--text)" }}
+        >
+          Sincronizar próximos eventos
+        </p>
+        <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+          Busca eventos futuros do UFC e cria ou atualiza automaticamente por
+          <code> ufc_event_id </code>.
+        </p>
+        <button
+          onClick={handleSyncUpcomingEvents}
+          disabled={syncingUpcoming}
+          className="w-full py-3 font-condensed font-900 text-sm uppercase tracking-widest text-white disabled:opacity-40"
+          style={{ backgroundColor: "var(--red)" }}
+        >
+          {syncingUpcoming ? "SINCRONIZANDO..." : "SINCRONIZAR PRÓXIMOS EVENTOS"}
+        </button>
+      </div>
+
+      {syncResult && (
+        <div
+          className="p-4 space-y-2"
+          style={{
+            backgroundColor: "var(--bg-elevated)",
+            border: "1px solid var(--border)",
+          }}
+        >
+          <p
+            className="font-condensed font-700 text-sm uppercase"
+            style={{ color: "var(--text)" }}
+          >
+            {syncResult.message}
+          </p>
+          {syncResult.created.length > 0 && (
+            <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+              Criados: {syncResult.created.join(" · ")}
+            </p>
+          )}
+          {syncResult.updated.length > 0 && (
+            <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+              Atualizados: {syncResult.updated.join(" · ")}
+            </p>
+          )}
+          {syncResult.unchanged.length > 0 && (
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+              Sem mudança: {syncResult.unchanged.join(" · ")}
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="space-y-3">
         <div>
           <label className={lbl} style={{ color: "var(--text-secondary)" }}>

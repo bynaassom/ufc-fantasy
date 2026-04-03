@@ -1,281 +1,124 @@
-<<<<<<< HEAD
-# 🥊 UFC Fantasy App
+# UFC Fantasy Pick'em
 
-Plataforma de fantasy para eventos do UFC — faça seus picks e compita com amigos.
+App web de picks para eventos do UFC. Os usuários escolhem vencedores, método e round, acompanham ranking e histórico, e um admin mantém eventos, lutas, odds e resultados.
 
 ## Stack
 
-- **Frontend**: Next.js 14 (App Router) + TypeScript
-- **Estilo**: Tailwind CSS + CSS Variables (dark/light mode)
-- **Banco de dados**: Supabase (PostgreSQL + Auth + RLS)
-- **Hospedagem**: Vercel (recomendado)
-- **Fonte**: Encode Sans
-- **Ícones**: Streamline Sharp Line Free
+- Next.js 14 + React 18 + TypeScript
+- Tailwind CSS
+- Supabase Auth + Postgres + RLS
+- `react-hot-toast`, `date-fns`, `zustand`
 
----
+## Funcionalidades
 
-## ⚙️ Setup — Passo a passo
+- Cadastro, login e callback de autenticação com Supabase
+- Picks por luta com lock por horário de evento
+- Ranking geral e por evento
+- Histórico de eventos e pontuação do usuário
+- Painel admin para eventos, lutas, odds e sync de resultados
+- Comparativo de stats dos atletas via scraping do UFC
 
-### 1. Clonar e instalar
+## Setup local
+
+1. Instale as dependências:
 
 ```bash
 npm install
 ```
 
-### 2. Criar projeto no Supabase
+2. Crie o arquivo `.env.local`:
 
-1. Acesse [supabase.com](https://supabase.com) e crie um novo projeto
-2. Vá em **SQL Editor** e rode o arquivo `supabase/schema.sql` completo
-3. Anote as credenciais: `Project URL` e `anon key` (Settings > API)
-
-### 3. Configurar variáveis de ambiente
-
-```bash
-cp .env.local.example .env.local
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://SEU_PROJETO.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=sua_anon_key
+SUPABASE_SERVICE_ROLE_KEY=sua_service_role_key
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+SYNC_SECRET=um_segredo_para_jobs_externos
+ODDS_API_KEY=sua_key_da_the_odds_api
 ```
 
-Edite `.env.local`:
-```
-NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJxxx...
-SUPABASE_SERVICE_ROLE_KEY=eyJxxx...  (Settings > API > service_role)
-```
-
-### 4. Criar seu usuário admin
-
-1. Registre-se normalmente no app
-2. No Supabase, vá em **Table Editor > profiles**
-3. Encontre seu usuário e mude `role` para `admin`
-
-Ou via SQL:
-```sql
-UPDATE profiles SET role = 'admin' WHERE nickname = 'SeuNick';
-```
-
-### 5. Rodar localmente
+3. Rode o app:
 
 ```bash
 npm run dev
 ```
 
-### 6. Deploy no Vercel
+## Banco de dados
 
-```bash
-# Instale o CLI do Vercel
-npm i -g vercel
+Há dois tipos de arquivo SQL neste projeto:
 
-# Deploy
-vercel
+- [`schema.sql`](/Users/naassom/Downloads/ufc-fantasy%202/schema.sql): referência do schema atual do projeto
+- [`supabase/picks_rls_fix.sql`](/Users/naassom/Downloads/ufc-fantasy%202/supabase/picks_rls_fix.sql), [`supabase/security_hardening.sql`](/Users/naassom/Downloads/ufc-fantasy%202/supabase/security_hardening.sql) e [`supabase/picks_delete_trigger_fix.sql`](/Users/naassom/Downloads/ufc-fantasy%202/supabase/picks_delete_trigger_fix.sql): patches pontuais para projetos já existentes
 
-# Configure as env vars no dashboard do Vercel
-```
+### Projeto novo
 
----
-
-## 🖼️ Configurar o banner da landing page
-
-Edite `src/app/page.tsx` e substitua:
-```typescript
-const EVENT_BANNER_URL = "https://SUA-URL-AQUI/banner.jpg";
-```
-
-Sites free para hospedar imagens: **Imgur**, **Cloudinary** (free tier), **ImgBB**
-
----
-
-## 🏟️ Criar um evento (admin)
-
-1. Acesse `/admin` com sua conta admin
-2. Aba "Eventos" → "Novo Evento"
-3. Preencha nome, slug, data/hora, localização
-4. Adicione as lutas com os lutadores
-
-**Importante**: O slug vira a URL do evento. Ex: `ufc-300` → `/event/ufc-300`
-
----
-
-## ⚔️ Adicionar lutadores
-
-Você pode adicionar lutadores diretamente na tabela `fighters` do Supabase:
+Se o banco estiver vazio, você pode usar o schema base como ponto de partida:
 
 ```sql
-INSERT INTO fighters (name, headshot_url, country) VALUES
-  ('Jon Jones', 'https://...headshot.jpg', 'EUA'),
-  ('Stipe Miocic', 'https://...headshot.jpg', 'EUA');
+-- rode o conteúdo de schema.sql
 ```
 
-Os headshots podem ser URLs diretas das imagens do UFC ou qualquer CDN público.
+### Projeto já existente
 
----
+Se o projeto já está rodando e você quer aplicar as correções recentes, rode no SQL Editor do Supabase:
 
-## 🎯 Sistema de pontuação
+1. [`supabase/picks_rls_fix.sql`](/Users/naassom/Downloads/ufc-fantasy%202/supabase/picks_rls_fix.sql)
+2. [`supabase/security_hardening.sql`](/Users/naassom/Downloads/ufc-fantasy%202/supabase/security_hardening.sql)
+3. [`supabase/picks_delete_trigger_fix.sql`](/Users/naassom/Downloads/ufc-fantasy%202/supabase/picks_delete_trigger_fix.sql)
 
-| Acerto | Pontos |
-|--------|--------|
-| Vencedor correto | +1 |
-| Método correto (+ vencedor correto) | +1 |
-| Round correto (+ método + vencedor corretos) | +1 |
-| **Máximo por luta** | **3** |
+## Admin
 
----
+Depois de criar seu usuário, promova-o a admin:
 
-## 🔒 Segurança do banco (RLS)
-
-- Usuários só podem criar/editar **seus próprios picks**
-- Picks são **bloqueados automaticamente** 30 minutos antes do evento
-- Um trigger no banco **impede qualquer modificação** após o lock, mesmo via API
-- Picks confirmados **não podem ter pontos alterados pelo usuário**
-- Atividade suspeita (muitos picks em pouco tempo) é **logada automaticamente**
-- Usuários banidos **não podem criar picks**
-- A função `score_picks_for_fight` só pode ser chamada pelo **service role**
-
----
-
-## 📱 Páginas
-
-| Rota | Descrição |
-|------|-----------|
-| `/` | Landing page |
-| `/login` | Login |
-| `/register` | Registro |
-| `/home` | Lista de eventos |
-| `/event/[slug]` | Picks do evento |
-| `/ranking` | Ranking geral e por evento |
-| `/admin` | Painel administrativo |
-
----
-
-## 🚀 Supabase Free Tier — Limites
-
-- **50.000 MAU** (usuários ativos/mês) — mais que suficiente para 150 pessoas
-- **500MB** de banco de dados
-- **5GB** de bandwidth
-- Auth incluso
-
-Para 150 usuários, o free tier do Supabase é mais que suficiente.
-
----
-
-## 📦 Estrutura do projeto
-
+```sql
+UPDATE profiles
+SET role = 'admin'
+WHERE id = 'SEU_USER_UUID';
 ```
+
+## Segurança
+
+O projeto foi endurecido para reduzir risco de vazamento e abuso:
+
+- Rotas administrativas exigem sessão autenticada, role `admin` e bloqueio de usuário banido
+- RLS em `picks` impede edição fora da janela permitida e protege campos sensíveis
+- `profiles` deixa de ser público para uso geral; ranking usa uma view com campos mínimos
+- Callback de auth sanitiza redirects internos
+- Scrapers admin aceitam apenas hosts permitidos
+- Middleware adiciona headers como `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy` e `Permissions-Policy`
+
+Isso melhora bastante a segurança prática do app, mas não substitui operação de produção responsável: rotação de segredos, monitoramento, backups, política de privacidade e revisão jurídica quando aplicável.
+
+## Estrutura
+
+```text
 src/
-├── app/
-│   ├── page.tsx              # Landing page
-│   ├── login/                # Login
-│   ├── register/             # Registro
-│   ├── home/                 # Home com eventos
-│   ├── event/[slug]/         # Picks do evento
-│   ├── ranking/              # Ranking
-│   ├── admin/                # Painel admin
-│   └── api/results/score/    # API de pontuação
-├── components/
-│   ├── layout/Navbar.tsx     # Navegação
-│   ├── ui/ThemeToggle.tsx    # Toggle dark/light
-│   ├── event/
-│   │   ├── FightCard.tsx     # Card de luta com picks
-│   │   └── EventPicksClient.tsx
-│   └── admin/AdminClient.tsx # Painel admin
-├── lib/
-│   ├── supabase/             # Clientes Supabase
-│   ├── ufc-api.ts            # Integração API UFC
-│   └── utils.ts              # Utilitários
-└── types/index.ts            # TypeScript types
+  app/
+  components/
+  lib/
+  types/
+supabase/
+  migrations/
+  picks_rls_fix.sql
+  picks_delete_trigger_fix.sql
+  security_hardening.sql
+schema.sql
 ```
-=======
 
-# 🥊 UFC Fantasy Pick'em
+## Scripts
 
-Um web app de *Pick'em Game* (estilo Fantasy) onde entusiastas de MMA podem palpitar nos resultados de cada luta dos eventos do UFC, acompanhar rankings por evento e disputar a liderança no ranking geral.
+```bash
+npm run dev
+npm run build
+npm run start
+```
 
-Este projeto nasceu de uma "vibe coding" com o Claude, focado em ser uma ferramenta comunitária, open-source e sem fins lucrativos para fãs de luta.
+## Observações
 
-### 🚀 Funcionalidades
+- Não commite `.env.local` nem chaves do Supabase
+- Se algum segredo já foi exposto, rotacione no painel do provedor
+- Este projeto não possui vínculo oficial com o UFC
 
-*   **Palpites (Picks):** Escolha o vencedor de cada luta em eventos futuros.
-*   **Rankings Dinâmicos:** Visualize sua performance em eventos específicos ou sua consistência no ranking geral.
-*   **Área Administrativa:** Interface para gerenciamento manual de lutadores, eventos e inserção de resultados (essencial para manter o app atualizado sem depender de APIs pagas).
-*   **Autenticação Completa:** Login, registro e verificação de e-mail via Supabase.
-*   **Interface Moderna:** Design responsivo com suporte a temas (Dark/Light mode).
+## Licença
 
-### 🛠️ Tecnologias
-
-*   **Framework:** [Next.js](https://nextjs.org/) (App Router)
-*   **Linguagem:** [TypeScript](https://www.typescriptlang.org/)
-*   **Estilização:** [Tailwind CSS](https://tailwindcss.com/)
-*   **Banco de Dados & Auth:** [Supabase](https://supabase.com/)
-*   **Componentes UI:** Radix UI / Lucide React
-
-### ⚙️ Configuração e Instalação
-
-1.  **Clone o repositório:**
-    ```bash
-    git clone https://github.com/seu-usuario/ufc-fantasy.git
-    cd ufc-fantasy
-    ```
-
-2.  **Instale as dependências:**
-    ```bash
-    npm install
-    ```
-
-3.  **Variáveis de Ambiente:**
-    Crie um arquivo `.env.local` na raiz do projeto e preencha com suas credenciais:
-    ```env
-    # Supabase
-    NEXT_PUBLIC_SUPABASE_URL=seu_url_do_supabase
-    NEXT_PUBLIC_SUPABASE_ANON_KEY=sua_chave_anon_do_supabase
-
-    # App
-    NEXT_PUBLIC_APP_URL=http://localhost:3000
-
-    # Admin
-    ADMIN_SECRET_KEY=sua_chave_secreta_para_acesso_admin
-    ```
-
-4.  **Inicie o servidor de desenvolvimento:**
-    ```bash
-    npm run dev
-    ```
-
-### 🗃️ Estrutura do Banco de Dados (Supabase)
-
-O esquema do banco de dados está definido no arquivo [`schema.sql`](./schema.sql). Ele inclui tabelas para perfis de usuários, eventos, lutadores, lutas, palpites e pontuações.
-
-Principais tabelas:
-*   `profiles`: Estende o usuário do Supabase com dados como nickname, nome, papel (user/admin) e pontuação total.
-*   `events`: Armazena informações sobre os eventos do UFC (nome, data, status).
-*   `fighters`: Cadastro de todos os lutadores.
-*   `fights`: Representa cada luta dentro de um evento, com os lutadores envolvidos.
-*   `picks`: Registra os palpites feitos pelos usuários para cada luta.
-*   `event_scores`: Agrega a pontuação de cada usuário por evento.
-*   `activity_logs`: Registros de atividades suspeitas ou importantes.
-
-Para configurar o banco de dados:
-1. Acesse o [painel do Supabase](https://app.supabase.com/).
-2. Crie um novo projeto.
-3. No editor SQL do Supabase, execute o conteúdo do arquivo `schema.sql`.
-4. Configure as políticas de segurança conforme necessário.
-5. Após criar sua conta de administrador, defina seu papel executando:
-   ```sql
-   UPDATE profiles SET role = 'admin' WHERE id = 'SEU_USER_UUID_AQUI';
-   ```
-
-### 📂 Estrutura do Projeto
-
-*   `src/app`: Rotas da aplicação e APIs internas.
-*   `src/components`: Componentes reutilizáveis (Admin, Eventos, Layout, UI).
-*   `src/lib`: Configurações do cliente/servidor Supabase e utilitários.
-*   `src/types`: Definições de tipos TypeScript para lutadores, lutas e usuários.
-
-### 🤝 Contribuição
-
-Como este é um projeto **Open Source**, sinta-se à vontade para abrir *Issues* ou enviar *Pull Requests*. Toda ajuda para melhorar a lógica de pontuação, interface ou automação de dados é bem-vinda!
-
-### 📄 Licença
-
-Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
-
----
-*Nota: Este projeto não possui vínculo oficial com o UFC (Ultimate Fighting Championship).* 
->>>>>>> 7516f2e71a383f35ec02cbdb6c6b0b804959b044
+MIT. Veja [`LICENSE`](/Users/naassom/Downloads/ufc-fantasy%202/LICENSE).
