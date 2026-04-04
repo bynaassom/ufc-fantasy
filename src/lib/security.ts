@@ -1,15 +1,16 @@
 export const PROFILE_SELECT_FIELDS =
   "id, nickname, first_name, last_name, role, is_banned, ban_reason, total_points, created_at, updated_at";
 
-const ALLOWED_SCRAPE_HOSTS = new Set([
-  "ufc.com",
-  "www.ufc.com",
-  "ufc.com.br",
-  "www.ufc.com.br",
-  "ufcstats.com",
-  "www.ufcstats.com",
-  "api.the-odds-api.com",
-]);
+const HOST_PROTOCOL_RULES: Record<string, string[]> = {
+  "ufc.com": ["https:"],
+  "www.ufc.com": ["https:"],
+  "ufc.com.br": ["https:"],
+  "www.ufc.com.br": ["https:"],
+  // O UFCStats ainda expõe URLs reais em http em vários fluxos do site.
+  "ufcstats.com": ["http:", "https:"],
+  "www.ufcstats.com": ["http:", "https:"],
+  "api.the-odds-api.com": ["https:"],
+};
 
 export function normalizeSafeRedirectPath(next?: string | null): string {
   if (!next) return "/home";
@@ -32,11 +33,9 @@ export function normalizeSafeRedirectPath(next?: string | null): string {
 
 export function isAllowedScrapeUrl(url: string): boolean {
   try {
-    const parsed = new URL(url);
-    return (
-      parsed.protocol === "https:" &&
-      ALLOWED_SCRAPE_HOSTS.has(parsed.hostname.toLowerCase())
-    );
+    const parsed = new URL(url.trim());
+    const allowedProtocols = HOST_PROTOCOL_RULES[parsed.hostname.toLowerCase()];
+    return !!allowedProtocols?.includes(parsed.protocol);
   } catch {
     return false;
   }

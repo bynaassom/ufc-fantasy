@@ -65,7 +65,10 @@ function htmlToText(html: string): string {
     html
       .replace(/<script[\s\S]*?<\/script>/gi, " ")
       .replace(/<style[\s\S]*?<\/style>/gi, " ")
-      .replace(/<\/(p|div|section|article|li|ul|ol|h1|h2|h3|h4|h5|h6|tr|td|br)>/gi, "\n")
+      .replace(
+        /<\/(p|div|section|article|li|ul|ol|h1|h2|h3|h4|h5|h6|tr|td|br)>/gi,
+        "\n",
+      )
       .replace(/<[^>]+>/g, " ")
       .replace(/\r/g, "\n")
       .replace(/[ \t]+/g, " ")
@@ -120,9 +123,7 @@ function parseStats(html: string, requestedSlug: string) {
     metaTitle.replace(/\s*\|\s*UFC.*$/i, "").trim();
 
   const name = decodeHtmlEntities(nameMatch || requestedSlug).trim();
-  const record = firstMatch(compact, [
-    /(\d+-\d+-\d+)\s*\((?:V-D-E|W-L-D)\)/i,
-  ]);
+  const record = firstMatch(compact, [/(\d+-\d+-\d+)\s*\((?:V-D-E|W-L-D)\)/i]);
 
   const sigLanded = firstMatch(compact, [
     /Golpes Sig\. Conectados\s+(\d+)/i,
@@ -189,12 +190,8 @@ function parseStats(html: string, requestedSlug: string) {
     /(\d+:\d+)\s+Average Fight Time/i,
   ]);
 
-  const ko = firstPair(compact, [
-    /KO\/TKO\s+(\d+)\s+\((\d+)%\)/i,
-  ]);
-  const dec = firstPair(compact, [
-    /DEC\s+(\d+)\s+\((\d+)%\)/i,
-  ]);
+  const ko = firstPair(compact, [/KO\/TKO\s+(\d+)\s+\((\d+)%\)/i]);
+  const dec = firstPair(compact, [/DEC\s+(\d+)\s+\((\d+)%\)/i]);
   const sub = firstPair(compact, [
     /FIN\s+(\d+)\s+\((\d+)%\)/i,
     /SUB\s+(\d+)\s+\((\d+)%\)/i,
