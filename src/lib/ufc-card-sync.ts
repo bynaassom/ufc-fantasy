@@ -1,4 +1,5 @@
 import { isAllowedScrapeUrl } from "@/lib/security";
+import { resolveUfcFighterMedia } from "@/lib/ufc-fighter-media";
 
 const WEIGHT_CLASS_MAP: Record<string, string> = {
   "peso pesado": "Heavyweight",
@@ -272,10 +273,22 @@ export async function scrapeUfcEventCard(url: string): Promise<ScrapedCardFight[
 }
 
 async function ensureFighter(adminSupabase: any, fighter: ScrapedCardFight["fighter_a"]) {
+  let candidate = { ...fighter };
+  if (!candidate.headshot_url || !candidate.country) {
+    const resolved = await resolveUfcFighterMedia(candidate.name);
+    if (resolved) {
+      candidate = {
+        ...candidate,
+        headshot_url: candidate.headshot_url || resolved.headshot_url,
+        country: candidate.country || resolved.country,
+      };
+    }
+  }
+
   const { data: existing, error: existingError } = await adminSupabase
     .from("fighters")
     .select("id, headshot_url, country")
-    .eq("name", fighter.name)
+    .eq("name", candidate.name)
     .maybeSingle();
 
   if (existingError) {
@@ -284,11 +297,11 @@ async function ensureFighter(adminSupabase: any, fighter: ScrapedCardFight["figh
 
   if (existing) {
     const update: Record<string, unknown> = {};
-    if (!existing.headshot_url && fighter.headshot_url) {
-      update.headshot_url = fighter.headshot_url;
+    if (!existing.headshot_url && candidate.headshot_url) {
+      update.headshot_url = candidate.headshot_url;
     }
-    if (!existing.country && fighter.country) {
-      update.country = fighter.country;
+    if (!existing.country && candidate.country) {
+      update.country = candidate.country;
     }
 
     if (Object.keys(update).length > 0) {
@@ -307,15 +320,15 @@ async function ensureFighter(adminSupabase: any, fighter: ScrapedCardFight["figh
   const { data: created, error: createError } = await adminSupabase
     .from("fighters")
     .insert({
-      name: fighter.name,
-      headshot_url: fighter.headshot_url || "",
-      country: fighter.country || "",
+      name: candidate.name,
+      headshot_url: candidate.headshot_url || "",
+      country: candidate.country || "",
     })
     .select("id")
     .single();
 
   if (createError || !created) {
-    throw new Error(createError?.message || `Falha ao criar fighter ${fighter.name}`);
+    throw new Error(createError?.message || `Falha ao criar fighter ${candidate.name}`);
   }
 
   return created.id as string;

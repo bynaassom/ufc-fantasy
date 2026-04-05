@@ -19,6 +19,7 @@ type SubTab =
   | "res-manual"
   | "ops-lote"
   | "ops-fighters"
+  | "ops-fotos"
   | "ops-auditoria"
   | "usuarios";
 
@@ -234,6 +235,7 @@ export default function AdminClient({
       subs: [
         { key: "ops-lote", label: "Ações em Lote" },
         { key: "ops-fighters", label: "Mesclar Lutadores" },
+        { key: "ops-fotos", label: "Fotos" },
         { key: "ops-auditoria", label: "Auditoria" },
       ],
     },
@@ -373,6 +375,7 @@ export default function AdminClient({
         <OperacoesLote sortedEvents={sortedEvents} />
       )}
       {subTab === "ops-fighters" && <OperacoesFighters />}
+      {subTab === "ops-fotos" && <OperacoesFotos />}
       {(subTab === "usuarios" || mainTab === "usuarios") && (
         <Usuarios userList={userList} setUserList={setUserList} />
       )}
@@ -4170,6 +4173,164 @@ function OperacoesFighters() {
   );
 }
 
+function OperacoesFotos() {
+  const [limit, setLimit] = useState(25);
+  const [onlyMissing, setOnlyMissing] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<{
+    message: string;
+    processed_count: number;
+    updated: string[];
+    not_found: string[];
+    errors: string[];
+    dry_run?: boolean;
+  } | null>(null);
+
+  async function runMediaSync(dryRun: boolean) {
+    setLoading(true);
+    setResult(null);
+
+    try {
+      const res = await fetch("/api/admin/enrich-fighter-media", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          dry_run: dryRun,
+          only_missing: onlyMissing,
+          limit,
+        }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        toast.error(data.error || "Erro ao sincronizar fotos dos lutadores");
+        return;
+      }
+
+      setResult(data);
+      toast.success(data.message);
+    } catch (err) {
+      toast.error(String(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div
+        className="p-4 space-y-4"
+        style={{
+          backgroundColor: "var(--bg-elevated)",
+          border: "1px solid var(--border)",
+        }}
+      >
+        <div>
+          <p
+            className="font-condensed font-700 text-sm uppercase"
+            style={{ color: "var(--text)" }}
+          >
+            Preencher Fotos dos Lutadores
+          </p>
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+            Busca automaticamente as fotos oficiais no UFC para reduzir o
+            trabalho manual de cadastro e manutenção.
+          </p>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-[160px_auto]">
+          <div>
+            <label className={lbl} style={{ color: "var(--text-secondary)" }}>
+              Limite por rodada
+            </label>
+            <input
+              type="number"
+              min={1}
+              max={100}
+              value={limit}
+              onChange={(e) => setLimit(parseInt(e.target.value || "25", 10))}
+              style={inp}
+              onFocus={focus}
+              onBlur={blur}
+            />
+          </div>
+          <label
+            className="flex items-center gap-2 pt-7"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            <input
+              type="checkbox"
+              checked={onlyMissing}
+              onChange={(e) => setOnlyMissing(e.target.checked)}
+            />
+            <span className="text-xs uppercase tracking-widest">
+              Só fighters sem foto
+            </span>
+          </label>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => runMediaSync(true)}
+            disabled={loading}
+            className="py-3 font-condensed font-900 text-sm uppercase tracking-widest disabled:opacity-40"
+            style={{
+              backgroundColor: "var(--bg-card)",
+              border: "1px solid var(--border)",
+              color: "var(--text)",
+            }}
+          >
+            {loading ? "PROCESSANDO..." : "VER PRÉVIA"}
+          </button>
+          <button
+            onClick={() => runMediaSync(false)}
+            disabled={loading}
+            className="py-3 font-condensed font-900 text-sm uppercase tracking-widest text-white disabled:opacity-40"
+            style={{ backgroundColor: "var(--red)" }}
+          >
+            {loading ? "ATUALIZANDO..." : "PREENCHER FOTOS"}
+          </button>
+        </div>
+      </div>
+
+      {result && (
+        <div
+          className="p-4 space-y-2"
+          style={{
+            backgroundColor: "var(--bg-elevated)",
+            border: "1px solid var(--border)",
+          }}
+        >
+          <p
+            className="font-condensed font-700 text-sm uppercase"
+            style={{ color: "var(--text)" }}
+          >
+            {result.message}
+          </p>
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+            Processados: {result.processed_count}
+          </p>
+          {result.updated.length > 0 && (
+            <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+              Encontrados: {result.updated.join(" · ")}
+            </p>
+          )}
+          {result.not_found.length > 0 && (
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+              Sem foto: {result.not_found.join(" · ")}
+            </p>
+          )}
+          {result.errors.length > 0 && (
+            <p className="text-xs" style={{ color: "var(--red)" }}>
+              Erros: {result.errors.join(" · ")}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function OperacoesAuditoria({ users }: { users: any[] }) {
   const [loading, setLoading] = useState(true);
   const [logs, setLogs] = useState<any[]>([]);
@@ -4218,6 +4379,7 @@ function OperacoesAuditoria({ users }: { users: any[] }) {
   function formatAction(action: string) {
     const labels: Record<string, string> = {
       admin_bulk_events: "Ações em lote",
+      admin_enrich_fighter_media: "Fotos de lutadores",
       admin_merge_fighters: "Merge de lutadores",
       admin_sync_events: "Sync de eventos",
       admin_sync_odds: "Sync de odds",
