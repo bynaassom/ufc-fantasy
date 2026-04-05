@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
-import { UFCEvent, fetchUpcomingUFCEvents } from "@/lib/ufc-api";
+import {
+  UFCEvent,
+  fetchUpcomingUFCEvents,
+  fetchUpcomingUFCEventsFromPage,
+} from "@/lib/ufc-api";
 import { logAdminAction } from "@/lib/admin-audit";
+import { syncScrapedCardForEvent } from "@/lib/ufc-card-sync";
 
 function slugify(value: string) {
   return value
@@ -75,6 +80,7 @@ type SyncCandidate = {
   source_id: string;
   name: string;
   slug: string;
+  event_url: string;
   event_date: string;
   location: string;
   banner_image_url: string | null;
@@ -125,6 +131,54 @@ async function loadExistingEvents(adminSupabase: Awaited<ReturnType<typeof creat
   }
 
   return (data || []) as ExistingEvent[];
+}
+
+function mergeUpstreamEventSources(apiEvents: UFCEvent[], pageEvents: UFCEvent[]) {
+  const pageByDateMatchup = new Map<string, UFCEvent>();
+  const pageByMatchup = new Map<string, UFCEvent[]>();
+
+  for (const event of pageEvents) {
+    const key = `${getDateKey(event.date)}:${getMatchupKey(event.name)}`;
+    pageByDateMatchup.set(key, event);
+
+    const matchupKey = getMatchupKey(event.name);
+    const current = pageByMatchup.get(matchupKey) || [];
+    current.push(event);
+    pageByMatchup.set(matchupKey, current);
+  }
+
+  return apiEvents.map((event) => {
+    const directMatch = pageByDateMatchup.get(
+      `${getDateKey(event.date)}:${getMatchupKey(event.name)}`,
+    );
+
+    let nearestMatch = directMatch || null;
+    if (!nearestMatch) {
+      const matchupCandidates = pageByMatchup.get(getMatchupKey(event.name)) || [];
+      const eventTime = new Date(event.date).getTime();
+      const nearest = matchupCandidates
+        .map((candidate) => ({
+          candidate,
+          diff: Math.abs(new Date(candidate.date).getTime() - eventTime),
+        }))
+        .sort((a, b) => a.diff - b.diff)[0];
+
+      if (nearest && nearest.diff <= 12 * 60 * 60 * 1000) {
+        nearestMatch = nearest.candidate;
+      }
+    }
+
+    return {
+      ...event,
+      name: directMatch?.name || event.name,
+      location: event.location || nearestMatch?.location || "",
+      image: event.image || nearestMatch?.image,
+      eventUrl:
+        event.eventUrl ||
+        nearestMatch?.eventUrl ||
+        `https://www.ufc.com.br/event/${slugify(event.name)}`,
+    };
+  });
 }
 
 function buildSyncPlan(
@@ -238,6 +292,8 @@ function buildSyncPlan(
       source_id: upstreamEvent.id,
       name: payload.name,
       slug: payload.slug,
+      event_url:
+        upstreamEvent.eventUrl || `https://www.ufc.com.br/event/${payload.slug}`,
       event_date: payload.event_date,
       location: payload.location,
       banner_image_url: payload.banner_image_url,
@@ -278,12 +334,16 @@ export async function GET() {
   if (auth.error) return auth.error;
 
   try {
-    const [upstreamEvents, existingEvents] = await Promise.all([
+    const [upstreamEvents, pageEvents, existingEvents] = await Promise.all([
       fetchUpcomingUFCEvents(),
+      fetchUpcomingUFCEventsFromPage().catch(() => []),
       loadExistingEvents(auth.adminSupabase),
     ]);
 
-    const candidates = buildSyncPlan(upstreamEvents, existingEvents);
+    const candidates = buildSyncPlan(
+      mergeUpstreamEventSources(upstreamEvents, pageEvents),
+      existingEvents,
+    );
     const summary = summarizePlan(candidates);
 
     return NextResponse.json({
@@ -316,12 +376,16 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const [upstreamEvents, existingEvents] = await Promise.all([
+    const [upstreamEvents, pageEvents, existingEvents] = await Promise.all([
       fetchUpcomingUFCEvents(),
+      fetchUpcomingUFCEventsFromPage().catch(() => []),
       loadExistingEvents(auth.adminSupabase),
     ]);
 
-    const candidates = buildSyncPlan(upstreamEvents, existingEvents);
+    const candidates = buildSyncPlan(
+      mergeUpstreamEventSources(upstreamEvents, pageEvents),
+      existingEvents,
+    );
     const selectedCandidates =
       selectedEventIds === undefined
         ? candidates
@@ -337,6 +401,11 @@ export async function POST(req: NextRequest) {
     const created: string[] = [];
     const updated: string[] = [];
     const unchanged: string[] = [];
+    const cardSynced: string[] = [];
+    const cardPending: string[] = [];
+    const cardErrors: string[] = [];
+    let cardAddedCount = 0;
+    let cardUpdatedCount = 0;
 
     for (const candidate of selectedCandidates) {
       const payload = {
@@ -350,36 +419,63 @@ export async function POST(req: NextRequest) {
         picks_lock_at: candidate.picks_lock_at,
         picks_open_at: candidate.picks_open_at,
       };
+      let eventId = candidate.existing_event?.id || null;
 
       if (!candidate.existing_event) {
-        const { error } = await auth.adminSupabase.from("events").insert(payload);
-        if (error) {
+        const { data: createdEvent, error } = await auth.adminSupabase
+          .from("events")
+          .insert(payload)
+          .select("id")
+          .single();
+        if (error || !createdEvent) {
           return NextResponse.json(
             { error: `Falha ao criar ${candidate.name}: ${error.message}` },
             { status: 500 },
           );
         }
+        eventId = createdEvent.id;
         created.push(candidate.name);
-        continue;
-      }
-
-      if (candidate.action === "unchanged") {
+      } else if (candidate.action === "unchanged") {
         unchanged.push(candidate.name);
-        continue;
+      } else {
+        const { error } = await auth.adminSupabase
+          .from("events")
+          .update(payload)
+          .eq("id", candidate.existing_event.id);
+
+        if (error) {
+          return NextResponse.json(
+            { error: `Falha ao atualizar ${candidate.name}: ${error.message}` },
+            { status: 500 },
+          );
+        }
+        updated.push(candidate.name);
       }
 
-      const { error } = await auth.adminSupabase
-        .from("events")
-        .update(payload)
-        .eq("id", candidate.existing_event.id);
+      if (!eventId) continue;
 
-      if (error) {
-        return NextResponse.json(
-          { error: `Falha ao atualizar ${candidate.name}: ${error.message}` },
-          { status: 500 },
+      try {
+        const cardResult = await syncScrapedCardForEvent(
+          auth.adminSupabase,
+          eventId,
+          candidate.event_url,
         );
+
+        cardAddedCount += cardResult.added_count;
+        cardUpdatedCount += cardResult.updated_count;
+
+        if (cardResult.scraped_count === 0) {
+          cardPending.push(`${candidate.name} (sem lutas na página ainda)`);
+        } else {
+          cardSynced.push(
+            `${candidate.name} (${cardResult.scraped_count} lutas, +${cardResult.added_count}/~${cardResult.updated_count})`,
+          );
+        }
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "falha ao sincronizar card";
+        cardErrors.push(`${candidate.name}: ${message}`);
       }
-      updated.push(candidate.name);
     }
 
     await logAdminAction(auth.adminSupabase, {
@@ -390,16 +486,26 @@ export async function POST(req: NextRequest) {
         created_count: created.length,
         updated_count: updated.length,
         unchanged_count: unchanged.length,
+        card_synced_count: cardSynced.length,
+        card_pending_count: cardPending.length,
+        card_error_count: cardErrors.length,
+        card_added_count: cardAddedCount,
+        card_updated_count: cardUpdatedCount,
         selected_source_ids: selectedCandidates.map((candidate) => candidate.source_id),
       },
     });
 
     return NextResponse.json({
       ok: true,
-      message: `${created.length} criado(s), ${updated.length} atualizado(s), ${unchanged.length} sem mudança`,
+      message: `${created.length} criado(s), ${updated.length} atualizado(s), ${unchanged.length} sem mudança · cards: +${cardAddedCount}/~${cardUpdatedCount}`,
       created,
       updated,
       unchanged,
+      card_synced: cardSynced,
+      card_pending: cardPending,
+      card_errors: cardErrors,
+      card_added_count: cardAddedCount,
+      card_updated_count: cardUpdatedCount,
     });
   } catch (error) {
     return NextResponse.json(

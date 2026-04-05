@@ -1087,6 +1087,7 @@ function EventoImportar() {
     source_id: string;
     name: string;
     slug: string;
+    event_url: string;
     event_date: string;
     location: string;
     action: SyncAction;
@@ -1114,6 +1115,11 @@ function EventoImportar() {
     created: string[];
     updated: string[];
     unchanged: string[];
+    card_synced: string[];
+    card_pending: string[];
+    card_errors: string[];
+    card_added_count: number;
+    card_updated_count: number;
   } | null>(null);
 
   const actionLabels: Record<SyncAction, string> = {
@@ -1477,6 +1483,27 @@ function EventoImportar() {
           {syncResult.unchanged.length > 0 && (
             <p className="text-xs" style={{ color: "var(--text-muted)" }}>
               Sem mudança: {syncResult.unchanged.join(" · ")}
+            </p>
+          )}
+          {(syncResult.card_added_count > 0 || syncResult.card_updated_count > 0) && (
+            <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+              Cards: +{syncResult.card_added_count} luta(s) nova(s) · ~
+              {syncResult.card_updated_count} atualizada(s)
+            </p>
+          )}
+          {syncResult.card_synced.length > 0 && (
+            <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+              Cards sincronizados: {syncResult.card_synced.join(" · ")}
+            </p>
+          )}
+          {syncResult.card_pending.length > 0 && (
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+              Card pendente: {syncResult.card_pending.join(" · ")}
+            </p>
+          )}
+          {syncResult.card_errors.length > 0 && (
+            <p className="text-xs" style={{ color: "var(--red)" }}>
+              Erros no card: {syncResult.card_errors.join(" · ")}
             </p>
           )}
         </div>

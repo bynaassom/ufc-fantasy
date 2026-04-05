@@ -12,6 +12,7 @@ export interface UFCEvent {
   date: string;
   location: string;
   image?: string;
+  eventUrl?: string;
   cards: UFCCard[];
 }
 
@@ -66,6 +67,64 @@ function absolutizeUfcUrl(pathOrUrl: string) {
     return pathOrUrl;
   }
   return `${UFC_SITE_BASE}${pathOrUrl.startsWith("/") ? pathOrUrl : `/${pathOrUrl}`}`;
+}
+
+function slugifyEventName(name: string) {
+  return stripTags(name)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\bversus\b/g, "vs")
+    .replace(/\bx\b/g, "vs")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function getEventMatchupKey(name: string) {
+  const normalized = slugifyEventName(name);
+  const parts = normalized.split(/[:-]/).filter(Boolean);
+  return parts.length > 1 ? parts[parts.length - 1] : normalized;
+}
+
+function toIsoString(value: unknown) {
+  if (!value) return null;
+  const parsed = new Date(String(value));
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toISOString();
+}
+
+function pickFirstString(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return "";
+}
+
+function resolveApiEventUrl(rawEvent: any, fallbackName: string) {
+  const directUrl = pickFirstString(
+    rawEvent?.eventUrl,
+    rawEvent?.url,
+    rawEvent?.webUrl,
+    rawEvent?.path,
+    rawEvent?.href,
+    rawEvent?.seoUrl,
+    rawEvent?.route,
+    rawEvent?.link,
+    rawEvent?.uri,
+  );
+
+  if (directUrl) {
+    return absolutizeUfcUrl(directUrl);
+  }
+
+  const slug = pickFirstString(rawEvent?.slug, rawEvent?.seoName);
+  if (slug) {
+    return absolutizeUfcUrl(`/event/${slug.replace(/^\/?event\//, "")}`);
+  }
+
+  const fallbackSlug = slugifyEventName(fallbackName);
+  return fallbackSlug ? absolutizeUfcUrl(`/event/${fallbackSlug}`) : undefined;
 }
 
 function normalizeEventName(name: string) {
@@ -165,11 +224,114 @@ function parseUpcomingEventsFromHtml(html: string): UFCEvent[] {
       date,
       location,
       image: image || undefined,
+      eventUrl: absolutizeUfcUrl(href),
       cards: [],
     });
   }
 
   return events;
+}
+
+function normalizeUpcomingApiEvent(rawEvent: any): UFCEvent | null {
+  const name = pickFirstString(
+    rawEvent?.name,
+    rawEvent?.title,
+    rawEvent?.shortName,
+    rawEvent?.headline,
+  );
+  const date = toIsoString(
+    rawEvent?.date ??
+      rawEvent?.eventDate ??
+      rawEvent?.startDate ??
+      rawEvent?.startDateTime ??
+      rawEvent?.startTime,
+  );
+
+  if (!name || !date) return null;
+
+  const location = pickFirstString(
+    rawEvent?.location,
+    rawEvent?.venue,
+    [rawEvent?.city, rawEvent?.state, rawEvent?.country].filter(Boolean).join(", "),
+  );
+
+  const image = pickFirstString(
+    rawEvent?.image,
+    rawEvent?.heroImage,
+    rawEvent?.eventImage,
+    rawEvent?.posterImage,
+  );
+
+  return {
+    id: String(rawEvent?.id ?? rawEvent?.eventId ?? rawEvent?.slug ?? name),
+    name: normalizeEventName(name),
+    date,
+    location,
+    image: image || undefined,
+    eventUrl: resolveApiEventUrl(rawEvent, name),
+    cards: [],
+  };
+}
+
+function mergeUpcomingEventMetadata(primaryEvents: UFCEvent[], pageEvents: UFCEvent[]) {
+  const pageByDateMatchup = new Map<string, UFCEvent>();
+  const pageByMatchup = new Map<string, UFCEvent[]>();
+
+  for (const event of pageEvents) {
+    const dateKey = event.date.slice(0, 10);
+    const matchupKey = getEventMatchupKey(event.name);
+    if (matchupKey) {
+      pageByDateMatchup.set(`${dateKey}:${matchupKey}`, event);
+      const current = pageByMatchup.get(matchupKey) || [];
+      current.push(event);
+      pageByMatchup.set(matchupKey, current);
+    }
+  }
+
+  return primaryEvents.map((event) => {
+    const dateKey = event.date.slice(0, 10);
+    const matchupKey = getEventMatchupKey(event.name);
+    const exactMatch = matchupKey
+      ? pageByDateMatchup.get(`${dateKey}:${matchupKey}`)
+      : null;
+
+    let closestMatch: UFCEvent | null = exactMatch || null;
+    if (!closestMatch && matchupKey) {
+      const candidates = pageByMatchup.get(matchupKey) || [];
+      const eventTime = new Date(event.date).getTime();
+      const nearest = candidates
+        .map((candidate) => ({
+          candidate,
+          diff: Math.abs(new Date(candidate.date).getTime() - eventTime),
+        }))
+        .sort((a, b) => a.diff - b.diff)[0];
+
+      if (nearest && nearest.diff <= 12 * 60 * 60 * 1000) {
+        closestMatch = nearest.candidate;
+      }
+    }
+
+    if (!closestMatch) return event;
+
+    return {
+      ...event,
+      name: needsFullEventTitle(event.name) ? closestMatch.name : event.name,
+      location: event.location || closestMatch.location,
+      image: event.image || closestMatch.image,
+      eventUrl: event.eventUrl || closestMatch.eventUrl,
+    };
+  });
+}
+
+export async function fetchUpcomingUFCEventsFromPage(): Promise<UFCEvent[]> {
+  const response = await fetch(UFC_EVENTS_PAGE, {
+    next: { revalidate: 3600 },
+    headers: { Accept: "text/html,application/xhtml+xml" },
+  });
+  if (!response.ok) throw new Error("Failed to fetch UFC events page");
+  const html = await response.text();
+  const parsedEvents = parseUpcomingEventsFromHtml(html).slice(0, 5);
+  return enrichUpcomingEventNames(parsedEvents);
 }
 
 export async function fetchUpcomingUFCEvents(): Promise<UFCEvent[]> {
@@ -183,18 +345,26 @@ export async function fetchUpcomingUFCEvents(): Promise<UFCEvent[]> {
     );
     if (!response.ok) throw new Error("Failed to fetch UFC events");
     const data = await response.json();
-    return data.data || [];
+    const normalizedApiEvents = Array.isArray(data?.data)
+      ? data.data
+          .map((event: any) => normalizeUpcomingApiEvent(event))
+          .filter(Boolean) as UFCEvent[]
+      : [];
+
+    if (!normalizedApiEvents.length) {
+      throw new Error("Upcoming events API returned no usable events");
+    }
+
+    try {
+      const pageEvents = await fetchUpcomingUFCEventsFromPage();
+      return mergeUpcomingEventMetadata(normalizedApiEvents, pageEvents);
+    } catch {
+      return enrichUpcomingEventNames(normalizedApiEvents);
+    }
   } catch (error) {
     console.error("UFC API error (upcoming events):", error);
     try {
-      const response = await fetch(UFC_EVENTS_PAGE, {
-        next: { revalidate: 3600 },
-        headers: { Accept: "text/html,application/xhtml+xml" },
-      });
-      if (!response.ok) throw new Error("Failed to fetch UFC events page");
-      const html = await response.text();
-      const parsedEvents = parseUpcomingEventsFromHtml(html).slice(0, 5);
-      return enrichUpcomingEventNames(parsedEvents);
+      return await fetchUpcomingUFCEventsFromPage();
     } catch (fallbackError) {
       console.error("UFC events page fallback error:", fallbackError);
       return [];
