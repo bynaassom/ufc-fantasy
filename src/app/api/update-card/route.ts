@@ -2,28 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { isAllowedScrapeUrl } from "@/lib/security";
 import { extractEventCardHeadshots } from "@/lib/ufc-fighter-media";
-
-const WEIGHT_CLASS_MAP: Record<string, string> = {
-  "peso pesado": "Heavyweight",
-  heavyweight: "Heavyweight",
-  "meio-pesado": "LightHeavyweight",
-  "light heavyweight": "LightHeavyweight",
-  médio: "Middleweight",
-  middleweight: "Middleweight",
-  "meio-médio": "Welterweight",
-  welterweight: "Welterweight",
-  leve: "Lightweight",
-  lightweight: "Lightweight",
-  pena: "Featherweight",
-  featherweight: "Featherweight",
-  galo: "Bantamweight",
-  bantamweight: "Bantamweight",
-  mosca: "Flyweight",
-  flyweight: "Flyweight",
-  palha: "Strawweight",
-  strawweight: "Strawweight",
-  atomweight: "Atomweight",
-};
+import { extractWeightClassFromHtmlBlock } from "@/lib/ufc-weight";
 
 const FLAG_COUNTRY: Record<string, string> = {
   RU: "Rússia",
@@ -60,18 +39,6 @@ const FLAG_COUNTRY: Record<string, string> = {
   AR: "Argentina",
   CO: "Colômbia",
 };
-
-function normalizeWeightClass(raw: string): string {
-  const lower = raw
-    .toLowerCase()
-    .replace(/\s*(luta|feminino|masculino|fight)\s*/gi, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  for (const [key, val] of Object.entries(WEIGHT_CLASS_MAP)) {
-    if (lower.includes(key)) return val;
-  }
-  return "Catchweight";
-}
 
 function slugToName(slug: string): string {
   return slug
@@ -177,11 +144,7 @@ async function scrapeCard(url: string) {
       }
     }
 
-    const weightLines = block.match(/(?:Peso|Weight)[^<\n,]{3,40}/gi) || [];
-    const weight_class =
-      weightLines.length > 0 && weightLines[0]
-        ? normalizeWeightClass(weightLines[0])
-        : "Catchweight";
+    const weight_class = extractWeightClassFromHtmlBlock(block);
 
     const is_title_fight =
       /title\s+fight|disputa\s+de\s+t[ií]tulo|championship\s+bout|cintur[aã]o/i.test(

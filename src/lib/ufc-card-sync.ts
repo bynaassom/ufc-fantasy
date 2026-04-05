@@ -4,30 +4,7 @@ import {
   isUsableHeadshotUrl,
   resolveUfcFighterMedia,
 } from "@/lib/ufc-fighter-media";
-
-const WEIGHT_CLASS_MAP: Record<string, string> = {
-  "peso pesado": "Heavyweight",
-  heavyweight: "Heavyweight",
-  "meio-pesado": "LightHeavyweight",
-  "light heavyweight": "LightHeavyweight",
-  "meio pesado": "LightHeavyweight",
-  médio: "Middleweight",
-  middleweight: "Middleweight",
-  "meio-médio": "Welterweight",
-  welterweight: "Welterweight",
-  "meio médio": "Welterweight",
-  leve: "Lightweight",
-  lightweight: "Lightweight",
-  pena: "Featherweight",
-  featherweight: "Featherweight",
-  galo: "Bantamweight",
-  bantamweight: "Bantamweight",
-  mosca: "Flyweight",
-  flyweight: "Flyweight",
-  palha: "Strawweight",
-  strawweight: "Strawweight",
-  atomweight: "Atomweight",
-};
+import { extractWeightClassFromHtmlBlock } from "@/lib/ufc-weight";
 
 const FLAG_COUNTRY: Record<string, string> = {
   RU: "Rússia",
@@ -79,20 +56,6 @@ export type ScrapedCardFight = {
   fighter_a: { name: string; country: string; headshot_url: string };
   fighter_b: { name: string; country: string; headshot_url: string };
 };
-
-function normalizeWeightClass(raw: string): string {
-  const lower = raw
-    .toLowerCase()
-    .replace(/\s*(luta|feminino|masculino|fight|peso\s*)/gi, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  for (const [key, value] of Object.entries(WEIGHT_CLASS_MAP)) {
-    if (lower.includes(key)) return value;
-  }
-
-  return "Catchweight";
-}
 
 function slugToName(slug: string): string {
   return slug
@@ -222,11 +185,7 @@ export async function scrapeUfcEventCard(url: string): Promise<ScrapedCardFight[
       }
     }
 
-    const weightLines = block.match(/(?:Peso|Weight)[^<\n,]{3,40}/gi) || [];
-    const weightClass =
-      weightLines.length > 0 && weightLines[0]
-        ? normalizeWeightClass(weightLines[0])
-        : "Catchweight";
+    const weightClass = extractWeightClassFromHtmlBlock(block);
 
     const isTitleFight =
       /title\s+fight|disputa\s+de\s+t[ií]tulo|championship\s+bout|cintur[aã]o/i.test(

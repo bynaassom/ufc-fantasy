@@ -1,3 +1,5 @@
+import { WEIGHT_CLASS_PT } from "@/lib/ufc-weight";
+
 // UFC unofficial API integration
 // Uses the beta.ufc.com API when available and falls back to scraping
 // the official events page when the unofficial API is unavailable.
@@ -420,14 +422,4 @@ export const WEIGHT_CLASSES = [
   "Heavyweight",
 ];
 
-export const WEIGHT_CLASS_PT: Record<string, string> = {
-  Strawweight: "Palha",
-  Flyweight: "Mosca",
-  Bantamweight: "Galo",
-  Featherweight: "Pena",
-  Lightweight: "Leve",
-  Welterweight: "Meio-Médio",
-  Middleweight: "Médio",
-  "Light Heavyweight": "Meio-Pesado",
-  Heavyweight: "Pesado",
-};
+export { WEIGHT_CLASS_PT };
