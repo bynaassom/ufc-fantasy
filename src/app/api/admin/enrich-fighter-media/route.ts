@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
-import { resolveUfcFighterMedia } from "@/lib/ufc-fighter-media";
+import {
+  isUsableHeadshotUrl,
+  resolveUfcFighterMedia,
+} from "@/lib/ufc-fighter-media";
 import { logAdminAction } from "@/lib/admin-audit";
 
 async function requireAdmin() {
@@ -49,7 +52,7 @@ export async function POST(req: NextRequest) {
   const targets = (fighters || [])
     .filter((fighter: any) =>
       onlyMissing
-        ? !fighter.headshot_url || String(fighter.headshot_url).trim() === ""
+        ? !isUsableHeadshotUrl(fighter.headshot_url)
         : true,
     )
     .slice(0, limit);

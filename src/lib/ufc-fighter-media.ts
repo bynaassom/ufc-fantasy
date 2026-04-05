@@ -8,6 +8,15 @@ type FighterMediaResult = {
   source: "ufc-athlete-page";
 };
 
+export function isUsableHeadshotUrl(value?: string | null) {
+  if (!value) return false;
+  const normalized = value.trim();
+  if (!normalized) return false;
+  if (normalized === "width=" || normalized === "height=") return false;
+  if (normalized.includes("width=") && !normalized.startsWith("http")) return false;
+  return /^https?:\/\/.+\.(png|webp|jpg|jpeg)(\?.*)?$/i.test(normalized);
+}
+
 function toSlug(name: string) {
   return name
     .toLowerCase()
@@ -90,6 +99,37 @@ function extractHeadshotUrl(html: string, base: string) {
   });
 
   return ranked[0] || "";
+}
+
+export function extractEventCardHeadshots(htmlBlock: string, base: string) {
+  const candidates: string[] = [];
+  const imageTagRegex =
+    /<img[^>]+(?:event_fight_card_upper_body|athlete_bio_full_body|athlete_splash)[^>]+(?:src|data-src|srcset)="([^"]+)"/gi;
+
+  let imageTagMatch;
+  while ((imageTagMatch = imageTagRegex.exec(htmlBlock)) !== null) {
+    const raw = imageTagMatch[1]?.split(",")[0]?.trim().split(" ")[0]?.trim();
+    const normalized = absolutizeUfcUrl(decodeEscapedUrl(raw || ""), base);
+    if (isUsableHeadshotUrl(normalized)) {
+      candidates.push(normalized);
+    }
+  }
+
+  const genericRegex =
+    /(https?:\/\/[^\s"'\\]+(?:event_fight_card_upper_body|athlete_bio_full_body|athlete_splash)[^"'\s\\>]+?\.(?:png|webp|jpg|jpeg)|\/images\/styles\/(?:event_fight_card_upper_body|athlete_bio_full_body|athlete_splash)[^"'\s>]+?\.(?:png|webp|jpg|jpeg))/gi;
+
+  let genericMatch;
+  while ((genericMatch = genericRegex.exec(htmlBlock)) !== null) {
+    const normalized = absolutizeUfcUrl(
+      decodeEscapedUrl(genericMatch[1] || ""),
+      base,
+    );
+    if (isUsableHeadshotUrl(normalized)) {
+      candidates.push(normalized);
+    }
+  }
+
+  return unique(candidates);
 }
 
 async function scrapeAthletePage(

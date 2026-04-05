@@ -1,5 +1,9 @@
 import { isAllowedScrapeUrl } from "@/lib/security";
-import { resolveUfcFighterMedia } from "@/lib/ufc-fighter-media";
+import {
+  extractEventCardHeadshots,
+  isUsableHeadshotUrl,
+  resolveUfcFighterMedia,
+} from "@/lib/ufc-fighter-media";
 
 const WEIGHT_CLASS_MAP: Record<string, string> = {
   "peso pesado": "Heavyweight",
@@ -236,12 +240,7 @@ export async function scrapeUfcEventCard(url: string): Promise<ScrapedCardFight[
       countries.push(FLAG_COUNTRY[flagMatch[1].toUpperCase()] || "");
     }
 
-    const headshots: string[] = [];
-    const headshotRegex = /event_fight_card_upper_body[^"']*['"]\s*([^"']+)['"]/g;
-    let headshotMatch;
-    while ((headshotMatch = headshotRegex.exec(block)) !== null) {
-      headshots.push(headshotMatch[1]);
-    }
+    const headshots = extractEventCardHeadshots(block, "https://www.ufc.com.br");
 
     counts[cardType] += 1;
     const fightOrder = counts[cardType];
@@ -274,12 +273,14 @@ export async function scrapeUfcEventCard(url: string): Promise<ScrapedCardFight[
 
 async function ensureFighter(adminSupabase: any, fighter: ScrapedCardFight["fighter_a"]) {
   let candidate = { ...fighter };
-  if (!candidate.headshot_url || !candidate.country) {
+  if (!isUsableHeadshotUrl(candidate.headshot_url) || !candidate.country) {
     const resolved = await resolveUfcFighterMedia(candidate.name);
     if (resolved) {
       candidate = {
         ...candidate,
-        headshot_url: candidate.headshot_url || resolved.headshot_url,
+        headshot_url: isUsableHeadshotUrl(candidate.headshot_url)
+          ? candidate.headshot_url
+          : resolved.headshot_url,
         country: candidate.country || resolved.country,
       };
     }
@@ -297,7 +298,7 @@ async function ensureFighter(adminSupabase: any, fighter: ScrapedCardFight["figh
 
   if (existing) {
     const update: Record<string, unknown> = {};
-    if (!existing.headshot_url && candidate.headshot_url) {
+    if (!isUsableHeadshotUrl(existing.headshot_url) && isUsableHeadshotUrl(candidate.headshot_url)) {
       update.headshot_url = candidate.headshot_url;
     }
     if (!existing.country && candidate.country) {
@@ -321,7 +322,7 @@ async function ensureFighter(adminSupabase: any, fighter: ScrapedCardFight["figh
     .from("fighters")
     .insert({
       name: candidate.name,
-      headshot_url: candidate.headshot_url || "",
+      headshot_url: isUsableHeadshotUrl(candidate.headshot_url) ? candidate.headshot_url : "",
       country: candidate.country || "",
     })
     .select("id")

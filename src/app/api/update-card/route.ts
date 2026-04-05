@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { isAllowedScrapeUrl } from "@/lib/security";
+import { extractEventCardHeadshots } from "@/lib/ufc-fighter-media";
 
 const WEIGHT_CLASS_MAP: Record<string, string> = {
   "peso pesado": "Heavyweight",
@@ -194,10 +195,7 @@ async function scrapeCard(url: string) {
       countries.push(FLAG_COUNTRY[flM[1].toUpperCase()] || "");
     }
 
-    const headshots: string[] = [];
-    const hsRe = /event_fight_card_upper_body[^"']*['"]\s*([^"']+)['"]/g;
-    let hsM;
-    while ((hsM = hsRe.exec(block)) !== null) headshots.push(hsM[1]);
+    const headshots = extractEventCardHeadshots(block, "https://www.ufc.com.br");
 
     counts[card_type] = (counts[card_type] || 0) + 1;
     const fight_order = counts[card_type];
