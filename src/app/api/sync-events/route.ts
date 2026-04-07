@@ -17,6 +17,27 @@ function slugify(value: string) {
     .replace(/^-|-$/g, "");
 }
 
+function getEventSlug(upstreamEvent: UFCEvent) {
+  if (upstreamEvent.eventUrl) {
+    try {
+      const parsed = new URL(upstreamEvent.eventUrl);
+      const match = parsed.pathname.match(/\/event\/([^/?#]+)/i);
+      if (match?.[1]) {
+        return match[1].toLowerCase();
+      }
+    } catch {
+      // fallback below
+    }
+  }
+
+  const numberedEvent = upstreamEvent.name.match(/^UFC\s+(\d+)\b/i);
+  if (numberedEvent?.[1]) {
+    return `ufc-${numberedEvent[1]}`;
+  }
+
+  return slugify(upstreamEvent.name);
+}
+
 function toIsoOrNull(value?: string | null) {
   if (!value) return null;
   const parsed = new Date(value);
@@ -218,7 +239,7 @@ function buildSyncPlan(
     const eventDate = toIsoOrNull(upstreamEvent.date);
     if (!eventDate) continue;
 
-    const slug = slugify(upstreamEvent.name);
+    const slug = getEventSlug(upstreamEvent);
     const picksLockAt = subtractMinutes(eventDate, 30);
     const picksOpenAt = subtractHours(eventDate, 12);
     const dateKey = getDateKey(eventDate);

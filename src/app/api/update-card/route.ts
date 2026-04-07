@@ -59,6 +59,43 @@ function namesMatch(a: string, b: string): boolean {
   return pa[0]?.[0] === pb[0]?.[0];
 }
 
+function absolutizeUfcEventUrl(pathOrUrl: string) {
+  if (!pathOrUrl) return "";
+  if (pathOrUrl.startsWith("http://") || pathOrUrl.startsWith("https://")) {
+    return pathOrUrl;
+  }
+  return `https://www.ufc.com.br${pathOrUrl.startsWith("/") ? pathOrUrl : `/${pathOrUrl}`}`;
+}
+
+function buildEventUrlCandidates(event: {
+  slug?: string | null;
+  name?: string | null;
+  ufc_event_id?: string | null;
+}) {
+  const candidates = new Set<string>();
+
+  if (event.ufc_event_id && /\/event\//i.test(event.ufc_event_id)) {
+    candidates.add(absolutizeUfcEventUrl(event.ufc_event_id));
+  }
+
+  if (event.slug) {
+    candidates.add(absolutizeUfcEventUrl(`/event/${event.slug}`));
+    const numberedSlug = event.slug.match(/^(ufc-\d+)\b/i)?.[1];
+    if (numberedSlug) {
+      candidates.add(absolutizeUfcEventUrl(`/event/${numberedSlug.toLowerCase()}`));
+    }
+  }
+
+  if (event.name) {
+    const numberedName = event.name.match(/^UFC\s+(\d+)\b/i)?.[1];
+    if (numberedName) {
+      candidates.add(absolutizeUfcEventUrl(`/event/ufc-${numberedName}`));
+    }
+  }
+
+  return Array.from(candidates).filter(Boolean);
+}
+
 async function scrapeCard(url: string) {
   const res = await fetch(url, {
     headers: {
@@ -229,19 +266,26 @@ export async function POST(req: NextRequest) {
       { status: 404 },
     );
 
-  // Monta URL do UFC.com a partir do slug do evento
-  const ufcUrl = `https://www.ufc.com.br/event/${event.slug}`;
-  if (!isAllowedScrapeUrl(ufcUrl)) {
+  const candidateUrls = buildEventUrlCandidates(event);
+  if (!candidateUrls.length) {
     return NextResponse.json(
-      { error: "Host não permitido para scraping" },
+      { error: "Não foi possível montar a URL oficial do evento no UFC.com" },
       { status: 400 },
     );
   }
 
-  // Busca card atualizado do UFC.com
   let scrapedFights: any[] = [];
+  let resolvedUrl = "";
   try {
-    scrapedFights = await scrapeCard(ufcUrl);
+    for (const candidateUrl of candidateUrls) {
+      if (!isAllowedScrapeUrl(candidateUrl)) continue;
+      const fights = await scrapeCard(candidateUrl);
+      if (fights.length > 0) {
+        scrapedFights = fights;
+        resolvedUrl = candidateUrl;
+        break;
+      }
+    }
   } catch (e: any) {
     return NextResponse.json(
       { error: `Falha ao buscar UFC.com: ${e.message}` },
@@ -251,9 +295,17 @@ export async function POST(req: NextRequest) {
 
   if (!scrapedFights.length) {
     return NextResponse.json(
-      { error: "Nenhuma luta encontrada na página do UFC.com" },
+      {
+        error: "Nenhuma luta encontrada na página do UFC.com",
+        attempted_urls: candidateUrls,
+      },
       { status: 404 },
     );
+  }
+
+  const resolvedSlug = resolvedUrl.match(/\/event\/([^/?#]+)/i)?.[1];
+  if (resolvedSlug && resolvedSlug !== event.slug) {
+    await adminSupabase.from("events").update({ slug: resolvedSlug }).eq("id", event_id);
   }
 
   // Busca lutas atuais no banco
