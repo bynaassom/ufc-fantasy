@@ -3,6 +3,7 @@ import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { isAllowedScrapeUrl } from "@/lib/security";
 import { logAdminAction } from "@/lib/admin-audit";
+import { assertSameOriginForMutation } from "@/server/api";
 
 // ─── Normalização de nomes ───────────────────────────────────
 function normalize(name: string) {
@@ -155,6 +156,10 @@ export async function POST(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   const syncSecret = process.env.SYNC_SECRET;
   const isExternalCall = syncSecret && authHeader === `Bearer ${syncSecret}`;
+
+  if (!isExternalCall) {
+    assertSameOriginForMutation(req);
+  }
 
   if (!isExternalCall) {
     const supabase = await createClient();

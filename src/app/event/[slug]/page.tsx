@@ -1,8 +1,6 @@
-import { createClient } from "@/lib/supabase/server";
-import { redirect, notFound } from "next/navigation";
+import { notFound } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 import EventPicksClient from "@/components/event/EventPicksClient";
-import { PROFILE_SELECT_FIELDS } from "@/lib/security";
 import {
   formatEventDate,
   isPicksLocked,
@@ -10,6 +8,7 @@ import {
   timeUntilEvent,
   timeUntilPicksOpen,
 } from "@/lib/utils";
+import { getEventPageData } from "@/server/services/app";
 
 interface EventPageProps {
   params: { slug: string };
@@ -18,43 +17,10 @@ interface EventPageProps {
 export const revalidate = 30; // revalida a cada 30s, e imediatamente via revalidatePath
 
 export default async function EventPage({ params }: EventPageProps) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select(PROFILE_SELECT_FIELDS)
-    .eq("id", user.id)
-    .single();
-
-  // Fetch event with fights and fighters
-  const { data: event } = await supabase
-    .from("events")
-    .select(
-      `
-      *,
-      fights (
-        *,
-        fighter_a:fighters!fights_fighter_a_id_fkey(*),
-        fighter_b:fighters!fights_fighter_b_id_fkey(*),
-        winner:fighters!fights_winner_id_fkey(*)
-      )
-    `,
-    )
-    .eq("slug", params.slug)
-    .single();
-
-  if (!event) notFound();
-
-  // Fetch user's existing picks for this event
-  const { data: existingPicks } = await supabase
-    .from("picks")
-    .select("*")
-    .eq("user_id", user.id)
-    .eq("event_id", event.id);
+  const { profile, event, existingPicks } = await getEventPageData(params.slug);
+  if (!event) {
+    notFound();
+  }
 
   const locked = isPicksLocked(event.picks_lock_at);
   const open = isPicksOpen(event.picks_open_at);
@@ -194,7 +160,7 @@ export default async function EventPage({ params }: EventPageProps) {
         <EventPicksClient
           event={event}
           existingPicks={existingPicks || []}
-          userId={user.id}
+          eventSlug={params.slug}
           picksOpen={open}
         />
       </main>

@@ -1,112 +1,39 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import Link from "next/link";
+import { notFound } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 import FightCard from "@/components/event/FightCard";
 import { formatEventDate } from "@/lib/utils";
-import { PROFILE_SELECT_FIELDS } from "@/lib/security";
-import { FightWithFighters, Pick, Profile } from "@/types";
+import type { FightWithFighters, Pick } from "@/types";
+import { getHistoryEventPageData } from "@/server/services/app";
 
-export default function HistoricoEventoPage() {
-  const params = useParams();
-  const router = useRouter();
-  const slug = params.slug as string;
+interface HistoricoEventoPageProps {
+  params: { slug: string };
+}
 
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [event, setEvent] = useState<any>(null);
-  const [picks, setPicks] = useState<Pick[]>([]);
-  const [score, setScore] = useState<{
-    total_points: number;
-    perfect_picks: number;
-  } | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function load() {
-      const sb = createClient();
-      const {
-        data: { user },
-      } = await sb.auth.getUser();
-      if (!user) {
-        router.push("/login");
-        return;
-      }
-
-      const [
-        { data: prof },
-        { data: ev },
-        { data: userPicks },
-        { data: userScore },
-      ] = await Promise.all([
-        sb.from("profiles")
-          .select(PROFILE_SELECT_FIELDS)
-          .eq("id", user.id)
-          .single(),
-        sb
-          .from("events")
-          .select(
-            `
-          id, name, slug, event_date, location, status,
-          fights (
-            *,
-            fighter_a:fighters!fights_fighter_a_id_fkey(*),
-            fighter_b:fighters!fights_fighter_b_id_fkey(*),
-            winner:fighters!fights_winner_id_fkey(*)
-          )
-        `,
-          )
-          .eq("slug", slug)
-          .single(),
-        sb.from("picks").select("*").eq("user_id", user.id),
-        sb
-          .from("event_scores")
-          .select("total_points, perfect_picks")
-          .eq("user_id", user.id)
-          .single(),
-      ]);
-
-      if (!ev) {
-        router.push("/historico");
-        return;
-      }
-
-      setProfile(prof);
-      setEvent(ev);
-      setPicks((userPicks || []).filter((p: Pick) => p.event_id === ev.id));
-      setScore(userScore);
-      setLoading(false);
-    }
-    load();
-  }, [slug, router]);
-
-  if (loading) {
-    return (
-      <div
-        className="min-h-screen flex items-center justify-center"
-        style={{ backgroundColor: "var(--bg)" }}
-      >
-        <div
-          className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin"
-          style={{ borderColor: "var(--red)" }}
-        />
-      </div>
-    );
+export default async function HistoricoEventoPage({
+  params,
+}: HistoricoEventoPageProps) {
+  const { profile, event, picks, score } = await getHistoryEventPageData(
+    params.slug,
+  );
+  if (!event) {
+    notFound();
   }
 
-  if (!event) return null;
-
-  // Ordena lutas: main card primeiro (order asc), depois prelims (order asc)
   const fights: FightWithFighters[] = [...(event.fights || [])].sort(
-    (a: any, b: any) => {
-      if (a.card_type !== b.card_type) return a.card_type === "main" ? -1 : 1;
-      return a.fight_order - b.fight_order;
+    (left, right) => {
+      if (left.card_type !== right.card_type) {
+        return left.card_type === "main" ? -1 : 1;
+      }
+      return left.fight_order - right.fight_order;
     },
   );
 
-  const mainCard = fights.filter((f: any) => f.card_type === "main");
-  const prelims = fights.filter((f: any) => f.card_type === "preliminary");
+  const mainCard = fights.filter((fight) => fight.card_type === "main");
+  const prelims = fights.filter((fight) => fight.card_type === "preliminary");
+  const picksMap = Object.fromEntries(
+    (picks || []).map((pick: Pick) => [pick.fight_id, pick]),
+  ) as Record<string, Pick | undefined>;
 
   return (
     <div
@@ -115,10 +42,9 @@ export default function HistoricoEventoPage() {
     >
       <Navbar profile={profile} />
       <main className="max-w-2xl mx-auto px-4 py-8">
-        {/* Header */}
         <div className="mb-6">
-          <button
-            onClick={() => router.push("/historico")}
+          <Link
+            href="/historico"
             className="flex items-center gap-2 font-condensed font-600 text-xs uppercase tracking-widest mb-4 transition-opacity hover:opacity-70"
             style={{ color: "var(--text-muted)" }}
           >
@@ -133,7 +59,7 @@ export default function HistoricoEventoPage() {
               <path d="M19 12H5M12 5l-7 7 7 7" />
             </svg>
             Histórico
-          </button>
+          </Link>
 
           <h1
             className="font-condensed font-900 text-2xl uppercase tracking-wide"
@@ -148,99 +74,98 @@ export default function HistoricoEventoPage() {
             {formatEventDate(event.event_date)}
             {event.location && ` · ${event.location}`}
           </p>
-
-          {/* Pontuação do usuário */}
-          {score ? (
-            <div
-              className="flex items-center gap-6 mt-4 px-5 py-3"
-              style={{
-                backgroundColor: "var(--bg-card)",
-                borderLeft: "3px solid var(--red)",
-              }}
-            >
-              <div>
-                <p
-                  className="font-condensed font-600 text-xs uppercase tracking-widest"
-                  style={{ color: "var(--text-muted)" }}
-                >
-                  Seus pontos
-                </p>
-                <p
-                  className="font-condensed font-900 text-2xl"
-                  style={{ color: "var(--red)" }}
-                >
-                  {score.total_points}
-                </p>
-              </div>
-              {score.perfect_picks > 0 && (
-                <div>
-                  <p
-                    className="font-condensed font-600 text-xs uppercase tracking-widest"
-                    style={{ color: "var(--text-muted)" }}
-                  >
-                    Cravadas
-                  </p>
-                  <p
-                    className="font-condensed font-900 text-2xl"
-                    style={{ color: "var(--text)" }}
-                  >
-                    {score.perfect_picks}
-                  </p>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div
-              className="mt-4 px-5 py-3"
-              style={{
-                backgroundColor: "var(--bg-card)",
-                border: "1px solid var(--border)",
-              }}
-            >
-              <p
-                className="font-condensed font-600 text-xs uppercase tracking-widest"
-                style={{ color: "var(--text-muted)" }}
-              >
-                Você não fez picks neste evento
-              </p>
-            </div>
-          )}
         </div>
 
-        {/* Main Card */}
+        {score && (
+          <div
+            className="mb-8 p-4 flex items-center justify-between"
+            style={{
+              backgroundColor: "var(--bg-card)",
+              border: "1px solid var(--border)",
+              borderLeft: "3px solid var(--red)",
+            }}
+          >
+            <div>
+              <p
+                className="font-condensed font-700 text-xs uppercase tracking-widest"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                Sua pontuação
+              </p>
+              <p
+                className="font-condensed font-900 text-3xl leading-none mt-1"
+                style={{ color: "var(--red)" }}
+              >
+                {score.total_points}
+              </p>
+            </div>
+            <div className="text-right">
+              <p
+                className="font-condensed font-700 text-xs uppercase tracking-widest"
+                style={{ color: "var(--text-muted)" }}
+              >
+                Cravadas perfeitas
+              </p>
+              <p
+                className="font-condensed font-900 text-xl leading-none mt-1"
+                style={{ color: "var(--text)" }}
+              >
+                {score.perfect_picks || 0}
+              </p>
+            </div>
+          </div>
+        )}
+
         {mainCard.length > 0 && (
           <section className="mb-8">
-            <div className="red-line mb-4">
-              <span className="section-title text-sm">CARD PRINCIPAL</span>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-px flex-1" style={{ backgroundColor: "var(--border)" }} />
+              <h2
+                className="text-sm font-black uppercase tracking-widest px-3 py-1 rounded"
+                style={{ backgroundColor: "var(--red)", color: "white" }}
+              >
+                Card Principal
+              </h2>
+              <div className="h-px flex-1" style={{ backgroundColor: "var(--border)" }} />
             </div>
-            <div className="space-y-3">
+            <div className="space-y-4">
               {mainCard.map((fight) => (
                 <FightCard
                   key={fight.id}
                   fight={fight}
-                  existingPick={picks.find((p) => p.fight_id === fight.id)}
+                  existingPick={picksMap[fight.id]}
                   locked={true}
-                  onPickChange={() => {}}
+                  onPickChange={() => undefined}
                 />
               ))}
             </div>
           </section>
         )}
 
-        {/* Prelims */}
         {prelims.length > 0 && (
-          <section>
-            <div className="red-line mb-4">
-              <span className="section-title text-sm">PRELIMINARES</span>
+          <section className="mb-8">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-px flex-1" style={{ backgroundColor: "var(--border)" }} />
+              <h2
+                className="text-sm font-black uppercase tracking-widest px-3 py-1 rounded"
+                style={{
+                  backgroundColor: "var(--bg-card)",
+                  color: "var(--text)",
+                  border: "1px solid var(--border)",
+                }}
+              >
+                Card Preliminar
+              </h2>
+              <div className="h-px flex-1" style={{ backgroundColor: "var(--border)" }} />
             </div>
-            <div className="space-y-3">
+            <div className="space-y-4">
               {prelims.map((fight) => (
                 <FightCard
                   key={fight.id}
                   fight={fight}
-                  existingPick={picks.find((p) => p.fight_id === fight.id)}
+                  existingPick={picksMap[fight.id]}
                   locked={true}
-                  onPickChange={() => {}}
+                  onPickChange={() => undefined}
                 />
               ))}
             </div>

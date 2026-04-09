@@ -1,10 +1,6 @@
-"use client";
-
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { Event } from "@/types";
+import { getLandingPageData } from "@/server/services/app";
 
 // ============================================================
 // COLOQUE A URL DO BANNER DO EVENTO AQUI (opcional)
@@ -12,34 +8,8 @@ import { Event } from "@/types";
 const EVENT_BANNER_URL = "";
 // ============================================================
 
-export default function LandingPage() {
-  const [currentEvent, setCurrentEvent] = useState<Event | null>(null);
-
-  useEffect(() => {
-    // Garante Khand carregada nesta página client-side
-    if (!document.querySelector("link[data-font='khand']")) {
-      const link = document.createElement("link");
-      link.rel = "stylesheet";
-      link.href =
-        "https://fonts.googleapis.com/css2?family=Khand:wght@400;500;600;700&display=swap";
-      link.setAttribute("data-font", "khand");
-      document.head.appendChild(link);
-    }
-
-    async function fetchEvent() {
-      const supabase = createClient();
-      const { data } = await supabase
-        .from("events")
-        .select("*")
-        .in("status", ["upcoming", "live"])
-        .order("event_date", { ascending: true })
-        .limit(1)
-        .single();
-      if (data) setCurrentEvent(data);
-    }
-    fetchEvent();
-  }, []);
-
+export default async function LandingPage() {
+  const { currentEvent } = await getLandingPageData();
   const bannerUrl = currentEvent?.banner_image_url || EVENT_BANNER_URL || null;
 
   return (
@@ -106,9 +76,8 @@ export default function LandingPage() {
         <div className="absolute inset-0 flex items-center">
           <div className="relative z-20 max-w-6xl mx-auto px-6 w-full">
             <h1
-              className="uppercase leading-none mb-4"
+              className="font-condensed uppercase leading-none mb-4"
               style={{
-                fontFamily: "'Khand', sans-serif",
                 fontWeight: 700,
                 fontSize: "clamp(4rem, 10vw, 9rem)",
                 color: "var(--text)",

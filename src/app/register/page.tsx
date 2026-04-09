@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { createAuthClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 
 export default function RegisterPage() {
@@ -41,7 +41,7 @@ export default function RegisterPage() {
     }
 
     setLoading(true);
-    const supabase = createClient();
+    const supabase = createAuthClient();
 
     const { error } = await supabase.auth.signUp({
       email: form.email,
@@ -67,6 +67,7 @@ export default function RegisterPage() {
     }
 
     router.push(`/home`);
+    setLoading(false);
   }
 
   const inputStyle: React.CSSProperties = {

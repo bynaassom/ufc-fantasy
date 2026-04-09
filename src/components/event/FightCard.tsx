@@ -16,12 +16,16 @@ function nameToSlug(name: string): string {
     .replace(/^-|-$/g, "");
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 interface FightCardProps {
   fight: FightWithFighters;
   existingPick?: Pick;
   locked: boolean;
-  onPickChange: (...args: any[]) => void;
+  onPickChange: (
+    fightId: string,
+    winnerId: string,
+    method: FightMethod,
+    round: number,
+  ) => void;
 }
 
 const METHODS: { value: FightMethod; label: string }[] = [

@@ -7,6 +7,7 @@ import {
 } from "@/lib/ufc-api";
 import { logAdminAction } from "@/lib/admin-audit";
 import { syncScrapedCardForEvent } from "@/lib/ufc-card-sync";
+import { assertSameOriginForMutation } from "@/server/api";
 
 function slugify(value: string) {
   return value
@@ -381,6 +382,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  assertSameOriginForMutation(req);
   const auth = await requireAdmin();
   if (auth.error) return auth.error;
 

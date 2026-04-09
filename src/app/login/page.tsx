@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { createAuthClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 
 export default function LoginPage() {
@@ -14,7 +14,7 @@ export default function LoginPage() {
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    const supabase = createClient();
+    const supabase = createAuthClient();
     const { error } = await supabase.auth.signInWithPassword({
       email: form.email,
       password: form.password,

@@ -4,14 +4,14 @@ import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { FightWithFighters, Pick, FightMethod, EventWithFights } from "@/types";
 import FightCard from "./FightCard";
-import { createClient } from "@/lib/supabase/client";
+import { readApiResponse } from "@/lib/api";
 import { isPicksLocked } from "@/lib/utils";
 import toast from "react-hot-toast";
 
 interface EventPicksClientProps {
   event: EventWithFights;
   existingPicks: Pick[];
-  userId: string;
+  eventSlug: string;
   picksOpen: boolean;
 }
 
@@ -24,7 +24,7 @@ type PendingPick = {
 export default function EventPicksClient({
   event,
   existingPicks,
-  userId,
+  eventSlug,
   picksOpen,
 }: EventPicksClientProps) {
   const router = useRouter();
@@ -83,25 +83,22 @@ export default function EventPicksClient({
     }
 
     setSaving(true);
-    const supabase = createClient();
 
     try {
       const upserts = Object.entries(pendingPicks).map(([fightId, pick]) => ({
-        user_id: userId,
-        fight_id: fightId,
-        event_id: event.id,
-        picked_winner_id: pick.winnerId,
-        picked_method: pick.method,
-        picked_round: pick.round,
-        is_confirmed: true,
-        confirmed_at: new Date().toISOString(),
+        fightId,
+        winnerId: pick.winnerId,
+        method: pick.method,
+        round: pick.round,
       }));
 
-      const { error } = await supabase
-        .from("picks")
-        .upsert(upserts, { onConflict: "user_id,fight_id" });
-
-      if (error) throw error;
+      await readApiResponse<{ savedCount: number }>(
+        await fetch(`/api/events/${eventSlug}/picks`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ picks: upserts }),
+        }),
+      );
 
       toast.success(`✅ ${upserts.length} pick(s) confirmados!`);
       setPendingPicks({});

@@ -3,58 +3,18 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { PROFILE_SELECT_FIELDS } from "@/lib/security";
+import { createAuthClient } from "@/lib/supabase/client";
 import { Profile } from "@/types";
 import { getDisplayName, getDisplaySubtitle } from "@/lib/utils";
 
-// Singleton — fallback para páginas que não passam profile via prop
-let cachedProfile: Profile | null = null;
-
 interface NavbarProps {
-  profile?: Profile | null;
+  profile: Profile;
 }
 
-export default function Navbar({ profile: profileProp }: NavbarProps) {
+export default function Navbar({ profile }: NavbarProps) {
   const pathname = usePathname();
   const router = useRouter();
-
-  // Se vier via prop (server), usa direto. Senão, busca client-side (fallback)
-  const [profile, setProfile] = useState<Profile | null>(
-    profileProp ?? cachedProfile,
-  );
   const [menuOpen, setMenuOpen] = useState(false);
-
-  useEffect(() => {
-    // Se já temos profile (via prop ou cache), não busca novamente
-    if (profile) {
-      if (!cachedProfile) cachedProfile = profile;
-      return;
-    }
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return;
-      supabase
-        .from("profiles")
-        .select(PROFILE_SELECT_FIELDS)
-        .eq("id", user.id)
-        .single()
-        .then(({ data }) => {
-          if (data) {
-            cachedProfile = data;
-            setProfile(data);
-          }
-        });
-    });
-  }, [profile]);
-
-  // Atualiza cache quando prop muda (ex: navegação)
-  useEffect(() => {
-    if (profileProp) {
-      cachedProfile = profileProp;
-      setProfile(profileProp);
-    }
-  }, [profileProp]);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -65,8 +25,7 @@ export default function Navbar({ profile: profileProp }: NavbarProps) {
   }, [menuOpen]);
 
   async function handleLogout() {
-    cachedProfile = null;
-    const supabase = createClient();
+    const supabase = createAuthClient();
     await supabase.auth.signOut();
     router.push("/");
     router.refresh();
@@ -76,7 +35,7 @@ export default function Navbar({ profile: profileProp }: NavbarProps) {
     { href: "/home", label: "INÍCIO" },
     { href: "/ranking", label: "RANKING" },
     { href: "/historico", label: "HISTÓRICO" },
-    ...(profile?.role === "admin" ? [{ href: "/admin", label: "ADMIN" }] : []),
+    ...(profile.role === "admin" ? [{ href: "/admin", label: "ADMIN" }] : []),
   ];
 
   const isActive = (href: string) => pathname.startsWith(href);

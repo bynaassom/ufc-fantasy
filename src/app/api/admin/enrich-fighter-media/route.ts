@@ -5,6 +5,7 @@ import {
   resolveUfcFighterMedia,
 } from "@/lib/ufc-fighter-media";
 import { logAdminAction } from "@/lib/admin-audit";
+import { assertSameOriginForMutation } from "@/server/api";
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -31,6 +32,7 @@ async function requireAdmin() {
 }
 
 export async function POST(req: NextRequest) {
+  assertSameOriginForMutation(req);
   const auth = await requireAdmin();
   if (auth.error) return auth.error;
 

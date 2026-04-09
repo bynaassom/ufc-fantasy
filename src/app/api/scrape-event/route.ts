@@ -3,6 +3,7 @@ import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { isAllowedScrapeUrl } from "@/lib/security";
 import { extractEventCardHeadshots } from "@/lib/ufc-fighter-media";
 import { extractWeightClassFromHtmlBlock } from "@/lib/ufc-weight";
+import { assertSameOriginForMutation } from "@/server/api";
 
 const FLAG_COUNTRY: Record<string, string> = {
   RU: "Rússia",
@@ -59,6 +60,7 @@ function extractText(html: string): string {
 }
 
 export async function POST(req: NextRequest) {
+  assertSameOriginForMutation(req);
   const supabase = await createClient();
   const adminSupabase = await createAdminClient();
 

@@ -1,35 +1,11 @@
-import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 import AdminClient from "@/components/admin/AdminClient";
-import { PROFILE_SELECT_FIELDS } from "@/lib/security";
+import { getAdminPageData } from "@/server/services/app";
 
 export default async function AdminPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const { profile, isAdmin, userId, events, users } = await getAdminPageData();
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select(PROFILE_SELECT_FIELDS)
-    .eq("id", user.id)
-    .single();
-
-  // Debug no terminal — verifique se role está chegando como "admin"
-  console.log(
-    "[Admin] email:",
-    user.email,
-    "| role:",
-    profile?.role,
-    "| raw:",
-    JSON.stringify(profile),
-  );
-
-  // Se não for admin, mostra mensagem em vez de redirecionar silenciosamente
-  // (útil para debug — troque redirect por mensagem temporariamente)
-  if (!profile || profile.role !== "admin") {
+  if (!isAdmin) {
     return (
       <div
         className="min-h-screen flex items-center justify-center"
@@ -62,25 +38,12 @@ export default async function AdminPage() {
             }}
           >
             UPDATE profiles SET role = &apos;admin&apos; WHERE id = &apos;
-            {user.id}&apos;;
+            {userId}&apos;;
           </code>
         </div>
       </div>
     );
   }
-
-  const [eventsRes, usersRes] = await Promise.all([
-    supabase
-      .from("events")
-      .select("*")
-      .order("event_date", { ascending: false })
-      .limit(20),
-    supabase
-      .from("profiles")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(100),
-  ]);
 
   return (
     <div
@@ -108,8 +71,8 @@ export default async function AdminPage() {
         </div>
 
         <AdminClient
-          events={eventsRes.data || []}
-          users={usersRes.data || []}
+          events={events || []}
+          users={users || []}
         />
       </main>
     </div>

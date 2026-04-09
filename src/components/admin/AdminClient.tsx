@@ -1,7 +1,7 @@
 "use client";
 
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { readApiResponse } from "@/lib/api";
 import toast from "react-hot-toast";
 import FighterSearchInput from "./FighterSearchInput";
 
@@ -134,6 +134,22 @@ function AdminEmptyState({ text }: { text: string }) {
   );
 }
 
+async function adminGet<T>(url: string) {
+  return readApiResponse<T>(await fetch(url));
+}
+
+async function adminSend<T>(url: string, init: RequestInit) {
+  return readApiResponse<T>(
+    await fetch(url, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...(init.headers || {}),
+      },
+    }),
+  );
+}
+
 // ─── Main Component ──────────────────────────────────────────
 export default function AdminClient({
   events,
@@ -165,16 +181,15 @@ export default function AdminClient({
   }, [selectedEventId]);
 
   async function loadFights(eventId: string) {
-    const sb = createClient();
-    const { data } = await sb
-      .from("fights")
-      .select(
-        "id, card_type, fight_order, weight_class, is_title_fight, total_rounds, result_confirmed, odds_a, odds_b, ufc_matchup_url, fighter_a:fighters!fighter_a_id(id,name), fighter_b:fighters!fighter_b_id(id,name)",
-      )
-      .eq("event_id", eventId)
-      .order("card_type")
-      .order("fight_order");
-    setEventFights(data || []);
+    try {
+      const data = await adminGet<{ fights: any[] }>(
+        `/api/admin/events/${eventId}/fights`,
+      );
+      setEventFights(data.fights || []);
+    } catch (error: any) {
+      toast.error(error.message);
+      setEventFights([]);
+    }
   }
 
   function switchMain(t: MainTab, sub: SubTab) {
@@ -423,32 +438,10 @@ function EventoPendencias({
     setLoading(true);
     setError("");
     try {
-      const sb = createClient();
-      const { data, error } = await sb
-        .from("fights")
-        .select(
-          "id, event_id, odds_a, odds_b, ufc_matchup_url, fighter_a:fighters!fighter_a_id(name), fighter_b:fighters!fighter_b_id(name), event:events!inner(id, name, status, event_date, picks_open_at, picks_lock_at, ufc_stats_url, banner_image_url)",
-        )
-        .order("event_id");
-
-      if (error) {
-        setError(error.message);
-        setPendingFights([]);
-        return;
-      }
-
-      const normalized = (data || []).map((fight: any) => ({
-        ...fight,
-        fighter_a: Array.isArray(fight.fighter_a)
-          ? fight.fighter_a[0] || null
-          : fight.fighter_a,
-        fighter_b: Array.isArray(fight.fighter_b)
-          ? fight.fighter_b[0] || null
-          : fight.fighter_b,
-        event: Array.isArray(fight.event) ? fight.event[0] || null : fight.event,
-      }));
-
-      setPendingFights(normalized as PendingFight[]);
+      const data = await adminGet<{ fights: PendingFight[] }>(
+        "/api/admin/pending-fights",
+      );
+      setPendingFights((data.fights || []) as PendingFight[]);
     } catch (err) {
       setError(String(err));
       setPendingFights([]);
@@ -978,30 +971,25 @@ function EventoManual({ sortedEvents }: { sortedEvents: any[] }) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const sb = createClient();
-    const slug = form.name
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "");
-    const { error } = await sb
-      .from("events")
-      .insert({ ...form, slug, status: "upcoming" });
-    if (error) {
+    try {
+      await adminSend("/api/admin/events", {
+        method: "POST",
+        body: JSON.stringify(form),
+      });
+      toast.success("Evento criado!");
+      setForm({
+        name: "",
+        location: "",
+        event_date: "",
+        picks_lock_at: "",
+        picks_open_at: "",
+        banner_image_url: "",
+        ufc_stats_url: "",
+      });
+    } catch (error: any) {
       toast.error(error.message);
       return;
     }
-    toast.success("Evento criado!");
-    setForm({
-      name: "",
-      location: "",
-      event_date: "",
-      picks_lock_at: "",
-      picks_open_at: "",
-      banner_image_url: "",
-      ufc_stats_url: "",
-    });
   }
 
   return (
@@ -1619,12 +1607,8 @@ function EventoEditar({
   // Carrega evento completo
   useEffect(() => {
     if (!selectedEventId) return;
-    const sb = createClient();
-    sb.from("events")
-      .select("*")
-      .eq("id", selectedEventId)
-      .single()
-      .then(({ data }) => {
+    adminGet<{ event: any }>(`/api/admin/events/${selectedEventId}`)
+      .then(({ event: data }) => {
         setEventData(data);
         setEditForm({
           name: data?.name || "",
@@ -1640,6 +1624,9 @@ function EventoEditar({
           ufc_stats_url: data?.ufc_stats_url || "",
           status: data?.status || "upcoming",
         });
+      })
+      .catch((error: any) => {
+        toast.error(error.message);
       });
   }, [selectedEventId]);
 
@@ -1651,33 +1638,33 @@ function EventoEditar({
   async function handleSaveEvent(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    const sb = createClient();
-    const { error } = await sb
-      .from("events")
-      .update(editForm)
-      .eq("id", selectedEventId);
     setSaving(false);
-    if (error) {
+    try {
+      await adminSend(`/api/admin/events/${selectedEventId}`, {
+        method: "PATCH",
+        body: JSON.stringify(editForm),
+      });
+      toast.success("Evento atualizado!");
+    } catch (error: any) {
       toast.error(error.message);
       return;
     }
-    toast.success("Evento atualizado!");
   }
 
   async function handleSaveFight(e: React.FormEvent) {
     e.preventDefault();
     if (!editFight) return;
-    const sb = createClient();
-    const { error } = await sb
-      .from("fights")
-      .update({
+    try {
+      await adminSend(`/api/admin/fights/${editFight.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
         weight_class: editFight.weight_class,
         card_type: editFight.card_type,
         is_title_fight: editFight.is_title_fight,
         total_rounds: editFight.total_rounds,
-      })
-      .eq("id", editFight.id);
-    if (error) {
+        }),
+      });
+    } catch (error: any) {
       toast.error(error.message);
       return;
     }
@@ -1688,9 +1675,9 @@ function EventoEditar({
 
   async function handleDeleteFight(fightId: string) {
     if (!confirm("Tem certeza que quer remover essa luta?")) return;
-    const sb = createClient();
-    const { error } = await sb.from("fights").delete().eq("id", fightId);
-    if (error) {
+    try {
+      await adminSend(`/api/admin/fights/${fightId}`, { method: "DELETE" });
+    } catch (error: any) {
       toast.error(error.message);
       return;
     }
@@ -1711,24 +1698,10 @@ function EventoEditar({
     const dragged = newFights.splice(dragItem.current, 1)[0];
     newFights.splice(dragOverItem.current, 0, dragged);
 
-    // Atualiza fight_order mantendo card_type
-    const sb = createClient();
-    const mainFights = newFights.filter((f) => f.card_type === "main");
-    const prelimFights = newFights.filter((f) => f.card_type === "preliminary");
-
-    const updates: Promise<any>[] = [];
-    [...mainFights, ...prelimFights].forEach((f) => {
-      const sameCard = newFights.filter((x) => x.card_type === f.card_type);
-      const orderInCard = sameCard.indexOf(f) + 1;
-      updates.push(
-        sb
-          .from("fights")
-          .update({ fight_order: orderInCard })
-          .eq("id", f.id) as unknown as Promise<any>,
-      );
+    await adminSend(`/api/admin/events/${selectedEventId}/fights/reorder`, {
+      method: "POST",
+      body: JSON.stringify({ fightIds: newFights.map((fight) => fight.id) }),
     });
-
-    await Promise.all(updates);
     dragItem.current = null;
     dragOverItem.current = null;
     toast.success("Ordem atualizada!");
@@ -2309,51 +2282,12 @@ function LutasNova({
       toast.error("Selecione um evento.");
       return;
     }
-    const sb = createClient();
-    const ids: { a: string; b: string } = { a: "", b: "" };
-    for (const side of ["a", "b"] as const) {
-      const f = form[`fighter_${side}`];
-      const { data: existing } = await sb
-        .from("fighters")
-        .select("id")
-        .eq("name", f.name)
-        .limit(1)
-        .single();
-      if (existing) {
-        if (f.headshot_url)
-          await sb
-            .from("fighters")
-            .update({ headshot_url: f.headshot_url, country: f.country })
-            .eq("id", existing.id);
-        ids[side] = existing.id;
-      } else {
-        const { data, error } = await sb
-          .from("fighters")
-          .insert({
-            name: f.name,
-            headshot_url: f.headshot_url,
-            country: f.country,
-          })
-          .select("id")
-          .single();
-        if (error) {
-          toast.error(`Erro: ${error.message}`);
-          return;
-        }
-        ids[side] = data.id;
-      }
-    }
-    const { error } = await sb.from("fights").insert({
-      event_id: selectedEventId,
-      fighter_a_id: ids.a,
-      fighter_b_id: ids.b,
-      weight_class: form.weight_class,
-      is_title_fight: form.is_title_fight,
-      total_rounds: form.total_rounds,
-      card_type: form.card_type,
-      fight_order: form.fight_order,
-    });
-    if (error) {
+    try {
+      await adminSend(`/api/admin/events/${selectedEventId}/fights`, {
+        method: "POST",
+        body: JSON.stringify(form),
+      });
+    } catch (error: any) {
       toast.error(error.message);
       return;
     }
@@ -2561,12 +2495,15 @@ function LutasOdds({
       toast.error("Selecione uma luta.");
       return;
     }
-    const sb = createClient();
-    const { error } = await sb
-      .from("fights")
-      .update({ odds_a: form.odds_a || null, odds_b: form.odds_b || null })
-      .eq("id", fightId);
-    if (error) {
+    try {
+      await adminSend(`/api/admin/fights/${fightId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          odds_a: form.odds_a || null,
+          odds_b: form.odds_b || null,
+        }),
+      });
+    } catch (error: any) {
       toast.error(error.message);
       return;
     }
@@ -2577,7 +2514,6 @@ function LutasOdds({
   }
 
   async function handleSaveAllOdds() {
-    const sb = createClient();
     const changed = eventFights.filter((fight: any) => {
       const current = bulkOdds[fight.id];
       if (!current) return false;
@@ -2602,26 +2538,27 @@ function LutasOdds({
     }
 
     setSync({ loading: true, msg: "" });
-    for (const fight of changed) {
-      const current = bulkOdds[fight.id];
-      const { error } = await sb
-        .from("fights")
-        .update({
-          odds_a: current.odds_a || null,
-          odds_b: current.odds_b || null,
-        })
-        .eq("id", fight.id);
-
-      if (error) {
-        setSync({ loading: false, msg: error.message });
-        toast.error(error.message);
-        return;
-      }
+    try {
+      await adminSend(`/api/admin/events/${selectedEventId}/fights/odds`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          updates: changed.map((fight: any) => ({
+            fightId: fight.id,
+            odds_a: bulkOdds[fight.id]?.odds_a || null,
+            odds_b: bulkOdds[fight.id]?.odds_b || null,
+          })),
+        }),
+      });
+      setSync({
+        loading: false,
+        msg: `${changed.length} luta(s) atualizadas em lote`,
+      });
+      toast.success(`${changed.length} luta(s) atualizadas em lote`);
+      loadFights(selectedEventId);
+    } catch (error: any) {
+      setSync({ loading: false, msg: error.message });
+      toast.error(error.message);
     }
-
-    setSync({ loading: false, msg: `${changed.length} luta(s) atualizadas em lote` });
-    toast.success(`${changed.length} luta(s) atualizadas em lote`);
-    loadFights(selectedEventId);
   }
 
   async function handlePreviewSync() {
@@ -3014,12 +2951,12 @@ function LutasLinks({
       toast.error("Selecione uma luta.");
       return;
     }
-    const sb = createClient();
-    const { error } = await sb
-      .from("fights")
-      .update({ ufc_matchup_url: url || null })
-      .eq("id", fightId);
-    if (error) {
+    try {
+      await adminSend(`/api/admin/fights/${fightId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ ufc_matchup_url: url || null }),
+      });
+    } catch (error: any) {
       toast.error(error.message);
       return;
     }
@@ -3030,7 +2967,6 @@ function LutasLinks({
   }
 
   async function handleSaveAllLinks() {
-    const sb = createClient();
     const changed = eventFights.filter(
       (fight: any) => (fight.ufc_matchup_url || "") !== (bulkLinks[fight.id] || ""),
     );
@@ -3050,20 +2986,21 @@ function LutasLinks({
       return;
     }
 
-    for (const fight of changed) {
-      const { error } = await sb
-        .from("fights")
-        .update({ ufc_matchup_url: bulkLinks[fight.id] || null })
-        .eq("id", fight.id);
-
-      if (error) {
-        toast.error(error.message);
-        return;
-      }
+    try {
+      await adminSend(`/api/admin/events/${selectedEventId}/fights/links`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          updates: changed.map((fight: any) => ({
+            fightId: fight.id,
+            value: bulkLinks[fight.id] || null,
+          })),
+        }),
+      });
+      toast.success(`${changed.length} link(s) atualizados em lote`);
+      loadFights(selectedEventId);
+    } catch (error: any) {
+      toast.error(error.message);
     }
-
-    toast.success(`${changed.length} link(s) atualizados em lote`);
-    loadFights(selectedEventId);
   }
 
   const changedCount = eventFights.filter(
@@ -3770,18 +3707,8 @@ function OperacoesFighters() {
     setLoading(true);
     setError("");
     try {
-      const sb = createClient();
-      const { data, error } = await sb
-        .from("fighters")
-        .select("id, name, country, ufc_fighter_id")
-        .order("name");
-
-      if (error) {
-        setError(error.message);
-        setFighters([]);
-      } else {
-        setFighters(data || []);
-      }
+      const data = await adminGet<{ fighters: any[] }>("/api/admin/fighters");
+      setFighters(data.fighters || []);
     } catch (err) {
       setError(String(err));
       setFighters([]);
@@ -4354,20 +4281,9 @@ function OperacoesAuditoria({ users }: { users: any[] }) {
     setLoading(true);
     setError("");
     try {
-      const sb = createClient();
-      const { data, error } = await sb
-        .from("activity_logs")
-        .select("id, user_id, action, details, suspicious, created_at")
-        .order("created_at", { ascending: false })
-        .limit(200);
-
-      if (error) {
-        setError(error.message);
-        setLogs([]);
-      } else {
-        setLogs(data || []);
-        setPage(1);
-      }
+      const data = await adminGet<{ logs: any[] }>("/api/admin/audit-logs");
+      setLogs(data.logs || []);
+      setPage(1);
     } catch (err) {
       setError(String(err));
       setLogs([]);
@@ -4585,36 +4501,17 @@ function ResManual({
       toast.error("Selecione uma luta.");
       return;
     }
-    const sb = createClient();
-    const { data: fd } = await sb
-      .from("fights")
-      .select("fighter_a_id, fighter_b_id")
-      .eq("id", fightId)
-      .single();
-    const winnerId =
-      form.winner_side === "a" ? fd?.fighter_a_id : fd?.fighter_b_id;
-    const round = form.method === "decision" ? 3 : form.round;
-    const { error } = await sb
-      .from("fights")
-      .update({
-        winner_id: winnerId,
-        result_method: form.method,
-        result_round: round,
-        result_confirmed: true,
-      })
-      .eq("id", fightId);
-    if (error) {
+    try {
+      await adminSend(`/api/admin/fights/${fightId}/result`, {
+        method: "POST",
+        body: JSON.stringify(form),
+      });
+      toast.success("Resultado inserido e picks pontuados!");
+      loadFights(selectedEventId);
+      setFightId("");
+    } catch (error: any) {
       toast.error(error.message);
-      return;
     }
-    await fetch("/api/results/score", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fight_id: fightId }),
-    });
-    toast.success("Resultado inserido e picks pontuados!");
-    loadFights(selectedEventId);
-    setFightId("");
   }
 
   return (
@@ -4745,12 +4642,12 @@ function ResManual({
 // ─── USUÁRIOS ────────────────────────────────────────────────
 function Usuarios({ userList, setUserList }: any) {
   async function toggleBan(userId: string, currentBan: boolean) {
-    const sb = createClient();
-    const { error } = await sb
-      .from("profiles")
-      .update({ is_banned: !currentBan })
-      .eq("id", userId);
-    if (error) {
+    try {
+      await adminSend(`/api/admin/users/${userId}/ban`, {
+        method: "POST",
+        body: JSON.stringify({ currentBan }),
+      });
+    } catch (error: any) {
       toast.error(error.message);
       return;
     }
@@ -4764,12 +4661,12 @@ function Usuarios({ userList, setUserList }: any) {
 
   async function toggleRole(userId: string, currentRole: string) {
     const newRole = currentRole === "admin" ? "user" : "admin";
-    const sb = createClient();
-    const { error } = await sb
-      .from("profiles")
-      .update({ role: newRole })
-      .eq("id", userId);
-    if (error) {
+    try {
+      await adminSend(`/api/admin/users/${userId}/role`, {
+        method: "POST",
+        body: JSON.stringify({ currentRole }),
+      });
+    } catch (error: any) {
       toast.error(error.message);
       return;
     }

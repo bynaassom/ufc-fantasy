@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState, Suspense } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { createAuthClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 
 function VerifyEmailContent() {
@@ -18,7 +18,7 @@ function VerifyEmailContent() {
       return;
     }
     setResending(true);
-    const supabase = createClient();
+    const supabase = createAuthClient();
     const { error } = await supabase.auth.resend({ type: "signup", email });
     if (error) {
       toast.error("Erro ao reenviar. Tente novamente em alguns minutos.");

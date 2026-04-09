@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { logAdminAction } from "@/lib/admin-audit";
+import { assertSameOriginForMutation } from "@/server/api";
 
 const ODDS_API_KEY = process.env.ODDS_API_KEY!;
 const ODDS_API_BASE = "https://api.the-odds-api.com/v4";
@@ -216,6 +217,7 @@ async function buildOddsPreview(
 }
 
 export async function POST(req: NextRequest) {
+  assertSameOriginForMutation(req);
   const auth = await requireAdmin();
   if (auth.error) return auth.error;
 

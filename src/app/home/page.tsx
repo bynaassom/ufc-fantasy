@@ -1,54 +1,20 @@
-import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 import Link from "next/link";
 import Image from "next/image";
-import { Event } from "@/types";
 import {
   formatEventDate,
   isPicksLocked,
   timeUntilEvent,
   getDisplayName,
 } from "@/lib/utils";
-import { PROFILE_SELECT_FIELDS } from "@/lib/security";
+import { getHomePageData } from "@/server/services/app";
+import type { Event as FantasyEvent } from "@/types";
 
 export const revalidate = 60; // revalida a cada 60s
 
 export default async function HomePage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select(PROFILE_SELECT_FIELDS)
-    .eq("id", user.id)
-    .single();
-  if (profile?.is_banned) redirect("/login");
-
-  const { data: events } = await supabase
-    .from("events")
-    .select("*")
-    .order("event_date", { ascending: true })
-    .limit(10);
-
-  const currentEvent = events?.find(
-    (e: Event) => e.status === "live" || e.status === "upcoming",
-  );
-  const upcomingEvents =
-    events?.filter(
-      (e: Event) => e.status === "upcoming" && e.id !== currentEvent?.id,
-    ) || [];
-  const completedEvents =
-    events
-      ?.filter((e: Event) => e.status === "completed")
-      .sort(
-        (a: Event, b: Event) =>
-          new Date(b.event_date).getTime() - new Date(a.event_date).getTime(),
-      )
-      .slice(0, 3) || [];
+  const { profile, currentEvent, upcomingEvents, completedEvents } =
+    await getHomePageData();
 
   return (
     <div
@@ -248,7 +214,7 @@ export default async function HomePage() {
               className="space-y-0"
               style={{ border: "1px solid var(--border)" }}
             >
-              {upcomingEvents.map((event: Event, i: number) => (
+              {upcomingEvents.map((event: FantasyEvent, i: number) => (
                 <div
                   key={event.id}
                   className="flex items-center justify-between px-5 py-4"
@@ -310,7 +276,7 @@ export default async function HomePage() {
               className="space-y-0"
               style={{ border: "1px solid var(--border)" }}
             >
-              {completedEvents.map((event: Event, i: number) => (
+              {completedEvents.map((event: FantasyEvent, i: number) => (
                 <Link
                   key={event.id}
                   href={`/historico/${event.slug}`}

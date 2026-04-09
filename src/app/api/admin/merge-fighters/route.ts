@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { logAdminAction } from "@/lib/admin-audit";
+import { assertSameOriginForMutation } from "@/server/api";
 
 type FighterRecord = {
   id: string;
@@ -35,6 +36,7 @@ async function requireAdmin() {
 }
 
 export async function POST(req: NextRequest) {
+  assertSameOriginForMutation(req);
   const auth = await requireAdmin();
   if (auth.error) return auth.error;
 

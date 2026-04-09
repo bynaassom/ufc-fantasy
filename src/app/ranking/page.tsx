@@ -1,7 +1,15 @@
-import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
-import { PROFILE_SELECT_FIELDS } from "@/lib/security";
+import { getRankingPageData } from "@/server/services/app";
+
+type RankingRow = {
+  rank: number;
+  nickname: string;
+  first_name: string;
+  last_name: string;
+  points: number;
+  perfect_picks: number;
+  userId: string;
+};
 
 export const dynamic = "force-dynamic";
 
@@ -10,89 +18,11 @@ export default async function RankingPage({
 }: {
   searchParams: { tab?: string };
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select(PROFILE_SELECT_FIELDS)
-    .eq("id", user.id)
-    .single();
-
   const tab = searchParams.tab === "evento" ? "evento" : "geral";
-
-  // Ranking geral
-  const { data: globalRanking } = await supabase
-    .from("ranking_profiles")
-    .select("id, nickname, first_name, last_name, total_points")
-    .order("total_points", { ascending: false })
-    .limit(100);
-
-  // Evento atual (upcoming ou live)
-  const { data: currentEvent } = await supabase
-    .from("events")
-    .select("id, name")
-    .in("status", ["upcoming", "live"])
-    .order("event_date", { ascending: true })
-    .limit(1)
-    .single();
-
-  // Ranking do evento atual
-  let eventRanking: any[] = [];
-  if (currentEvent) {
-    const { data } = await supabase
-      .from("event_scores")
-      .select("user_id, total_points, perfect_picks")
-      .eq("event_id", currentEvent.id)
-      .order("total_points", { ascending: false })
-      .order("perfect_picks", { ascending: false })
-      .limit(100);
-
-    const userIds = (data || []).map((r: any) => r.user_id);
-    const { data: rankingProfiles } = userIds.length
-      ? await supabase
-          .from("ranking_profiles")
-          .select("id, nickname, first_name, last_name, total_points")
-          .in("id", userIds)
-      : { data: [] };
-
-    const rankingProfilesMap = new Map(
-      (rankingProfiles || []).map((entry: any) => [entry.id, entry]),
-    );
-
-    eventRanking = (data || [])
-      .map((entry: any) => ({
-        ...entry,
-        profile: rankingProfilesMap.get(entry.user_id) || null,
-      }))
-      .filter((entry: any) => entry.profile);
-  }
-
-  const geralList = (globalRanking || []).map((p: any, i: number) => ({
-    rank: i + 1,
-    nickname: p.nickname,
-    first_name: p.first_name,
-    last_name: p.last_name,
-    points: p.total_points,
-    perfect_picks: 0,
-    userId: p.id,
-  }));
-
-  const eventoList = eventRanking.map((r: any, i: number) => ({
-    rank: i + 1,
-    nickname: r.profile.nickname,
-    first_name: r.profile.first_name,
-    last_name: r.profile.last_name,
-    points: r.total_points,
-    perfect_picks: r.perfect_picks,
-    userId: r.user_id,
-  }));
-
-  const displayRanking = tab === "evento" ? eventoList : geralList;
-  const myRank = displayRanking.find((r) => r.userId === user.id);
+  const { profile, currentEvent, displayRanking, myRank } =
+    await getRankingPageData(tab);
+  const ranking = displayRanking as RankingRow[];
+  const currentMyRank = myRank as RankingRow | null;
 
   return (
     <div
@@ -141,7 +71,7 @@ export default async function RankingPage({
         </div>
 
         {/* Minha posição */}
-        {myRank && (
+        {currentMyRank && (
           <div
             className="mb-5 flex items-center gap-4 px-5 py-4"
             style={{
@@ -154,15 +84,15 @@ export default async function RankingPage({
               className="font-condensed font-900 text-3xl"
               style={{ color: "var(--red)" }}
             >
-              #{myRank.rank}
+              #{currentMyRank.rank}
             </span>
             <div className="flex-1">
               <p
                 className="font-condensed font-900 text-base uppercase tracking-wide"
                 style={{ color: "var(--red)" }}
               >
-                {myRank.nickname ||
-                  `${myRank.first_name} ${myRank.last_name}`.trim()}{" "}
+                {currentMyRank.nickname ||
+                  `${currentMyRank.first_name} ${currentMyRank.last_name}`.trim()}{" "}
                 <span
                   className="text-xs font-700"
                   style={{ color: "var(--text-muted)" }}
@@ -170,12 +100,12 @@ export default async function RankingPage({
                   (você)
                 </span>
               </p>
-              {myRank.nickname && (
+              {currentMyRank.nickname && (
                 <p
                   className="font-condensed font-600 text-xs uppercase tracking-widest"
                   style={{ color: "var(--text-secondary)" }}
                 >
-                  {myRank.first_name} {myRank.last_name}
+                  {currentMyRank.first_name} {currentMyRank.last_name}
                 </p>
               )}
             </div>
@@ -184,7 +114,7 @@ export default async function RankingPage({
                 className="font-condensed font-900 text-2xl"
                 style={{ color: "var(--red)" }}
               >
-                {myRank.points}
+                {currentMyRank.points}
               </p>
               <p
                 className="font-condensed font-600 text-xs uppercase tracking-widest"
@@ -197,7 +127,7 @@ export default async function RankingPage({
         )}
 
         {/* Aviso se aba evento sem dados */}
-        {tab === "evento" && eventoList.length === 0 && (
+        {tab === "evento" && ranking.length === 0 && (
           <div
             className="py-12 text-center"
             style={{ border: "1px solid var(--border)" }}
@@ -212,7 +142,7 @@ export default async function RankingPage({
         )}
 
         {/* Tabela */}
-        {displayRanking.length > 0 && (
+        {ranking.length > 0 && (
           <>
             <div
               className="grid grid-cols-12 px-4 py-2"
@@ -250,8 +180,8 @@ export default async function RankingPage({
             <div
               style={{ border: "1px solid var(--border)", borderTop: "none" }}
             >
-              {displayRanking.map((entry, index) => {
-                const isMe = entry.userId === user.id;
+              {ranking.map((entry, index) => {
+                const isMe = entry.userId === profile.id;
                 const medalColors = ["#FFD700", "#C0C0C0", "#CD7F32"];
                 return (
                   <div
@@ -262,7 +192,7 @@ export default async function RankingPage({
                         ? "rgba(232,0,26,0.04)"
                         : "transparent",
                       borderBottom:
-                        index < displayRanking.length - 1
+                        index < ranking.length - 1
                           ? "1px solid var(--border-light)"
                           : "none",
                       borderLeft: isMe

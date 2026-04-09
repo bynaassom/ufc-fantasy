@@ -1,41 +1,18 @@
-import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 import Link from "next/link";
 import { formatEventDate } from "@/lib/utils";
-import { PROFILE_SELECT_FIELDS } from "@/lib/security";
+import { getHistoryPageData } from "@/server/services/app";
+import type { Event as FantasyEvent } from "@/types";
 
 export const revalidate = 3600;
 
 export default async function HistoricoPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select(PROFILE_SELECT_FIELDS)
-    .eq("id", user.id)
-    .single();
-
-  // Busca eventos completados + pontuação do usuário em cada um
-  const { data: events } = await supabase
-    .from("events")
-    .select("id, name, slug, event_date, location, banner_image_url")
-    .eq("status", "completed")
-    .order("event_date", { ascending: false });
-
-  // Busca pontuação do usuário em cada evento
-  const { data: userScores } = await supabase
-    .from("event_scores")
-    .select("event_id, total_points, perfect_picks")
-    .eq("user_id", user.id);
-
-  const scoresMap = Object.fromEntries(
-    (userScores || []).map((s) => [s.event_id, s]),
-  );
+  const { profile, events, scoresMap } = await getHistoryPageData();
+  const historyEvents = events as FantasyEvent[];
+  const historyScores = scoresMap as Record<
+    string,
+    { total_points: number; perfect_picks: number } | undefined
+  >;
 
   return (
     <div
@@ -52,7 +29,7 @@ export default async function HistoricoPage() {
           </div>
         </div>
 
-        {!events?.length ? (
+        {!historyEvents.length ? (
           <div
             className="py-16 text-center"
             style={{ border: "1px solid var(--border)" }}
@@ -69,8 +46,8 @@ export default async function HistoricoPage() {
             className="space-y-0"
             style={{ border: "1px solid var(--border)" }}
           >
-            {events.map((event, i) => {
-              const score = scoresMap[event.id];
+            {historyEvents.map((event, i) => {
+              const score = historyScores[event.id];
               return (
                 <Link
                   key={event.id}
@@ -78,7 +55,7 @@ export default async function HistoricoPage() {
                   className="flex items-center justify-between px-5 py-4 transition-colors hover:bg-white/5"
                   style={{
                     borderBottom:
-                      i < events.length - 1
+                      i < historyEvents.length - 1
                         ? "1px solid var(--border)"
                         : "none",
                     borderLeft: score

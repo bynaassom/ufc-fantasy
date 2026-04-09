@@ -1,0 +1,30 @@
+{
+  "extends": ["next/core-web-vitals"],
+  "overrides": [
+    {
+      "files": ["src/components/**/*.{ts,tsx}", "src/app/**/*.{ts,tsx}"],
+      "excludedFiles": ["src/app/api/**/*", "src/app/auth/callback/**/*"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "@supabase/ssr",
+                "message": "Use the auth-only browser client or server-side services instead of importing Supabase SSR helpers directly in app/components code."
+              },
+              {
+                "name": "@supabase/supabase-js",
+                "message": "Use the auth-only browser client or server-side services instead of importing Supabase clients directly in app/components code."
+              },
+              {
+                "name": "@/lib/supabase/server",
+                "message": "Use the server-side service layer instead of importing the raw server Supabase helper in app/components code."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
