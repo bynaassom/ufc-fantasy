@@ -69,3 +69,26 @@ export async function updateProfileBan(
   if (error) throw error;
   return data;
 }
+
+export async function findPublicProfileByNickname(client: any, nickname: string) {
+  const { data, error } = await client
+    .from("ranking_profiles")
+    .select("id, nickname, first_name, last_name, total_points")
+    .eq("nickname", nickname)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function findPublicProfilesByIds(client: any, userIds: string[]) {
+  if (!userIds.length) return [];
+
+  const { data, error } = await client
+    .from("ranking_profiles")
+    .select("id, nickname, first_name, last_name, total_points")
+    .in("id", userIds);
+
+  if (error) throw error;
+  return data || [];
+}

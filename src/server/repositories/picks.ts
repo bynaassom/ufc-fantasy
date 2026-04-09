@@ -35,3 +35,28 @@ export async function upsertUserPicks(
   if (error) throw error;
   return data || [];
 }
+
+export async function listPicksForUsersEvent(
+  client: any,
+  userIds: string[],
+  eventId: string,
+) {
+  const { data, error } = await client
+    .from("picks")
+    .select(
+      `
+      *,
+      fight:fights(
+        *,
+        fighter_a:fighters!fights_fighter_a_id_fkey(*),
+        fighter_b:fighters!fights_fighter_b_id_fkey(*),
+        winner:fighters!fights_winner_id_fkey(*)
+      )
+    `,
+    )
+    .eq("event_id", eventId)
+    .in("user_id", userIds);
+
+  if (error) throw error;
+  return data || [];
+}

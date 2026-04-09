@@ -2,6 +2,17 @@ export type FightMethod = "decision" | "submission" | "knockout";
 export type EventStatus = "upcoming" | "live" | "completed";
 export type FightCardType = "main" | "preliminary";
 export type UserRole = "user" | "admin";
+export type ChallengeStatus =
+  | "pending"
+  | "accepted"
+  | "declined"
+  | "expired"
+  | "completed";
+export type NotificationType =
+  | "challenge_received"
+  | "challenge_accepted"
+  | "challenge_declined"
+  | "challenge_result";
 
 export interface Profile {
   id: string;
@@ -14,6 +25,14 @@ export interface Profile {
   total_points: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface PublicProfileSummary {
+  id: string;
+  nickname: string;
+  first_name: string;
+  last_name: string;
+  total_points: number;
 }
 
 export interface Event {
@@ -105,6 +124,41 @@ export interface ActivityLog {
   profile?: Profile;
 }
 
+export interface Challenge {
+  id: string;
+  event_id: string;
+  challenger_id: string;
+  challenged_id: string;
+  status: ChallengeStatus;
+  winner_user_id?: string | null;
+  responded_at?: string | null;
+  completed_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  event?: Event | null;
+  challenger?: PublicProfileSummary | null;
+  challenged?: PublicProfileSummary | null;
+}
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  target_path?: string | null;
+  challenge_id?: string | null;
+  read_at?: string | null;
+  created_at: string;
+}
+
+export interface PublicProfileStats {
+  challenges_total: number;
+  challenges_won: number;
+  pick_accuracy: number;
+  average_rank: number | null;
+}
+
 export interface FightWithFighters extends Fight {
   fighter_a: Fighter;
   fighter_b: Fighter;
@@ -112,6 +166,12 @@ export interface FightWithFighters extends Fight {
 
 export interface EventWithFights extends Event {
   fights: FightWithFighters[];
+}
+
+export interface ChallengeFightComparison {
+  fight: FightWithFighters;
+  challengerPick?: Pick | null;
+  challengedPick?: Pick | null;
 }
 
 export interface RankingEntry {

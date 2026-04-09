@@ -1,4 +1,11 @@
-import type { FightMethod, Profile } from "@/types";
+import type {
+  Challenge,
+  FightMethod,
+  Notification,
+  Profile,
+  PublicProfileStats,
+  PublicProfileSummary,
+} from "@/types";
 
 export type ApiSuccess<T> = {
   ok: true;
@@ -37,6 +44,37 @@ export type SaveEventPicksPayload = {
 
 export type SaveEventPicksResponse = {
   savedCount: number;
+};
+
+export type CreateChallengePayload = {
+  challengedId: string;
+  eventId: string;
+};
+
+export type ChallengeActionPayload = {
+  action: "accept" | "decline";
+};
+
+export type ChallengeResponse = {
+  challenge: Challenge;
+};
+
+export type NotificationsResponse = {
+  notifications: Notification[];
+  unreadCount: number;
+};
+
+export type PublicProfileResponse = {
+  profile: PublicProfileSummary;
+  stats: PublicProfileStats;
+  currentEvent: {
+    id: string;
+    name: string;
+    slug: string;
+    picks_lock_at: string;
+  } | null;
+  existingChallenge: Challenge | null;
+  canChallenge: boolean;
 };
 
 export type AdminEventPayload = {

@@ -1,4 +1,5 @@
 import Navbar from "@/components/layout/Navbar";
+import Link from "next/link";
 import { getRankingPageData } from "@/server/services/app";
 
 type RankingRow = {
@@ -220,37 +221,42 @@ export default async function RankingPage({
                         </span>
                       )}
                     </div>
-                    <div className="col-span-9 flex items-center gap-3">
-                      <div
-                        className="w-7 h-7 flex items-center justify-center font-condensed font-900 text-xs flex-shrink-0"
-                        style={{
-                          backgroundColor: isMe
-                            ? "var(--red)"
-                            : "var(--bg-elevated)",
-                          color: isMe ? "white" : "var(--text-secondary)",
-                        }}
+                    <div className="col-span-9">
+                      <Link
+                        href={`/jogador/${entry.nickname}`}
+                        className="flex items-center gap-3 hover:opacity-80 transition-opacity"
                       >
-                        {(entry.nickname ||
-                          entry.first_name ||
-                          "?")[0].toUpperCase()}
-                      </div>
-                      <div>
-                        <p
-                          className="font-condensed font-900 text-sm uppercase tracking-wide leading-tight"
-                          style={{ color: isMe ? "var(--red)" : "var(--text)" }}
+                        <div
+                          className="w-7 h-7 flex items-center justify-center font-condensed font-900 text-xs flex-shrink-0"
+                          style={{
+                            backgroundColor: isMe
+                              ? "var(--red)"
+                              : "var(--bg-elevated)",
+                            color: isMe ? "white" : "var(--text-secondary)",
+                          }}
                         >
-                          {entry.nickname ||
-                            `${entry.first_name} ${entry.last_name}`.trim()}
-                        </p>
-                        {entry.nickname && (
+                          {(entry.nickname ||
+                            entry.first_name ||
+                            "?")[0].toUpperCase()}
+                        </div>
+                        <div>
                           <p
-                            className="font-condensed font-600 text-xs uppercase tracking-widest"
-                            style={{ color: "var(--text-muted)" }}
+                            className="font-condensed font-900 text-sm uppercase tracking-wide leading-tight"
+                            style={{ color: isMe ? "var(--red)" : "var(--text)" }}
                           >
-                            {entry.first_name} {entry.last_name}
+                            {entry.nickname ||
+                              `${entry.first_name} ${entry.last_name}`.trim()}
                           </p>
-                        )}
-                      </div>
+                          {entry.nickname && (
+                            <p
+                              className="font-condensed font-600 text-xs uppercase tracking-widest"
+                              style={{ color: "var(--text-muted)" }}
+                            >
+                              {entry.first_name} {entry.last_name}
+                            </p>
+                          )}
+                        </div>
+                      </Link>
                     </div>
                     <div className="col-span-2 text-right">
                       <span

@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { createAuthClient } from "@/lib/supabase/client";
 import { Profile } from "@/types";
 import { getDisplayName, getDisplaySubtitle } from "@/lib/utils";
+import NotificationBell from "./NotificationBell";
 
 interface NavbarProps {
   profile: Profile;
@@ -33,6 +34,7 @@ export default function Navbar({ profile }: NavbarProps) {
 
   const navLinks = [
     { href: "/home", label: "INÍCIO" },
+    { href: "/desafios", label: "DESAFIOS" },
     { href: "/ranking", label: "RANKING" },
     { href: "/historico", label: "HISTÓRICO" },
     ...(profile.role === "admin" ? [{ href: "/admin", label: "ADMIN" }] : []),
@@ -88,6 +90,9 @@ export default function Navbar({ profile }: NavbarProps) {
           </div>
 
           <div className="flex items-center gap-3">
+            {profile && (
+              <NotificationBell />
+            )}
             {profile && (
               <div id="user-menu" className="relative">
                 <button
@@ -267,6 +272,22 @@ export default function Navbar({ profile }: NavbarProps) {
               ),
             },
             {
+              href: "/desafios",
+              label: "DESAFIOS",
+              icon: (
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                >
+                  <path d="M3 12h6l3-7 3 14 3-7h3" />
+                </svg>
+              ),
+            },
+            {
               href: "/ranking",
               label: "RANKING",
               icon: (
@@ -281,23 +302,6 @@ export default function Navbar({ profile }: NavbarProps) {
                   <rect x="18" y="3" width="3" height="18" rx="1" />
                   <rect x="10.5" y="8" width="3" height="13" rx="1" />
                   <rect x="3" y="13" width="3" height="8" rx="1" />
-                </svg>
-              ),
-            },
-            {
-              href: "/historico",
-              label: "HISTÓRICO",
-              icon: (
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                >
-                  <circle cx="12" cy="12" r="10" />
-                  <polyline points="12 6 12 12 9 15" />
                 </svg>
               ),
             },
