@@ -59,7 +59,7 @@ export default function RootLayout({
               background: "var(--bg-card)",
               color: "var(--text)",
               border: "1px solid var(--border)",
-              fontFamily: "'Work Sans', sans-serif",
+              fontFamily: "'Saira Condensed', sans-serif",
             },
             success: {
               iconTheme: { primary: "#EF4444", secondary: "white" },

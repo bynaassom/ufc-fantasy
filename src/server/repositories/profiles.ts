@@ -92,3 +92,15 @@ export async function findPublicProfilesByIds(client: any, userIds: string[]) {
   if (error) throw error;
   return data || [];
 }
+
+export async function listPublicProfiles(client: any, limit = 100) {
+  const { data, error } = await client
+    .from("ranking_profiles")
+    .select("id, nickname, first_name, last_name, total_points")
+    .order("total_points", { ascending: false })
+    .order("nickname", { ascending: true })
+    .limit(limit);
+
+  if (error) throw error;
+  return data || [];
+}

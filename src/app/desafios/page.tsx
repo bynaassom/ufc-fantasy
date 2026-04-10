@@ -10,6 +10,8 @@ export default async function ChallengesPage() {
     <ChallengesClient
       profile={data.profile}
       userId={data.userId}
+      currentEvent={data.currentEvent}
+      opponents={data.opponents as any}
       incoming={data.incoming as any}
       outgoing={data.outgoing as any}
       active={data.active as any}

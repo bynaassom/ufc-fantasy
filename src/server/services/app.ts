@@ -50,6 +50,7 @@ import {
 import {
   findPublicProfileByNickname,
   findPublicProfilesByIds,
+  listPublicProfiles,
   listRecentProfiles,
   updateProfileBan,
   updateProfileNickname,
@@ -174,7 +175,7 @@ async function createChallengeNotification(
 async function resolveChallengeLifecycle(client: any, challenge: ChallengeRow) {
   if (!challenge.event) return challenge;
 
-  if (challenge.status === "pending" && hasDatePassed(challenge.event.picks_lock_at)) {
+  if (challenge.status === "pending" && challenge.event.status === "completed") {
     const updated = await updateChallenge(client, challenge.id, {
       status: "expired",
       responded_at: new Date().toISOString(),
@@ -292,7 +293,7 @@ async function enrichChallenges(client: any, challenges: ChallengeRow[]) {
       is_expired:
         challenge.status === "expired" ||
         (challenge.status === "pending" &&
-          hasDatePassed((challenge.event as Event).picks_lock_at)),
+          (challenge.event as Event).status === "completed"),
     } satisfies ChallengeView;
   });
 }
@@ -721,8 +722,7 @@ export async function getPublicProfilePageData(nickname: string) {
     getCurrentPublicEvent(adminSupabase),
   ]);
 
-  const challengeableEvent =
-    currentEvent && !hasDatePassed(currentEvent.picks_lock_at) ? currentEvent : null;
+  const challengeableEvent = currentEvent || null;
 
   let existingChallenge = null;
   if (challengeableEvent && publicProfile.id !== profile.id) {
@@ -750,6 +750,7 @@ export async function getPublicProfilePageData(nickname: string) {
           name: challengeableEvent.name,
           slug: challengeableEvent.slug,
           picks_lock_at: challengeableEvent.picks_lock_at,
+          status: challengeableEvent.status,
         }
       : null,
     existingChallenge: enrichedExistingChallenge || null,
@@ -772,8 +773,9 @@ export async function createUserChallenge(challengedId: string, eventId: string)
     );
   }
 
-  const [event, challengedProfile] = await Promise.all([
+  const [event, currentEvent, challengedProfile] = await Promise.all([
     findEventById(adminSupabase, eventId),
+    getCurrentPublicEvent(adminSupabase),
     findPublicProfilesByIds(adminSupabase, [challengedId]),
   ]);
 
@@ -781,11 +783,19 @@ export async function createUserChallenge(challengedId: string, eventId: string)
     throw new ApiRouteError(404, "EVENT_NOT_FOUND", "Evento não encontrado.");
   }
 
-  if (hasDatePassed(event.picks_lock_at)) {
+  if (!currentEvent) {
     throw new ApiRouteError(
       409,
-      "EVENT_LOCKED",
-      "Os picks deste evento já foram encerrados.",
+      "NO_ACTIVE_EVENT",
+      "Não há um evento atual disponível para desafios.",
+    );
+  }
+
+  if (currentEvent.id !== event.id) {
+    throw new ApiRouteError(
+      409,
+      "INVALID_CHALLENGE_EVENT",
+      "Os desafios só podem ser criados para o evento atual.",
     );
   }
 
@@ -920,20 +930,65 @@ export async function respondToChallenge(
 export async function getChallengesPageData() {
   const { profile, user } = await requirePageUserProfile();
   const adminSupabase = await getAdminSupabase();
-  const [rawChallenges, notifications, unreadCount] = await Promise.all([
-    listChallengesForUser(adminSupabase, user.id),
-    listNotificationsForUser(adminSupabase, user.id, 12),
-    countUnreadNotifications(adminSupabase, user.id),
-  ]);
+  const [rawChallenges, notifications, unreadCount, currentEvent, publicProfiles] =
+    await Promise.all([
+      listChallengesForUser(adminSupabase, user.id),
+      listNotificationsForUser(adminSupabase, user.id, 12),
+      countUnreadNotifications(adminSupabase, user.id),
+      getCurrentPublicEvent(adminSupabase),
+      listPublicProfiles(adminSupabase, 100),
+    ]);
 
   const challenges = await enrichChallenges(
     adminSupabase,
     rawChallenges as ChallengeRow[],
   );
 
+  const currentEventChallenges = currentEvent
+    ? challenges.filter(
+        (challenge) =>
+          challenge.event_id === currentEvent.id &&
+          ["pending", "accepted"].includes(challenge.status),
+      )
+    : [];
+
+  const activeChallengeByOpponentId = new Map<
+    string,
+    { id: string; status: Challenge["status"] }
+  >();
+
+  currentEventChallenges.forEach((challenge) => {
+    const opponentId =
+      challenge.challenger_id === user.id
+        ? challenge.challenged_id
+        : challenge.challenger_id;
+
+    activeChallengeByOpponentId.set(opponentId, {
+      id: challenge.id,
+      status: challenge.status,
+    });
+  });
+
+  const opponents = (publicProfiles as RankingProfileRow[])
+    .filter((publicProfile) => publicProfile.id !== user.id)
+    .map((publicProfile) => ({
+      ...publicProfile,
+      existingChallenge: activeChallengeByOpponentId.get(publicProfile.id) || null,
+    }));
+
   return {
     profile,
     userId: user.id,
+    currentEvent: currentEvent
+      ? {
+          id: currentEvent.id,
+          name: currentEvent.name,
+          slug: currentEvent.slug,
+          picks_lock_at: currentEvent.picks_lock_at,
+          status: currentEvent.status,
+        }
+      : null,
+    opponents,
     incoming: challenges.filter(
       (challenge) =>
         challenge.challenged_id === user.id && challenge.status === "pending",

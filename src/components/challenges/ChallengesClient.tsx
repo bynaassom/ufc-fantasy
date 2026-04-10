@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useDeferredValue, useState } from "react";
 import toast from "react-hot-toast";
 import Navbar from "@/components/layout/Navbar";
 import { readApiResponse } from "@/lib/api";
@@ -30,6 +30,18 @@ type ChallengeCard = Challenge & {
   challenger_points: number;
   challenged_points: number;
   leader_user_id: string | null;
+};
+
+type ChallengeOpponent = {
+  id: string;
+  nickname: string;
+  first_name: string;
+  last_name: string;
+  total_points: number;
+  existingChallenge: {
+    id: string;
+    status: Challenge["status"];
+  } | null;
 };
 
 function getStatusLabel(status: Challenge["status"]) {
@@ -181,6 +193,8 @@ function ChallengeCardItem({
 export default function ChallengesClient({
   profile,
   userId,
+  currentEvent,
+  opponents,
   incoming,
   outgoing,
   active,
@@ -190,6 +204,14 @@ export default function ChallengesClient({
 }: {
   profile: Profile;
   userId: string;
+  currentEvent: {
+    id: string;
+    name: string;
+    slug: string;
+    picks_lock_at: string;
+    status: "upcoming" | "live" | "completed";
+  } | null;
+  opponents: ChallengeOpponent[];
   incoming: ChallengeCard[];
   outgoing: ChallengeCard[];
   active: ChallengeCard[];
@@ -199,6 +221,9 @@ export default function ChallengesClient({
 }) {
   const router = useRouter();
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
+  const [creatingFor, setCreatingFor] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
 
   async function handleRespond(challengeId: string, action: "accept" | "decline") {
     setLoadingAction(`${action}:${challengeId}`);
@@ -221,6 +246,47 @@ export default function ChallengesClient({
       setLoadingAction(null);
     }
   }
+
+  async function handleCreateChallenge(challengedId: string) {
+    if (!currentEvent) return;
+
+    setCreatingFor(challengedId);
+    try {
+      const data = await readApiResponse<ChallengeResponse>(
+        await fetch("/api/challenges", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            challengedId,
+            eventId: currentEvent.id,
+          }),
+        }),
+      );
+
+      toast.success("Desafio enviado!");
+      router.push(`/desafios/${data.challenge.id}`);
+      router.refresh();
+    } catch (error: any) {
+      toast.error(error.message || "Não foi possível criar o desafio.");
+    } finally {
+      setCreatingFor(null);
+    }
+  }
+
+  const normalizedSearch = deferredSearch.trim().toLowerCase();
+  const filteredOpponents = opponents.filter((opponent) => {
+    if (!normalizedSearch) return true;
+
+    const haystack = [
+      opponent.nickname,
+      opponent.first_name,
+      opponent.last_name,
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    return haystack.includes(normalizedSearch);
+  });
 
   const sections = [
     { title: "Recebidos", items: incoming },
@@ -246,48 +312,196 @@ export default function ChallengesClient({
         </div>
 
         <section className="mb-8">
-          <div
-            className="p-4"
-            style={{
-              backgroundColor: "var(--bg-card)",
-              border: "1px solid var(--border)",
-              borderLeft: "3px solid var(--red)",
-            }}
-          >
-            <p
-              className="font-condensed font-900 text-sm uppercase tracking-wide"
-              style={{ color: "var(--text)" }}
+          <div className="grid xl:grid-cols-[1.3fr,0.9fr] gap-6">
+            <div
+              className="p-4 md:p-5"
+              style={{
+                backgroundColor: "var(--bg-card)",
+                border: "1px solid var(--border)",
+                borderLeft: "3px solid var(--red)",
+              }}
             >
-              Últimas notificações
-            </p>
-            <div className="mt-3 space-y-2">
-              {notifications.length === 0 ? (
-                <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-                  Nenhuma notificação recente.
-                </p>
-              ) : (
-                notifications.map((notification) => (
-                  <Link
-                    key={notification.id}
-                    href={notification.target_path || "/desafios"}
-                    className="block p-3"
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p
+                    className="font-condensed font-900 text-sm uppercase tracking-wide"
+                    style={{ color: "var(--text)" }}
+                  >
+                    Novo desafio
+                  </p>
+                  <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
+                    {currentEvent
+                      ? `Crie desafios para ${currentEvent.name} e mantenha o duelo valendo durante todo o evento.`
+                      : "Quando houver um evento atual, você poderá lançar novos desafios por aqui."}
+                  </p>
+                </div>
+                {currentEvent && (
+                  <span
+                    className="px-2 py-1 text-xs font-condensed font-900 uppercase tracking-widest"
                     style={{
                       backgroundColor: "var(--bg-elevated)",
-                      border: "1px solid var(--border)",
+                      color: currentEvent.status === "live" ? "#22c55e" : "var(--red)",
+                      border: `1px solid ${
+                        currentEvent.status === "live" ? "#22c55e" : "var(--red)"
+                      }`,
                     }}
                   >
-                    <p
-                      className="font-condensed font-900 text-xs uppercase tracking-widest"
-                      style={{ color: "var(--text)" }}
-                    >
-                      {notification.title}
-                    </p>
-                    <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-                      {notification.message}
-                    </p>
-                  </Link>
-                ))
+                    {currentEvent.status === "live" ? "Evento ao vivo" : "Evento atual"}
+                  </span>
+                )}
+              </div>
+
+              {!currentEvent ? (
+                <div
+                  className="mt-4 p-4"
+                  style={{
+                    backgroundColor: "var(--bg-elevated)",
+                    border: "1px solid var(--border)",
+                    color: "var(--text-muted)",
+                  }}
+                >
+                  Não há evento em andamento ou próximo para abrir desafios agora.
+                </div>
+              ) : (
+                <>
+                  <div className="mt-4">
+                    <input
+                      type="text"
+                      value={search}
+                      onChange={(event) => setSearch(event.target.value)}
+                      placeholder="Buscar por nickname ou nome"
+                      className="w-full px-4 py-3 text-sm outline-none"
+                      style={{
+                        backgroundColor: "var(--bg-elevated)",
+                        border: "1px solid var(--border)",
+                        color: "var(--text)",
+                      }}
+                    />
+                  </div>
+
+                  <div className="mt-4 grid md:grid-cols-2 gap-3">
+                    {filteredOpponents.length === 0 ? (
+                      <div
+                        className="md:col-span-2 p-4 text-sm"
+                        style={{
+                          backgroundColor: "var(--bg-elevated)",
+                          border: "1px solid var(--border)",
+                          color: "var(--text-muted)",
+                        }}
+                      >
+                        Nenhum jogador encontrado com esse filtro.
+                      </div>
+                    ) : (
+                      filteredOpponents.map((opponent) => (
+                        <div
+                          key={opponent.id}
+                          className="p-4"
+                          style={{
+                            backgroundColor: "var(--bg-elevated)",
+                            border: "1px solid var(--border)",
+                          }}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <Link
+                                href={`/jogador/${opponent.nickname}`}
+                                className="font-condensed font-900 text-sm uppercase tracking-wide transition-opacity hover:opacity-80"
+                                style={{ color: "var(--text)" }}
+                              >
+                                {opponent.nickname}
+                              </Link>
+                              <p
+                                className="text-xs mt-1 uppercase tracking-widest"
+                                style={{ color: "var(--text-muted)" }}
+                              >
+                                {opponent.first_name} {opponent.last_name}
+                              </p>
+                            </div>
+                            <span
+                              className="font-condensed font-900 text-lg"
+                              style={{ color: "var(--text)" }}
+                            >
+                              {opponent.total_points}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between gap-3 mt-4">
+                            <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                              {opponent.existingChallenge
+                                ? "Já existe um desafio aberto entre vocês neste evento."
+                                : "Sem desafio aberto neste evento."}
+                            </p>
+
+                            {opponent.existingChallenge ? (
+                              <Link
+                                href={`/desafios/${opponent.existingChallenge.id}`}
+                                className="px-3 py-2 text-xs font-condensed font-900 uppercase tracking-widest text-white whitespace-nowrap"
+                                style={{ backgroundColor: "var(--red)" }}
+                              >
+                                Ver desafio
+                              </Link>
+                            ) : (
+                              <button
+                                onClick={() => handleCreateChallenge(opponent.id)}
+                                disabled={creatingFor === opponent.id}
+                                className="px-3 py-2 text-xs font-condensed font-900 uppercase tracking-widest text-white whitespace-nowrap disabled:opacity-60"
+                                style={{ backgroundColor: "var(--red)" }}
+                              >
+                                {creatingFor === opponent.id ? "Enviando..." : "Desafiar"}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </>
               )}
+            </div>
+
+            <div
+              className="p-4"
+              style={{
+                backgroundColor: "var(--bg-card)",
+                border: "1px solid var(--border)",
+                borderLeft: "3px solid var(--red)",
+              }}
+            >
+              <p
+                className="font-condensed font-900 text-sm uppercase tracking-wide"
+                style={{ color: "var(--text)" }}
+              >
+                Últimas notificações
+              </p>
+              <div className="mt-3 space-y-2">
+                {notifications.length === 0 ? (
+                  <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                    Nenhuma notificação recente.
+                  </p>
+                ) : (
+                  notifications.map((notification) => (
+                    <Link
+                      key={notification.id}
+                      href={notification.target_path || "/desafios"}
+                      className="block p-3"
+                      style={{
+                        backgroundColor: "var(--bg-elevated)",
+                        border: "1px solid var(--border)",
+                      }}
+                    >
+                      <p
+                        className="font-condensed font-900 text-xs uppercase tracking-widest"
+                        style={{ color: "var(--text)" }}
+                      >
+                        {notification.title}
+                      </p>
+                      <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
+                        {notification.message}
+                      </p>
+                    </Link>
+                  ))
+                )}
+              </div>
             </div>
           </div>
         </section>

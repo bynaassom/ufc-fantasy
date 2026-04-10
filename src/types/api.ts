@@ -1,5 +1,6 @@
 import type {
   Challenge,
+  EventStatus,
   FightMethod,
   Notification,
   Profile,
@@ -72,6 +73,7 @@ export type PublicProfileResponse = {
     name: string;
     slug: string;
     picks_lock_at: string;
+    status: EventStatus;
   } | null;
   existingChallenge: Challenge | null;
   canChallenge: boolean;

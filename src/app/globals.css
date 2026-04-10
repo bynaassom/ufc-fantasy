@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Work+Sans:ital,wght@0,100..900;1,100..900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@100;200;300;400;500;600;700;800;900&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -33,7 +33,7 @@ html {
 
 body {
     font-family:
-        "Work Sans",
+        "Saira Condensed",
         "Avenir Next",
         "Segoe UI",
         system-ui,
@@ -62,13 +62,13 @@ body {
    ============================================================ */
 .font-condensed {
     font-family:
-        "Work Sans",
+        "Saira Condensed",
         sans-serif;
 }
 
 .section-title {
     font-family:
-        "Work Sans",
+        "Saira Condensed",
         sans-serif;
     font-weight: 900;
     text-transform: uppercase;

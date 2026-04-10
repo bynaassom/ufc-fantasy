@@ -25,6 +25,7 @@ export default function PublicProfileClient({
     name: string;
     slug: string;
     picks_lock_at: string;
+    status: "upcoming" | "live" | "completed";
   } | null;
   existingChallenge: { id: string } | null;
   canChallenge: boolean;
@@ -191,6 +192,7 @@ export default function PublicProfileClient({
           {currentEvent && (
             <p className="text-xs mt-3" style={{ color: "var(--text-muted)" }}>
               Evento atual para desafio: {currentEvent.name}
+              {currentEvent.status === "live" ? " · ao vivo agora" : ""}
             </p>
           )}
         </section>
