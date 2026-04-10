@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Work+Sans:ital,wght@0,100..900;1,100..900&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -31,6 +33,7 @@ html {
 
 body {
     font-family:
+        "Work Sans",
         "Avenir Next",
         "Segoe UI",
         system-ui,
@@ -59,23 +62,47 @@ body {
    ============================================================ */
 .font-condensed {
     font-family:
-        "Arial Narrow",
-        "Helvetica Neue",
-        "Roboto Condensed",
+        "Work Sans",
         sans-serif;
 }
 
 .section-title {
     font-family:
-        "Arial Narrow",
-        "Helvetica Neue",
-        "Roboto Condensed",
+        "Work Sans",
         sans-serif;
     font-weight: 900;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     font-size: 1.1rem;
     color: var(--text);
+}
+
+.font-100 {
+    font-weight: 100;
+}
+.font-200 {
+    font-weight: 200;
+}
+.font-300 {
+    font-weight: 300;
+}
+.font-400 {
+    font-weight: 400;
+}
+.font-500 {
+    font-weight: 500;
+}
+.font-600 {
+    font-weight: 600;
+}
+.font-700 {
+    font-weight: 700;
+}
+.font-800 {
+    font-weight: 800;
+}
+.font-900 {
+    font-weight: 900;
 }
 
 /* Red line separator — estilo UFC.com */

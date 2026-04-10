@@ -10,8 +10,8 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["Encode Sans", "sans-serif"],
-        condensed: ["Barlow Condensed", "sans-serif"],
+        sans: ["Work Sans", "sans-serif"],
+        condensed: ["Work Sans", "sans-serif"],
       },
       colors: {
         red: {

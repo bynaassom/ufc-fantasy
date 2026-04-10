@@ -50,7 +50,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR" className="dark" suppressHydrationWarning>
-      <body>
+      <body className="font-sans">
         {children}
         <Toaster
           position="top-center"
@@ -59,7 +59,7 @@ export default function RootLayout({
               background: "var(--bg-card)",
               color: "var(--text)",
               border: "1px solid var(--border)",
-              fontFamily: "'Encode Sans', sans-serif",
+              fontFamily: "'Work Sans', sans-serif",
             },
             success: {
               iconTheme: { primary: "#EF4444", secondary: "white" },
