@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { isAllowedScrapeUrl } from "@/lib/security";
 import { extractEventCardHeadshots } from "@/lib/ufc-fighter-media";
+import { readUpdateCardRequest } from "@/lib/update-card-request";
 import { extractWeightClassFromHtmlBlock } from "@/lib/ufc-weight";
 import { assertSameOriginForMutation } from "@/server/api";
 
@@ -248,7 +249,7 @@ export async function POST(req: NextRequest) {
   if (!profile || profile.role !== "admin" || profile.is_banned)
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const { event_id, confirm_removals } = await req.json();
+  const { event_id, confirm_removals, remove_ids } = await readUpdateCardRequest(req);
   if (!event_id)
     return NextResponse.json(
       { error: "event_id obrigatório" },
@@ -463,7 +464,6 @@ export async function POST(req: NextRequest) {
   }
 
   // Remove lutas que foram confirmadas para remoção
-  const { remove_ids } = await req.json().catch(() => ({ remove_ids: [] }));
   for (const id of remove_ids || []) {
     const db = dbFights.find((f) => f.id === id);
     if (!db) continue;
