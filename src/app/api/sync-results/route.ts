@@ -1,41 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import {
+  namesMatch,
+  parseUfcStatsEventResults,
+  type SyncedResultMethod,
+  type UfcStatsResult,
+} from "@/lib/ufc-results-sync";
 import { isAllowedScrapeUrl } from "@/lib/security";
 import { logAdminAction } from "@/lib/admin-audit";
 import { assertSameOriginForMutation } from "@/server/api";
-
-// ─── Normalização de nomes ───────────────────────────────────
-function normalize(name: string) {
-  return name.toLowerCase().replace(/[^a-z]/g, "");
-}
-
-function namesMatch(a: string, b: string): boolean {
-  if (normalize(a) === normalize(b)) return true;
-  const pa = a.toLowerCase().split(" ").filter(Boolean);
-  const pb = b.toLowerCase().split(" ").filter(Boolean);
-  const lastA = pa[pa.length - 1];
-  const lastB = pb[pb.length - 1];
-  if (lastA !== lastB) return false;
-  return pa[0]?.[0] === pb[0]?.[0];
-}
-
-// ─── Mapeia método UFCStats → nosso enum ─────────────────────
-function mapMethod(raw: string): "decision" | "submission" | "knockout" | null {
-  const s = raw.toLowerCase().replace(/\s+/g, " ");
-  if (s.includes("ko") || s.includes("tko")) return "knockout";
-  if (
-    s.includes("sub") ||
-    s.includes("choke") ||
-    s.includes("lock") ||
-    s.includes("triangle") ||
-    s.includes("armbar") ||
-    s.includes("rear naked")
-  )
-    return "submission";
-  if (s.includes("dec")) return "decision";
-  return null;
-}
 
 // ─── Scrape UFCStats ─────────────────────────────────────────
 async function scrapeUfcStats(url: string): Promise<UfcStatsResult[]> {
@@ -52,99 +26,7 @@ async function scrapeUfcStats(url: string): Promise<UfcStatsResult[]> {
   });
   if (!res.ok) throw new Error(`UFCStats HTTP ${res.status}`);
   const html = await res.text();
-
-  const results: UfcStatsResult[] = [];
-
-  // Pega todas as <tr> que contenham links para fighter-details
-  // (= linhas de luta, independente de classes CSS)
-  const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/g;
-  let rowMatch;
-
-  while ((rowMatch = rowRegex.exec(html)) !== null) {
-    const row = rowMatch[1];
-
-    // Só processa linhas que têm links de fighter
-    if (!row.includes("fighter-details")) continue;
-
-    // Extrai nomes dos lutadores via href="fighter-details"
-    const fighterNames: string[] = [];
-    const anchorRegex = /<a[^>]*fighter-details[^>]*>\s*([^<]+)\s*<\/a>/g;
-    let anchorMatch;
-    while ((anchorMatch = anchorRegex.exec(row)) !== null) {
-      const name = anchorMatch[1].replace(/\s+/g, " ").trim();
-      if (name) fighterNames.push(name);
-    }
-    if (fighterNames.length < 2) continue;
-
-    // Extrai todas as células de texto
-    const cells: string[] = [];
-    const cellRegex = /<td[^>]*>([\s\S]*?)<\/td>/g;
-    let cellMatch;
-    while ((cellMatch = cellRegex.exec(row)) !== null) {
-      const text = cellMatch[1]
-        .replace(/<[^>]+>/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-      cells.push(text);
-    }
-
-    // Linhas sem resultado têm "View Matchup" — pula
-    const rowText = cells.join(" ");
-    if (rowText.includes("View Matchup") || rowText.includes("view matchup"))
-      continue;
-
-    // Procura método e round em todas as células
-    let method: "decision" | "submission" | "knockout" | null = null;
-    let round: number | null = null;
-
-    for (const cell of cells) {
-      const m = mapMethod(cell);
-      if (m && !method) method = m;
-
-      const r = parseInt(cell, 10);
-      if (!isNaN(r) && r >= 1 && r <= 5 && !round) round = r;
-    }
-
-    if (!method || !round) continue;
-
-    results.push({
-      winner: fighterNames[0],
-      loser: fighterNames[1],
-      method,
-      round,
-    });
-  }
-
-  if (results.length > 0) return results;
-
-  // ── Fallback: parse tabela markdown ─────────────────────────
-  // O servidor às vezes recebe versão simplificada sem HTML completo
-  // Formato das linhas: | W/L | [Fighter A](url)\n[Fighter B](url) | ... | Method | Round | Time |
-  for (const line of html.split("\n")) {
-    const cols = line
-      .split("|")
-      .map((c) => c.trim())
-      .filter(Boolean);
-    if (cols.length < 9) continue;
-
-    const methodRaw = cols[7] ?? "";
-    const roundRaw = cols[8] ?? "";
-    const method = mapMethod(methodRaw);
-    const round = parseInt(roundRaw, 10) || null;
-    if (!method || !round) continue;
-
-    // Remove markdown links: [Name](url) → Name
-    const fighterCol = (cols[1] ?? "").replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
-    const parts = fighterCol
-      .split(/\s{2,}|\n/)
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (parts.length < 2) continue;
-
-    results.push({ winner: parts[0], loser: parts[1], method, round });
-  }
-
-  return results;
+  return parseUfcStatsEventResults(html);
 }
 
 // ─── Handler ─────────────────────────────────────────────────
@@ -284,6 +166,7 @@ export async function POST(req: NextRequest) {
   }
 
   const updates: Update[] = [];
+  const remainingResults = [...ufcResults];
 
   for (const fight of fights) {
     if (fight.result_confirmed) continue;
@@ -294,12 +177,14 @@ export async function POST(req: NextRequest) {
     const fbId = (fight.fighter_b as any)?.id as string;
     if (!fa || !fb) continue;
 
-    const ufc = ufcResults.find(
+    const resultIndex = remainingResults.findIndex(
       (r) =>
         (namesMatch(r.winner, fa) || namesMatch(r.winner, fb)) &&
         (namesMatch(r.loser, fa) || namesMatch(r.loser, fb)),
     );
-    if (!ufc) continue;
+    if (resultIndex < 0) continue;
+
+    const [ufc] = remainingResults.splice(resultIndex, 1);
 
     updates.push({
       fight_id: fight.id,
@@ -378,17 +263,10 @@ export async function POST(req: NextRequest) {
   });
 }
 
-interface UfcStatsResult {
-  winner: string;
-  loser: string;
-  method: "decision" | "submission" | "knockout";
-  round: number;
-}
-
 interface Update {
   fight_id: string;
   winner_id: string;
-  method: "decision" | "submission" | "knockout";
+  method: SyncedResultMethod;
   round: number;
   label: string;
   eventSlug: string | undefined;
