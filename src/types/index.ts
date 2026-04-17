@@ -1,3 +1,5 @@
+import type { CompetitiveDivision } from "@/lib/ufc-weight";
+
 export type FightMethod = "decision" | "submission" | "knockout";
 export type EventStatus = "upcoming" | "live" | "completed";
 export type FightCardType = "main" | "preliminary";
@@ -23,6 +25,7 @@ export interface Profile {
   is_banned: boolean;
   ban_reason?: string;
   total_points: number;
+  division: CompetitiveDivision;
   created_at: string;
   updated_at: string;
 }

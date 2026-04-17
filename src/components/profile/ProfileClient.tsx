@@ -3,6 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+import {
+  COMPETITIVE_DIVISIONS,
+  getWeightClassLabel,
+} from "@/lib/ufc-weight";
 import Navbar from "@/components/layout/Navbar";
 import { readApiResponse } from "@/lib/api";
 import { createAuthClient } from "@/lib/supabase/client";
@@ -14,16 +18,43 @@ export default function ProfileClient({
   initialTab,
 }: {
   profile: Profile;
-  initialTab: "nickname" | "password";
+  initialTab: "nickname" | "division" | "password";
 }) {
   const router = useRouter();
   const [profile, setProfile] = useState(initialProfile);
   const [loading, setLoading] = useState(false);
-  const [tab, setTab] = useState<"nickname" | "password">(initialTab);
+  const [tab, setTab] = useState<"nickname" | "division" | "password">(initialTab);
   const [nickname, setNickname] = useState(initialProfile.nickname);
+  const [division, setDivision] = useState(initialProfile.division);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
+  async function handleProfileUpdate(
+    payload: { nickname?: string; division?: Profile["division"] },
+    successMessage: string,
+  ) {
+    setLoading(true);
+    try {
+      const data = await readApiResponse<MeResponse>(
+        await fetch("/api/me/profile", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }),
+      );
+
+      toast.success(successMessage);
+      setProfile(data.profile);
+      setNickname(data.profile.nickname);
+      setDivision(data.profile.division);
+      router.refresh();
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function handleUpdateNickname(e: React.FormEvent) {
     e.preventDefault();
@@ -37,24 +68,13 @@ export default function ProfileClient({
       return;
     }
 
-    setLoading(true);
-    try {
-      const data = await readApiResponse<MeResponse>(
-        await fetch("/api/me/profile", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ nickname }),
-        }),
-      );
+    await handleProfileUpdate({ nickname }, "Nickname atualizado!");
+  }
 
-      toast.success("Nickname atualizado!");
-      setProfile(data.profile);
-      router.refresh();
-    } catch (error: any) {
-      toast.error(error.message);
-    } finally {
-      setLoading(false);
-    }
+  async function handleUpdateDivision(e: React.FormEvent) {
+    e.preventDefault();
+    if (division === profile.division) return;
+    await handleProfileUpdate({ division }, "Categoria atualizada!");
   }
 
   async function handleUpdatePassword(e: React.FormEvent) {
@@ -159,19 +179,29 @@ export default function ProfileClient({
               >
                 {profile.total_points} pontos
               </p>
+              <p
+                className="font-condensed font-600 text-xs uppercase tracking-widest mt-1"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                Categoria: {getWeightClassLabel(profile.division)}
+              </p>
             </div>
           </div>
         </div>
 
         <div className="flex gap-0 mb-6" style={{ borderBottom: "1px solid var(--border)" }}>
-          {(["nickname", "password"] as const).map((item) => (
+          {(["nickname", "division", "password"] as const).map((item) => (
             <button
               key={item}
               onClick={() => setTab(item)}
               className="relative font-condensed font-700 text-xs uppercase tracking-widest px-6 py-2.5 transition-all"
               style={{ color: tab === item ? "var(--red)" : "var(--text-muted)" }}
             >
-              {item === "nickname" ? "Nickname" : "Senha"}
+              {item === "nickname"
+                ? "Nickname"
+                : item === "division"
+                  ? "Categoria"
+                  : "Senha"}
               {tab === item && (
                 <span
                   className="absolute bottom-0 left-0 right-0 h-0.5"
@@ -211,6 +241,42 @@ export default function ProfileClient({
               style={{ backgroundColor: "var(--red)" }}
             >
               {loading ? "SALVANDO..." : "SALVAR NICKNAME"}
+            </button>
+          </form>
+        )}
+
+        {tab === "division" && (
+          <form onSubmit={handleUpdateDivision} className="space-y-5">
+            <div>
+              <label className={labelClass} style={{ color: "var(--text-secondary)" }}>
+                Categoria ranqueada
+              </label>
+              <select
+                value={division}
+                onChange={(e) => setDivision(e.target.value as Profile["division"])}
+                style={inputStyle}
+                onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
+                onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
+              >
+                {COMPETITIVE_DIVISIONS.map((value) => (
+                  <option key={value} value={value}>
+                    {getWeightClassLabel(value)}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs mt-1.5" style={{ color: "var(--text-muted)" }}>
+                Essa categoria define em qual ranking ranqueado você compete.
+                Você continua fazendo picks do card inteiro normalmente.
+              </p>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading || division === profile.division}
+              className="w-full py-3.5 font-condensed font-900 text-sm uppercase tracking-widest text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-40"
+              style={{ backgroundColor: "var(--red)" }}
+            >
+              {loading ? "SALVANDO..." : "SALVAR CATEGORIA"}
             </button>
           </form>
         )}

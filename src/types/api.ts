@@ -1,3 +1,4 @@
+import type { CompetitiveDivision } from "@/lib/ufc-weight";
 import type {
   Challenge,
   EventStatus,
@@ -29,7 +30,8 @@ export type MeResponse = {
 };
 
 export type UpdateMyProfilePayload = {
-  nickname: string;
+  nickname?: string;
+  division?: CompetitiveDivision;
 };
 
 export type PendingPickInput = {

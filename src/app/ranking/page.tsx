@@ -1,5 +1,7 @@
+import DivisionSelector from "@/components/ranking/DivisionSelector";
 import Navbar from "@/components/layout/Navbar";
 import Link from "next/link";
+import type { CompetitiveDivision } from "@/lib/ufc-weight";
 import { getRankingPageData } from "@/server/services/app";
 
 type RankingRow = {
@@ -17,13 +19,26 @@ export const dynamic = "force-dynamic";
 export default async function RankingPage({
   searchParams,
 }: {
-  searchParams: { tab?: string };
+  searchParams: { tab?: string; division?: string };
 }) {
-  const tab = searchParams.tab === "evento" ? "evento" : "geral";
-  const { profile, currentEvent, displayRanking, myRank } =
-    await getRankingPageData(tab);
+  const tab =
+    searchParams.tab === "evento"
+      ? "evento"
+      : searchParams.tab === "categoria"
+        ? "categoria"
+        : "geral";
+  const {
+    profile,
+    currentEvent,
+    displayRanking,
+    myRank,
+    selectedDivision,
+    selectedDivisionLabel,
+    userDivisionLabel,
+  } = await getRankingPageData(tab, searchParams.division);
   const ranking = displayRanking as RankingRow[];
   const currentMyRank = myRank as RankingRow | null;
+  const categoryHref = `/ranking?tab=categoria&division=${selectedDivision}`;
 
   return (
     <div
@@ -43,10 +58,10 @@ export default async function RankingPage({
 
         {/* Toggle — estilo igual ao da imagem (Card Principal / Preliminares) */}
         <div
-          className="flex mb-6"
+          className="grid grid-cols-3 mb-6"
           style={{ border: "1px solid var(--border)" }}
         >
-          <a
+          <Link
             href="/ranking?tab=geral"
             className="flex-1 py-3 text-center font-condensed font-900 text-xs uppercase tracking-widest transition-all"
             style={{
@@ -57,19 +72,62 @@ export default async function RankingPage({
             }}
           >
             GERAL
-          </a>
-          <a
+          </Link>
+          <Link
             href="/ranking?tab=evento"
             className="flex-1 py-3 text-center font-condensed font-900 text-xs uppercase tracking-widest transition-all"
             style={{
               backgroundColor:
                 tab === "evento" ? "var(--red)" : "var(--bg-card)",
               color: tab === "evento" ? "white" : "var(--text-muted)",
+              borderRight: "1px solid var(--border)",
             }}
           >
             {currentEvent?.name ?? "EVENTO ATUAL"}
-          </a>
+          </Link>
+          <Link
+            href={categoryHref}
+            className="flex-1 py-3 text-center font-condensed font-900 text-xs uppercase tracking-widest transition-all"
+            style={{
+              backgroundColor:
+                tab === "categoria" ? "var(--red)" : "var(--bg-card)",
+              color: tab === "categoria" ? "white" : "var(--text-muted)",
+            }}
+          >
+            CATEGORIA
+          </Link>
         </div>
+
+        {tab === "categoria" && (
+          <div
+            className="mb-5 flex flex-col gap-4 p-4 md:flex-row md:items-end md:justify-between"
+            style={{
+              backgroundColor: "var(--bg-card)",
+              border: "1px solid var(--border)",
+            }}
+          >
+            <div>
+              <p
+                className="font-condensed font-900 text-lg uppercase tracking-wide"
+                style={{ color: "var(--text)" }}
+              >
+                {selectedDivisionLabel}
+              </p>
+              <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
+                Você compete oficialmente em {userDivisionLabel}.
+              </p>
+              {selectedDivision !== (profile.division as CompetitiveDivision) && (
+                <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>
+                  Visualizando outra categoria. Sua posição aparece apenas na sua
+                  divisão principal.
+                </p>
+              )}
+            </div>
+            <DivisionSelector
+              selectedDivision={selectedDivision as CompetitiveDivision}
+            />
+          </div>
+        )}
 
         {/* Minha posição */}
         {currentMyRank && (
@@ -101,6 +159,14 @@ export default async function RankingPage({
                   (você)
                 </span>
               </p>
+              {tab === "categoria" && (
+                <p
+                  className="font-condensed font-600 text-xs uppercase tracking-widest"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  {selectedDivisionLabel}
+                </p>
+              )}
               {currentMyRank.nickname && (
                 <p
                   className="font-condensed font-600 text-xs uppercase tracking-widest"
@@ -138,6 +204,20 @@ export default async function RankingPage({
               style={{ color: "var(--text-muted)" }}
             >
               Ainda sem picks confirmados neste evento
+            </p>
+          </div>
+        )}
+
+        {tab === "categoria" && ranking.length === 0 && (
+          <div
+            className="py-12 text-center"
+            style={{ border: "1px solid var(--border)" }}
+          >
+            <p
+              className="font-condensed font-700 uppercase tracking-widest text-sm"
+              style={{ color: "var(--text-muted)" }}
+            >
+              Ainda não há jogadores ranqueados em {selectedDivisionLabel}
             </p>
           </div>
         )}

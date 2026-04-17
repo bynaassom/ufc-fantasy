@@ -1,4 +1,10 @@
 import { PROFILE_SELECT_FIELDS } from "@/lib/security";
+import type { CompetitiveDivision } from "@/lib/ufc-weight";
+
+type ProfileUpdatePayload = Partial<{
+  nickname: string;
+  division: CompetitiveDivision;
+}>;
 
 export async function findProfileById(
   client: any,
@@ -31,9 +37,17 @@ export async function updateProfileNickname(
   userId: string,
   nickname: string,
 ) {
+  return updateProfile(client, userId, { nickname });
+}
+
+export async function updateProfile(
+  client: any,
+  userId: string,
+  payload: ProfileUpdatePayload,
+) {
   const { data, error } = await client
     .from("profiles")
-    .update({ nickname })
+    .update(payload)
     .eq("id", userId)
     .select(PROFILE_SELECT_FIELDS)
     .single();
@@ -97,6 +111,23 @@ export async function listPublicProfiles(client: any, limit = 100) {
   const { data, error } = await client
     .from("ranking_profiles")
     .select("id, nickname, first_name, last_name, total_points")
+    .order("total_points", { ascending: false })
+    .order("nickname", { ascending: true })
+    .limit(limit);
+
+  if (error) throw error;
+  return data || [];
+}
+
+export async function listPublicProfilesByDivision(
+  client: any,
+  division: CompetitiveDivision,
+  limit = 100,
+) {
+  const { data, error } = await client
+    .from("ranking_profiles")
+    .select("id, nickname, first_name, last_name, total_points, division")
+    .eq("division", division)
     .order("total_points", { ascending: false })
     .order("nickname", { ascending: true })
     .limit(limit);

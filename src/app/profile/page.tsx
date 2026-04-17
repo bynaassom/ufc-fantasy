@@ -7,7 +7,12 @@ export default async function ProfilePage({
   searchParams: { tab?: string };
 }) {
   const { profile } = await getProfilePageData();
-  const tab = searchParams.tab === "password" ? "password" : "nickname";
+  const tab =
+    searchParams.tab === "password"
+      ? "password"
+      : searchParams.tab === "division"
+        ? "division"
+        : "nickname";
 
   return <ProfileClient profile={profile} initialTab={tab} />;
 }

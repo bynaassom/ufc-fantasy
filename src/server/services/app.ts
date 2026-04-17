@@ -7,6 +7,13 @@ import type {
   Profile,
   PublicProfileStats,
 } from "@/types";
+import {
+  COMPETITIVE_DIVISIONS,
+  DEFAULT_COMPETITIVE_DIVISION,
+  getWeightClassLabel,
+  isCompetitiveDivision,
+  type CompetitiveDivision,
+} from "@/lib/ufc-weight";
 import { ApiRouteError } from "@/server/api";
 import { requireActiveUser } from "@/server/auth/guards";
 import {
@@ -51,9 +58,10 @@ import {
   findPublicProfileByNickname,
   findPublicProfilesByIds,
   listPublicProfiles,
+  listPublicProfilesByDivision,
   listRecentProfiles,
+  updateProfile,
   updateProfileBan,
-  updateProfileNickname,
   updateProfileRole,
 } from "@/server/repositories/profiles";
 import {
@@ -335,6 +343,13 @@ async function getGlobalRanking(client: any) {
   return data || [];
 }
 
+async function getDivisionRanking(
+  client: any,
+  division: CompetitiveDivision,
+) {
+  return listPublicProfilesByDivision(client, division, 100);
+}
+
 async function getEventRanking(client: any, eventId: string) {
   const { data, error } = await client
     .from("event_scores")
@@ -399,12 +414,19 @@ export async function getEventPageData(slug: string) {
   return { profile, user, event, existingPicks };
 }
 
-export async function getRankingPageData(tab: "geral" | "evento") {
+export async function getRankingPageData(
+  tab: "geral" | "evento" | "categoria",
+  divisionParam?: string,
+) {
   const { supabase, user, profile } = await requirePageUserProfile();
   const [globalRanking, currentEvent] = await Promise.all([
     getGlobalRanking(supabase),
     getCurrentEventForRanking(supabase),
   ]);
+  const selectedDivision =
+    divisionParam && isCompetitiveDivision(divisionParam)
+      ? divisionParam
+      : profile.division || DEFAULT_COMPETITIVE_DIVISION;
 
   let eventRanking: EventRankingRow[] = [];
   if (currentEvent) {
@@ -422,6 +444,7 @@ export async function getRankingPageData(tab: "geral" | "evento") {
       }))
       .filter((entry: EventRankingRow) => entry.profile);
   }
+  const divisionRanking = await getDivisionRanking(supabase, selectedDivision);
 
   const geralList: RankingDisplayEntry[] = globalRanking.map(
     (rankingProfile: any, index: number) => ({
@@ -446,9 +469,20 @@ export async function getRankingPageData(tab: "geral" | "evento") {
       userId: entry.user_id,
     }),
   );
+  const categoriaList: RankingDisplayEntry[] = divisionRanking.map(
+    (entry: any, index: number) => ({
+      rank: index + 1,
+      nickname: entry.nickname,
+      first_name: entry.first_name,
+      last_name: entry.last_name,
+      points: entry.total_points,
+      perfect_picks: 0,
+      userId: entry.id,
+    }),
+  );
 
   const displayRanking: RankingDisplayEntry[] =
-    tab === "evento" ? eventoList : geralList;
+    tab === "evento" ? eventoList : tab === "categoria" ? categoriaList : geralList;
   const myRank =
     displayRanking.find(
       (rankingEntry: RankingDisplayEntry) => rankingEntry.userId === user.id,
@@ -460,6 +494,10 @@ export async function getRankingPageData(tab: "geral" | "evento") {
     displayRanking,
     myRank,
     tab,
+    selectedDivision,
+    selectedDivisionLabel: getWeightClassLabel(selectedDivision),
+    userDivisionLabel: getWeightClassLabel(profile.division),
+    divisions: COMPETITIVE_DIVISIONS,
   };
 }
 
@@ -520,14 +558,17 @@ export async function getMyProfile() {
   return { profile };
 }
 
-export async function updateMyProfileNickname(nickname: string) {
+export async function updateMyProfile(payload: {
+  nickname?: string;
+  division?: CompetitiveDivision;
+}) {
   const { supabase, user } = await requireActiveUser();
 
   try {
-    const profile = await updateProfileNickname(supabase, user.id, nickname);
+    const profile = await updateProfile(supabase, user.id, payload);
     return { profile };
   } catch (error: any) {
-    if (error?.message?.toLowerCase().includes("unique")) {
+    if (payload.nickname && error?.message?.toLowerCase().includes("unique")) {
       throw new ApiRouteError(
         409,
         "NICKNAME_TAKEN",

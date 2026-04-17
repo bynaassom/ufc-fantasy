@@ -28,12 +28,26 @@ CREATE TABLE profiles (
   is_banned BOOLEAN NOT NULL DEFAULT false,
   ban_reason TEXT,
   total_points INTEGER NOT NULL DEFAULT 0,
+  division TEXT NOT NULL DEFAULT 'Lightweight',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT nickname_length CHECK (char_length(nickname) >= 3 AND char_length(nickname) <= 20),
   CONSTRAINT nickname_format CHECK (nickname ~ '^[a-zA-Z0-9_]+$'),
   CONSTRAINT first_name_length CHECK (char_length(first_name) >= 1 AND char_length(first_name) <= 50),
-  CONSTRAINT last_name_length CHECK (char_length(last_name) >= 1 AND char_length(last_name) <= 50)
+  CONSTRAINT last_name_length CHECK (char_length(last_name) >= 1 AND char_length(last_name) <= 50),
+  CONSTRAINT division_valid CHECK (
+    division IN (
+      'Heavyweight',
+      'LightHeavyweight',
+      'Middleweight',
+      'Welterweight',
+      'Lightweight',
+      'Featherweight',
+      'Bantamweight',
+      'Flyweight',
+      'Strawweight'
+    )
+  )
 );
 
 -- ============================================================
@@ -272,7 +286,7 @@ CREATE POLICY "profiles_update_own" ON profiles FOR UPDATE
 CREATE POLICY "profiles_admin_all" ON profiles FOR ALL USING (is_admin());
 
 CREATE OR REPLACE VIEW ranking_profiles AS
-  SELECT id, nickname, first_name, last_name, total_points
+  SELECT id, nickname, first_name, last_name, total_points, division
   FROM profiles
   WHERE is_banned = false;
 
@@ -362,12 +376,26 @@ CREATE POLICY "notifications_admin_all" ON notifications FOR ALL USING (is_admin
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO profiles (id, nickname, first_name, last_name)
+  INSERT INTO profiles (id, nickname, first_name, last_name, division)
   VALUES (
     NEW.id,
     NEW.raw_user_meta_data->>'nickname',
     NEW.raw_user_meta_data->>'first_name',
-    NEW.raw_user_meta_data->>'last_name'
+    NEW.raw_user_meta_data->>'last_name',
+    CASE
+      WHEN NEW.raw_user_meta_data->>'division' IN (
+        'Heavyweight',
+        'LightHeavyweight',
+        'Middleweight',
+        'Welterweight',
+        'Lightweight',
+        'Featherweight',
+        'Bantamweight',
+        'Flyweight',
+        'Strawweight'
+      ) THEN NEW.raw_user_meta_data->>'division'
+      ELSE 'Lightweight'
+    END
   );
   RETURN NEW;
 END;

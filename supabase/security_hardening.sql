@@ -23,7 +23,8 @@ SELECT
   nickname,
   first_name,
   last_name,
-  total_points
+  total_points,
+  division
 FROM public.profiles
 WHERE is_banned = false;
 

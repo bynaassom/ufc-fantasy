@@ -9,8 +9,26 @@ describe("validators", () => {
     expect(result.success).toBe(true);
   });
 
+  it("accepts valid division updates", () => {
+    const result = updateMyProfileSchema.safeParse({ division: "Lightweight" });
+
+    expect(result.success).toBe(true);
+  });
+
   it("rejects nicknames with unsupported characters", () => {
     const result = updateMyProfileSchema.safeParse({ nickname: "renato ufc" });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects invalid divisions", () => {
+    const result = updateMyProfileSchema.safeParse({ division: "Superweight" });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects profile updates without fields", () => {
+    const result = updateMyProfileSchema.safeParse({});
 
     expect(result.success).toBe(false);
   });

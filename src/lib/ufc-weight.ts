@@ -13,6 +13,19 @@ export const CANONICAL_WEIGHT_CLASSES = [
 ] as const;
 
 export type CanonicalWeightClass = (typeof CANONICAL_WEIGHT_CLASSES)[number];
+export const COMPETITIVE_DIVISIONS = [
+  "Heavyweight",
+  "LightHeavyweight",
+  "Middleweight",
+  "Welterweight",
+  "Lightweight",
+  "Featherweight",
+  "Bantamweight",
+  "Flyweight",
+  "Strawweight",
+] as const;
+export type CompetitiveDivision = (typeof COMPETITIVE_DIVISIONS)[number];
+export const DEFAULT_COMPETITIVE_DIVISION: CompetitiveDivision = "Lightweight";
 
 const WEIGHT_PATTERNS: Array<{
   value: CanonicalWeightClass;
@@ -78,6 +91,14 @@ export const WEIGHT_CLASS_PT: Record<string, string> = {
   Atomweight: "Átomo",
   Catchweight: "Peso Combinado",
 };
+
+export function isCompetitiveDivision(value: string): value is CompetitiveDivision {
+  return (COMPETITIVE_DIVISIONS as readonly string[]).includes(value);
+}
+
+export function getWeightClassLabel(value: string): string {
+  return WEIGHT_CLASS_PT[value] || value;
+}
 
 function normalizeWeightText(value: string) {
   return value
