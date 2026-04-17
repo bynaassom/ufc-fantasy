@@ -1,3 +1,15 @@
+const NOTIFICATION_FIELDS = `
+  id,
+  user_id,
+  type,
+  title,
+  message,
+  target_path,
+  challenge_id,
+  read_at,
+  created_at
+`;
+
 export async function createNotification(
   client: any,
   payload: Record<string, unknown>,
@@ -5,7 +17,7 @@ export async function createNotification(
   const { data, error } = await client
     .from("notifications")
     .insert(payload)
-    .select("*")
+    .select(NOTIFICATION_FIELDS)
     .single();
 
   if (error) throw error;
@@ -19,7 +31,7 @@ export async function listNotificationsForUser(
 ) {
   const { data, error } = await client
     .from("notifications")
-    .select("*")
+    .select(NOTIFICATION_FIELDS)
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -49,7 +61,7 @@ export async function markNotificationAsRead(
     .update({ read_at: new Date().toISOString() })
     .eq("id", notificationId)
     .eq("user_id", userId)
-    .select("*")
+    .select(NOTIFICATION_FIELDS)
     .single();
 
   if (error) throw error;

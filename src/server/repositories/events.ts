@@ -1,7 +1,51 @@
+const EVENT_PUBLIC_FIELDS = `
+  id,
+  name,
+  slug,
+  event_date,
+  location,
+  banner_image_url,
+  ufc_event_id,
+  status,
+  picks_lock_at,
+  picks_open_at,
+  ufc_stats_url,
+  created_at,
+  updated_at
+`;
+
+const FIGHTER_CARD_FIELDS = `
+  id,
+  name,
+  headshot_url,
+  country
+`;
+
+const EVENT_WITH_FIGHTS_FIELDS = `
+  ${EVENT_PUBLIC_FIELDS},
+  fights (
+    id,
+    event_id,
+    fighter_a_id,
+    fighter_b_id,
+    card_type,
+    fight_order,
+    weight_class,
+    is_title_fight,
+    total_rounds,
+    winner_id,
+    result_method,
+    result_round,
+    result_confirmed,
+    fighter_a:fighters!fights_fighter_a_id_fkey(${FIGHTER_CARD_FIELDS}),
+    fighter_b:fighters!fights_fighter_b_id_fkey(${FIGHTER_CARD_FIELDS})
+  )
+`;
+
 export async function getCurrentPublicEvent(client: any) {
   const { data, error } = await client
     .from("events")
-    .select("*")
+    .select(EVENT_PUBLIC_FIELDS)
     .in("status", ["upcoming", "live"])
     .order("event_date", { ascending: true })
     .limit(1)
@@ -14,7 +58,7 @@ export async function getCurrentPublicEvent(client: any) {
 export async function listRecentEvents(client: any, limit = 20) {
   const { data, error } = await client
     .from("events")
-    .select("*")
+    .select(EVENT_PUBLIC_FIELDS)
     .order("event_date", { ascending: false })
     .limit(limit);
 
@@ -25,7 +69,7 @@ export async function listRecentEvents(client: any, limit = 20) {
 export async function listUpcomingAndCompletedEvents(client: any, limit = 10) {
   const { data, error } = await client
     .from("events")
-    .select("*")
+    .select(EVENT_PUBLIC_FIELDS)
     .order("event_date", { ascending: true })
     .limit(limit);
 
@@ -36,14 +80,27 @@ export async function listUpcomingAndCompletedEvents(client: any, limit = 10) {
 export async function findEventBySlugWithFights(client: any, slug: string) {
   const { data, error } = await client
     .from("events")
+    .select(EVENT_WITH_FIGHTS_FIELDS)
+    .eq("slug", slug)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function findEventBySlugForPickValidation(client: any, slug: string) {
+  const { data, error } = await client
+    .from("events")
     .select(
       `
-      *,
+      id,
+      picks_lock_at,
+      picks_open_at,
       fights (
-        *,
-        fighter_a:fighters!fights_fighter_a_id_fkey(*),
-        fighter_b:fighters!fights_fighter_b_id_fkey(*),
-        winner:fighters!fights_winner_id_fkey(*)
+        id,
+        fighter_a_id,
+        fighter_b_id,
+        total_rounds
       )
     `,
     )

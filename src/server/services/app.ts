@@ -1,7 +1,9 @@
+import { unstable_cache } from "next/cache";
 import type {
   Challenge,
   ChallengeFightComparison,
   Event,
+  EventWithFights,
   FightWithFighters,
   Notification as AppNotification,
   Profile,
@@ -14,8 +16,10 @@ import {
   isCompetitiveDivision,
   type CompetitiveDivision,
 } from "@/lib/ufc-weight";
+import { getServiceRoleSupabase } from "@/lib/supabase/service-role";
 import { ApiRouteError } from "@/server/api";
 import { requireActiveUser } from "@/server/auth/guards";
+import { CACHE_TAGS } from "@/server/cache-tags";
 import {
   createChallenge,
   findActiveChallengeBetweenUsers,
@@ -27,8 +31,8 @@ import {
 import {
   createEvent,
   findEventById,
+  findEventBySlugForPickValidation,
   findEventBySlugWithFights,
-  getCurrentEventForRanking,
   getCurrentPublicEvent,
   listCompletedEvents,
   listRecentEvents,
@@ -111,6 +115,94 @@ type ChallengeView = Challenge & {
   leader_user_id: string | null;
   is_expired: boolean;
 };
+
+const EVENTS_CACHE_SECONDS = 60;
+const EVENT_DETAIL_CACHE_SECONDS = 30;
+const RANKING_CACHE_SECONDS = 30;
+
+const getCachedCurrentPublicEvent = unstable_cache(
+  async () => {
+    const supabase = getServiceRoleSupabase();
+    return (await getCurrentPublicEvent(supabase)) as Event | null;
+  },
+  ["current-public-event"],
+  {
+    revalidate: EVENTS_CACHE_SECONDS,
+    tags: [CACHE_TAGS.events],
+  },
+);
+
+const getCachedUpcomingAndCompletedEvents = unstable_cache(
+  async (limit: number) => {
+    const supabase = getServiceRoleSupabase();
+    return (await listUpcomingAndCompletedEvents(supabase, limit)) as Event[];
+  },
+  ["upcoming-and-completed-events"],
+  {
+    revalidate: EVENTS_CACHE_SECONDS,
+    tags: [CACHE_TAGS.events],
+  },
+);
+
+const getCachedEventBySlug = unstable_cache(
+  async (slug: string) => {
+    const supabase = getServiceRoleSupabase();
+    return (await findEventBySlugWithFights(supabase, slug)) as EventWithFights | null;
+  },
+  ["event-by-slug-with-fights"],
+  {
+    revalidate: EVENT_DETAIL_CACHE_SECONDS,
+    tags: [CACHE_TAGS.events],
+  },
+);
+
+const getCachedGlobalRanking = unstable_cache(
+  async () => {
+    const supabase = getServiceRoleSupabase();
+    return getGlobalRanking(supabase);
+  },
+  ["global-ranking"],
+  {
+    revalidate: RANKING_CACHE_SECONDS,
+    tags: [CACHE_TAGS.ranking],
+  },
+);
+
+const getCachedDivisionRanking = unstable_cache(
+  async (division: CompetitiveDivision) => {
+    const supabase = getServiceRoleSupabase();
+    return getDivisionRanking(supabase, division);
+  },
+  ["division-ranking"],
+  {
+    revalidate: RANKING_CACHE_SECONDS,
+    tags: [CACHE_TAGS.ranking],
+  },
+);
+
+const getCachedEventRanking = unstable_cache(
+  async (eventId: string) => {
+    const supabase = getServiceRoleSupabase();
+    const ranking = await getEventRanking(supabase, eventId);
+    const userIds = ranking.map((entry: any) => entry.user_id);
+    const profiles = await getRankingProfilesByIds(supabase, userIds);
+    const profileMap = new Map(
+      profiles.map((entry: any) => [entry.id, entry as RankingProfileRow]),
+    );
+
+    return ranking
+      .map((entry: any) => ({
+        ...entry,
+        profile: profileMap.get(entry.user_id) || null,
+      }))
+      .filter((entry: EventRankingRow) => entry.profile) as EventRankingRow[];
+  },
+  ["event-ranking"],
+  {
+    revalidate: RANKING_CACHE_SECONDS,
+    tags: [CACHE_TAGS.ranking],
+  },
+);
 
 function slugifyEventName(name: string) {
   return name
@@ -226,10 +318,9 @@ async function resolveChallengeLifecycle(client: any, challenge: ChallengeRow) {
 async function enrichChallenges(client: any, challenges: ChallengeRow[]) {
   if (!challenges.length) return [] as ChallengeView[];
 
-  const resolved = [] as ChallengeRow[];
-  for (const challenge of challenges) {
-    resolved.push((await resolveChallengeLifecycle(client, challenge)) as ChallengeRow);
-  }
+  const resolved = (await Promise.all(
+    challenges.map((challenge) => resolveChallengeLifecycle(client, challenge)),
+  )) as ChallengeRow[];
 
   const publicProfiles = await findPublicProfilesByIds(
     client,
@@ -376,15 +467,13 @@ async function getRankingProfilesByIds(client: any, userIds: string[]) {
 }
 
 export async function getLandingPageData() {
-  const supabase = await getUserSupabase();
-  const currentEvent = await getCurrentPublicEvent(supabase);
-  return { currentEvent: (currentEvent as Event | null) || null };
+  const currentEvent = await getCachedCurrentPublicEvent();
+  return { currentEvent };
 }
 
 export async function getHomePageData() {
   const { profile } = await requirePageUserProfile();
-  const supabase = await getUserSupabase();
-  const events = (await listUpcomingAndCompletedEvents(supabase, 10)) as Event[];
+  const events = await getCachedUpcomingAndCompletedEvents(10);
 
   const currentEvent =
     events.find((event) => event.status === "live" || event.status === "upcoming") ||
@@ -405,7 +494,7 @@ export async function getHomePageData() {
 
 export async function getEventPageData(slug: string) {
   const { supabase, user, profile } = await requirePageUserProfile();
-  const event = await findEventBySlugWithFights(supabase, slug);
+  const event = await getCachedEventBySlug(slug);
   if (!event) {
     return { profile, user, event: null, existingPicks: [] };
   }
@@ -418,48 +507,20 @@ export async function getRankingPageData(
   tab: "geral" | "evento" | "categoria",
   divisionParam?: string,
 ) {
-  const { supabase, user, profile } = await requirePageUserProfile();
-  const [globalRanking, currentEvent] = await Promise.all([
-    getGlobalRanking(supabase),
-    getCurrentEventForRanking(supabase),
-  ]);
+  const { user, profile } = await requirePageUserProfile();
+  const currentEvent = await getCachedCurrentPublicEvent();
   const selectedDivision =
     divisionParam && isCompetitiveDivision(divisionParam)
       ? divisionParam
       : profile.division || DEFAULT_COMPETITIVE_DIVISION;
 
-  let eventRanking: EventRankingRow[] = [];
-  if (currentEvent) {
-    const ranking = await getEventRanking(supabase, currentEvent.id);
-    const userIds = ranking.map((entry: any) => entry.user_id);
-    const profiles = await getRankingProfilesByIds(supabase, userIds);
-    const profileMap = new Map(
-      profiles.map((entry: any) => [entry.id, entry as RankingProfileRow]),
-    );
+  let displayRanking: RankingDisplayEntry[] = [];
 
-    eventRanking = ranking
-      .map((entry: any) => ({
-        ...entry,
-        profile: profileMap.get(entry.user_id) || null,
-      }))
-      .filter((entry: EventRankingRow) => entry.profile);
-  }
-  const divisionRanking = await getDivisionRanking(supabase, selectedDivision);
+  if (tab === "evento") {
+    const eventRanking =
+      currentEvent ? await getCachedEventRanking(currentEvent.id) : [];
 
-  const geralList: RankingDisplayEntry[] = globalRanking.map(
-    (rankingProfile: any, index: number) => ({
-      rank: index + 1,
-      nickname: rankingProfile.nickname,
-      first_name: rankingProfile.first_name,
-      last_name: rankingProfile.last_name,
-      points: rankingProfile.total_points,
-      perfect_picks: 0,
-      userId: rankingProfile.id,
-    }),
-  );
-
-  const eventoList: RankingDisplayEntry[] = eventRanking.map(
-    (entry: EventRankingRow, index: number) => ({
+    displayRanking = eventRanking.map((entry: EventRankingRow, index: number) => ({
       rank: index + 1,
       nickname: entry.profile?.nickname || "",
       first_name: entry.profile?.first_name || "",
@@ -467,10 +528,11 @@ export async function getRankingPageData(
       points: entry.total_points,
       perfect_picks: entry.perfect_picks,
       userId: entry.user_id,
-    }),
-  );
-  const categoriaList: RankingDisplayEntry[] = divisionRanking.map(
-    (entry: any, index: number) => ({
+    }));
+  } else if (tab === "categoria") {
+    const divisionRanking = await getCachedDivisionRanking(selectedDivision);
+
+    displayRanking = divisionRanking.map((entry: any, index: number) => ({
       rank: index + 1,
       nickname: entry.nickname,
       first_name: entry.first_name,
@@ -478,11 +540,21 @@ export async function getRankingPageData(
       points: entry.total_points,
       perfect_picks: 0,
       userId: entry.id,
-    }),
-  );
+    }));
+  } else {
+    const globalRanking = await getCachedGlobalRanking();
 
-  const displayRanking: RankingDisplayEntry[] =
-    tab === "evento" ? eventoList : tab === "categoria" ? categoriaList : geralList;
+    displayRanking = globalRanking.map((rankingProfile: any, index: number) => ({
+      rank: index + 1,
+      nickname: rankingProfile.nickname,
+      first_name: rankingProfile.first_name,
+      last_name: rankingProfile.last_name,
+      points: rankingProfile.total_points,
+      perfect_picks: 0,
+      userId: rankingProfile.id,
+    }));
+  }
+
   const myRank =
     displayRanking.find(
       (rankingEntry: RankingDisplayEntry) => rankingEntry.userId === user.id,
@@ -518,7 +590,7 @@ export async function getHistoryPageData() {
 export async function getHistoryEventPageData(slug: string) {
   const { supabase, user, profile } = await requirePageUserProfile();
   const [event, userPicks] = await Promise.all([
-    findEventBySlugWithFights(supabase, slug),
+    getCachedEventBySlug(slug),
     listPicksForUser(supabase, user.id),
   ]);
   if (!event) {
@@ -661,7 +733,7 @@ export async function saveMyEventPicks(
   }>,
 ) {
   const { supabase, user } = await requireActiveUser();
-  const event = await findEventBySlugWithFights(supabase, slug);
+  const event = await findEventBySlugForPickValidation(supabase, slug);
   if (!event) {
     throw new ApiRouteError(404, "EVENT_NOT_FOUND", "Evento não encontrado.");
   }
@@ -764,7 +836,7 @@ export async function getPublicProfilePageData(nickname: string) {
 
   const [stats, currentEvent] = await Promise.all([
     getPublicProfileStats(adminSupabase, publicProfile.id),
-    getCurrentPublicEvent(adminSupabase),
+    getCachedCurrentPublicEvent(),
   ]);
 
   const challengeableEvent = currentEvent || null;
@@ -975,12 +1047,13 @@ export async function respondToChallenge(
 export async function getChallengesPageData() {
   const { profile, user } = await requirePageUserProfile();
   const adminSupabase = await getAdminSupabase();
+  const currentEventPromise = getCachedCurrentPublicEvent();
   const [rawChallenges, notifications, unreadCount, currentEvent, publicProfiles] =
     await Promise.all([
       listChallengesForUser(adminSupabase, user.id),
       listNotificationsForUser(adminSupabase, user.id, 12),
       countUnreadNotifications(adminSupabase, user.id),
-      getCurrentPublicEvent(adminSupabase),
+      currentEventPromise,
       listPublicProfiles(adminSupabase, 100),
     ]);
 

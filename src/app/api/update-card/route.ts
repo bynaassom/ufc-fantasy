@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { isAllowedScrapeUrl } from "@/lib/security";
 import { extractEventCardHeadshots } from "@/lib/ufc-fighter-media";
 import { readUpdateCardRequest } from "@/lib/update-card-request";
 import { extractWeightClassFromHtmlBlock } from "@/lib/ufc-weight";
 import { assertSameOriginForMutation } from "@/server/api";
+import { CACHE_TAGS } from "@/server/cache-tags";
 
 const FLAG_COUNTRY: Record<string, string> = {
   RU: "Rússia",
@@ -486,6 +488,8 @@ export async function POST(req: NextRequest) {
       `↻ Atualizada: ${u.fight.fighter_a.name} vs ${u.fight.fighter_b.name}`,
     );
   }
+
+  revalidateTag(CACHE_TAGS.events);
 
   return NextResponse.json({ ok: true, log });
 }

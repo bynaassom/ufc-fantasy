@@ -1,9 +1,10 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { logAdminAction } from "@/lib/admin-audit";
 import { assertSameOriginForMutation } from "@/server/api";
+import { CACHE_TAGS } from "@/server/cache-tags";
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,6 +47,8 @@ export async function POST(request: NextRequest) {
 
     revalidatePath("/ranking");
     revalidatePath("/home");
+    revalidateTag(CACHE_TAGS.ranking);
+    revalidateTag(CACHE_TAGS.events);
     const eventSlug = (fight?.event as any)?.slug;
     if (eventSlug) {
       revalidatePath(`/event/${eventSlug}`);

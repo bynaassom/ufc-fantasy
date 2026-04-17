@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import {
@@ -8,6 +9,7 @@ import {
 import { logAdminAction } from "@/lib/admin-audit";
 import { syncScrapedCardForEvent } from "@/lib/ufc-card-sync";
 import { assertSameOriginForMutation } from "@/server/api";
+import { CACHE_TAGS } from "@/server/cache-tags";
 
 function slugify(value: string) {
   return value
@@ -517,6 +519,8 @@ export async function POST(req: NextRequest) {
         selected_source_ids: selectedCandidates.map((candidate) => candidate.source_id),
       },
     });
+
+    revalidateTag(CACHE_TAGS.events);
 
     return NextResponse.json({
       ok: true,

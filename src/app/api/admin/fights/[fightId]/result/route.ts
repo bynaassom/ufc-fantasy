@@ -1,4 +1,4 @@
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { NextRequest } from "next/server";
 import { logAdminAction } from "@/lib/admin-audit";
 import {
@@ -8,6 +8,7 @@ import {
   parseJsonBody,
 } from "@/server/api";
 import { requireAdmin } from "@/server/auth/guards";
+import { CACHE_TAGS } from "@/server/cache-tags";
 import { setAdminFightResult } from "@/server/services/app";
 import { adminFightResultSchema } from "@/server/validators/admin";
 
@@ -24,6 +25,8 @@ export async function POST(request: NextRequest, { params }: Params) {
 
     revalidatePath("/ranking");
     revalidatePath("/home");
+    revalidateTag(CACHE_TAGS.ranking);
+    revalidateTag(CACHE_TAGS.events);
     const eventSlug = (data.fight?.event as any)?.slug;
     if (eventSlug) {
       revalidatePath(`/event/${eventSlug}`);

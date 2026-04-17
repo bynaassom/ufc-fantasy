@@ -53,7 +53,6 @@ export default function PublicProfileClient({
 
       toast.success("Desafio enviado!");
       router.push(`/desafios/${data.challenge.id}`);
-      router.refresh();
     } catch (error: any) {
       toast.error(error.message || "Não foi possível criar o desafio.");
     } finally {

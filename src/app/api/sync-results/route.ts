@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import {
   namesMatch,
   parseUfcStatsEventResults,
@@ -10,6 +10,7 @@ import {
 import { isAllowedScrapeUrl } from "@/lib/security";
 import { logAdminAction } from "@/lib/admin-audit";
 import { assertSameOriginForMutation } from "@/server/api";
+import { CACHE_TAGS } from "@/server/cache-tags";
 
 // ─── Scrape UFCStats ─────────────────────────────────────────
 async function scrapeUfcStats(url: string): Promise<UfcStatsResult[]> {
@@ -241,6 +242,8 @@ export async function POST(req: NextRequest) {
 
   revalidatePath("/ranking");
   revalidatePath("/home");
+  revalidateTag(CACHE_TAGS.ranking);
+  revalidateTag(CACHE_TAGS.events);
   Array.from(slugsToRevalidate).forEach((slug) => {
     revalidatePath(`/event/${slug}`);
   });

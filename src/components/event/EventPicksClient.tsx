@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
 import { FightWithFighters, Pick, FightMethod, EventWithFights } from "@/types";
 import FightCard from "./FightCard";
 import { readApiResponse } from "@/lib/api";
@@ -21,59 +20,88 @@ type PendingPick = {
   round: number;
 };
 
+function buildPickMap(picks: Pick[]) {
+  return Object.fromEntries(picks.map((pick) => [pick.fight_id, pick])) as Record<
+    string,
+    Pick | undefined
+  >;
+}
+
 export default function EventPicksClient({
   event,
   existingPicks,
   eventSlug,
   picksOpen,
 }: EventPicksClientProps) {
-  const router = useRouter();
   const [pendingPicks, setPendingPicks] = useState<Record<string, PendingPick>>(
     {},
   );
+  const [confirmedPicksMap, setConfirmedPicksMap] = useState<
+    Record<string, Pick | undefined>
+  >(() => buildPickMap(existingPicks));
   const [saving, setSaving] = useState(false);
 
   const locked = isPicksLocked(event.picks_lock_at) || !picksOpen;
 
-  const mainCard = event.fights
-    .filter((f) => f.card_type === "main")
-    .sort((a, b) => a.fight_order - b.fight_order);
+  const { mainCard, prelimCard, fightById } = useMemo(() => {
+    const fights = [...event.fights].sort((a, b) => {
+      if (a.card_type !== b.card_type) {
+        return a.card_type === "main" ? -1 : 1;
+      }
+      return a.fight_order - b.fight_order;
+    });
 
-  const prelimCard = event.fights
-    .filter((f) => f.card_type === "preliminary")
-    .sort((a, b) => a.fight_order - b.fight_order);
+    const nextFightById = new Map<string, FightWithFighters>();
+    const nextMainCard: FightWithFighters[] = [];
+    const nextPrelimCard: FightWithFighters[] = [];
 
-  const existingPicksMap = Object.fromEntries(
-    existingPicks.map((p) => [p.fight_id, p]),
-  );
+    fights.forEach((fight) => {
+      nextFightById.set(fight.id, fight as FightWithFighters);
+      if (fight.card_type === "main") {
+        nextMainCard.push(fight as FightWithFighters);
+      } else {
+        nextPrelimCard.push(fight as FightWithFighters);
+      }
+    });
 
-  const handlePickChange = useCallback(
-    (fightId: string, winnerId: string, method: FightMethod, round: number) => {
-      setPendingPicks((prev) => ({
-        ...prev,
-        [fightId]: { winnerId, method, round },
-      }));
-    },
-    [],
-  );
+    return {
+      mainCard: nextMainCard,
+      prelimCard: nextPrelimCard,
+      fightById: nextFightById,
+    };
+  }, [event.fights]);
+
+  const pendingPickEntries = Object.entries(pendingPicks);
+
+  function handlePickChange(
+    fightId: string,
+    winnerId: string,
+    method: FightMethod,
+    round: number,
+  ) {
+    setPendingPicks((prev) => ({
+      ...prev,
+      [fightId]: { winnerId, method, round },
+    }));
+  }
 
   const totalFights = event.fights.length;
   const pickedFights = new Set([
-    ...Object.keys(existingPicksMap),
+    ...Object.keys(confirmedPicksMap),
     ...Object.keys(pendingPicks),
   ]).size;
 
   async function handleConfirm() {
     if (locked) return;
-    if (Object.keys(pendingPicks).length === 0) {
+    if (pendingPickEntries.length === 0) {
       toast.error("Nenhum pick novo para salvar.");
       return;
     }
 
     // Valida que picks de KO/finalização têm round selecionado
-    for (const [fightId, pick] of Object.entries(pendingPicks)) {
+    for (const [fightId, pick] of pendingPickEntries) {
       if (pick.method !== "decision" && (!pick.round || pick.round < 1)) {
-        const fight = event.fights.find((f) => f.id === fightId);
+        const fight = fightById.get(fightId);
         const name = fight
           ? `${fight.fighter_a.name} vs ${fight.fighter_b.name}`
           : "uma luta";
@@ -85,7 +113,7 @@ export default function EventPicksClient({
     setSaving(true);
 
     try {
-      const upserts = Object.entries(pendingPicks).map(([fightId, pick]) => ({
+      const upserts = pendingPickEntries.map(([fightId, pick]) => ({
         fightId,
         winnerId: pick.winnerId,
         method: pick.method,
@@ -101,8 +129,33 @@ export default function EventPicksClient({
       );
 
       toast.success(`✅ ${upserts.length} pick(s) confirmados!`);
+      setConfirmedPicksMap((current) => {
+        const next = { ...current };
+
+        pendingPickEntries.forEach(([fightId, pick]) => {
+          const currentPick = next[fightId];
+          next[fightId] = {
+            id: currentPick?.id || fightId,
+            user_id: currentPick?.user_id || "",
+            fight_id: fightId,
+            event_id: event.id,
+            picked_winner_id: pick.winnerId,
+            picked_method: pick.method,
+            picked_round: pick.round,
+            is_confirmed: true,
+            confirmed_at: new Date().toISOString(),
+            points_winner: currentPick?.points_winner || 0,
+            points_method: currentPick?.points_method || 0,
+            points_round: currentPick?.points_round || 0,
+            total_points: currentPick?.total_points || 0,
+            created_at: currentPick?.created_at || new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+        });
+
+        return next;
+      });
       setPendingPicks({});
-      router.refresh();
     } catch (err) {
       console.error(err);
       toast.error("Erro ao salvar picks. Tente novamente.");
@@ -139,7 +192,7 @@ export default function EventPicksClient({
               />
             </div>
           </div>
-          {Object.keys(pendingPicks).length > 0 && (
+          {pendingPickEntries.length > 0 && (
             <span
               className="text-xs font-semibold px-2 py-1 rounded"
               style={{
@@ -147,7 +200,7 @@ export default function EventPicksClient({
                 color: "var(--red)",
               }}
             >
-              {Object.keys(pendingPicks).length} não salvo(s)
+              {pendingPickEntries.length} não salvo(s)
             </span>
           )}
         </div>
@@ -176,8 +229,8 @@ export default function EventPicksClient({
             {mainCard.map((fight) => (
               <FightCard
                 key={fight.id}
-                fight={fight as FightWithFighters}
-                existingPick={existingPicksMap[fight.id]}
+                fight={fight}
+                existingPick={confirmedPicksMap[fight.id]}
                 locked={locked}
                 onPickChange={handlePickChange}
               />
@@ -213,8 +266,8 @@ export default function EventPicksClient({
             {prelimCard.map((fight) => (
               <FightCard
                 key={fight.id}
-                fight={fight as FightWithFighters}
-                existingPick={existingPicksMap[fight.id]}
+                fight={fight}
+                existingPick={confirmedPicksMap[fight.id]}
                 locked={locked}
                 onPickChange={handlePickChange}
               />

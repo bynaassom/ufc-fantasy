@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import {
   COMPETITIVE_DIVISIONS,
@@ -9,9 +8,9 @@ import {
 } from "@/lib/ufc-weight";
 import Navbar from "@/components/layout/Navbar";
 import { readApiResponse } from "@/lib/api";
-import { createAuthClient } from "@/lib/supabase/client";
 import type { Profile } from "@/types";
 import type { MeResponse } from "@/types/api";
+import { createAuthClient } from "@/lib/supabase/client";
 
 export default function ProfileClient({
   profile: initialProfile,
@@ -20,7 +19,6 @@ export default function ProfileClient({
   profile: Profile;
   initialTab: "nickname" | "division" | "password";
 }) {
-  const router = useRouter();
   const [profile, setProfile] = useState(initialProfile);
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<"nickname" | "division" | "password">(initialTab);
@@ -48,7 +46,6 @@ export default function ProfileClient({
       setProfile(data.profile);
       setNickname(data.profile.nickname);
       setDivision(data.profile.division);
-      router.refresh();
     } catch (error: any) {
       toast.error(error.message);
     } finally {

@@ -8,20 +8,60 @@ import { readApiResponse } from "@/lib/api";
 import type { NotificationsResponse } from "@/types/api";
 import type { Notification } from "@/types";
 
+const NOTIFICATIONS_CACHE_TTL_MS = 60_000;
+
+let notificationsCache:
+  | {
+      data: NotificationsResponse;
+      fetchedAt: number;
+    }
+  | null = null;
+
+function readNotificationsCache() {
+  if (!notificationsCache) return null;
+  if (Date.now() - notificationsCache.fetchedAt > NOTIFICATIONS_CACHE_TTL_MS) {
+    return null;
+  }
+  return notificationsCache.data;
+}
+
+function writeNotificationsCache(data: NotificationsResponse) {
+  notificationsCache = {
+    data,
+    fetchedAt: Date.now(),
+  };
+}
+
 export default function NotificationBell() {
+  const cachedNotifications = readNotificationsCache();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [notifications, setNotifications] = useState<Notification[]>(
+    () => cachedNotifications?.notifications || [],
+  );
+  const [unreadCount, setUnreadCount] = useState(
+    () => cachedNotifications?.unreadCount || 0,
+  );
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(Boolean(cachedNotifications));
 
-  async function loadNotifications() {
+  async function loadNotifications(force = false) {
+    const cached = !force ? readNotificationsCache() : null;
+    if (cached) {
+      setNotifications(cached.notifications);
+      setUnreadCount(cached.unreadCount);
+      setHasLoadedOnce(true);
+      return;
+    }
+
     setLoading(true);
     try {
       const data = await readApiResponse<NotificationsResponse>(
         await fetch("/api/me/notifications"),
       );
+      writeNotificationsCache(data);
       setNotifications(data.notifications);
       setUnreadCount(data.unreadCount);
+      setHasLoadedOnce(true);
     } catch (error) {
       console.error(error);
     } finally {
@@ -30,7 +70,24 @@ export default function NotificationBell() {
   }
 
   useEffect(() => {
-    loadNotifications();
+    if (readNotificationsCache()) {
+      return;
+    }
+
+    const callback = () => {
+      void loadNotifications();
+    };
+
+    const requestIdle = window.requestIdleCallback?.bind(window);
+    const cancelIdle = window.cancelIdleCallback?.bind(window);
+
+    if (requestIdle && cancelIdle) {
+      const idleId = requestIdle(callback);
+      return () => cancelIdle(idleId);
+    }
+
+    const timeoutId = globalThis.setTimeout(callback, 1200);
+    return () => globalThis.clearTimeout(timeoutId);
   }, []);
 
   async function handleNotificationClick(notification: Notification) {
@@ -42,14 +99,18 @@ export default function NotificationBell() {
           method: "PATCH",
         }),
       );
-      setNotifications((current) =>
-        current.map((entry) =>
-          entry.id === notification.id
-            ? { ...entry, read_at: new Date().toISOString() }
-            : entry,
-        ),
+      const readAt = new Date().toISOString();
+      const nextNotifications = notifications.map((entry) =>
+        entry.id === notification.id ? { ...entry, read_at: readAt } : entry,
       );
-      setUnreadCount((current) => Math.max(0, current - 1));
+      const nextUnreadCount = Math.max(0, unreadCount - 1);
+
+      setNotifications(nextNotifications);
+      setUnreadCount(nextUnreadCount);
+      writeNotificationsCache({
+        notifications: nextNotifications,
+        unreadCount: nextUnreadCount,
+      });
     } catch (error) {
       console.error(error);
     }
@@ -61,7 +122,9 @@ export default function NotificationBell() {
         onClick={() => {
           const nextOpen = !open;
           setOpen(nextOpen);
-          if (nextOpen) loadNotifications();
+          if (nextOpen && (!hasLoadedOnce || !readNotificationsCache())) {
+            void loadNotifications(!readNotificationsCache());
+          }
         }}
         className="relative flex items-center justify-center w-10 h-10 transition-opacity hover:opacity-80"
         style={{

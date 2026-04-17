@@ -1,3 +1,21 @@
+const PICK_FIELDS = `
+  id,
+  user_id,
+  fight_id,
+  event_id,
+  picked_winner_id,
+  picked_method,
+  picked_round,
+  is_confirmed,
+  confirmed_at,
+  points_winner,
+  points_method,
+  points_round,
+  total_points,
+  created_at,
+  updated_at
+`;
+
 export async function listPicksForUserEvent(
   client: any,
   userId: string,
@@ -5,7 +23,7 @@ export async function listPicksForUserEvent(
 ) {
   const { data, error } = await client
     .from("picks")
-    .select("*")
+    .select(PICK_FIELDS)
     .eq("user_id", userId)
     .eq("event_id", eventId);
 
@@ -16,7 +34,7 @@ export async function listPicksForUserEvent(
 export async function listPicksForUser(client: any, userId: string) {
   const { data, error } = await client
     .from("picks")
-    .select("*")
+    .select(PICK_FIELDS)
     .eq("user_id", userId);
 
   if (error) throw error;
@@ -45,12 +63,16 @@ export async function listPicksForUsersEvent(
     .from("picks")
     .select(
       `
-      *,
+      ${PICK_FIELDS},
       fight:fights(
-        *,
-        fighter_a:fighters!fights_fighter_a_id_fkey(*),
-        fighter_b:fighters!fights_fighter_b_id_fkey(*),
-        winner:fighters!fights_winner_id_fkey(*)
+        id,
+        card_type,
+        fight_order,
+        weight_class,
+        winner_id,
+        result_confirmed,
+        fighter_a:fighters!fights_fighter_a_id_fkey(id, name),
+        fighter_b:fighters!fights_fighter_b_id_fkey(id, name)
       )
     `,
     )
