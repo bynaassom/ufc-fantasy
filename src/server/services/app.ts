@@ -563,9 +563,13 @@ export async function updateMyProfile(payload: {
   division?: CompetitiveDivision;
 }) {
   const { supabase, user } = await requireActiveUser();
+  const nextPayload =
+    payload.division !== undefined
+      ? { ...payload, division_confirmed: true }
+      : payload;
 
   try {
-    const profile = await updateProfile(supabase, user.id, payload);
+    const profile = await updateProfile(supabase, user.id, nextPayload);
     return { profile };
   } catch (error: any) {
     if (payload.nickname && error?.message?.toLowerCase().includes("unique")) {

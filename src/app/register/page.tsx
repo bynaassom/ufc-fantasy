@@ -60,6 +60,7 @@ export default function RegisterPage() {
           first_name: form.first_name,
           last_name: form.last_name,
           division: form.division,
+          division_confirmed: true,
         },
       },
     });

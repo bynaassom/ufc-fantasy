@@ -29,6 +29,7 @@ CREATE TABLE profiles (
   ban_reason TEXT,
   total_points INTEGER NOT NULL DEFAULT 0,
   division TEXT NOT NULL DEFAULT 'Lightweight',
+  division_confirmed BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT nickname_length CHECK (char_length(nickname) >= 3 AND char_length(nickname) <= 20),
@@ -327,7 +328,7 @@ CREATE POLICY "notifications_admin_all" ON notifications FOR ALL USING (is_admin
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO profiles (id, nickname, first_name, last_name, division)
+  INSERT INTO profiles (id, nickname, first_name, last_name, division, division_confirmed)
   VALUES (
     NEW.id,
     NEW.raw_user_meta_data->>'nickname',
@@ -346,7 +347,8 @@ BEGIN
         'Strawweight'
       ) THEN NEW.raw_user_meta_data->>'division'
       ELSE 'Lightweight'
-    END
+    END,
+    COALESCE((NEW.raw_user_meta_data->>'division_confirmed')::boolean, false)
   );
   RETURN NEW;
 END;

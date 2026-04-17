@@ -4,6 +4,7 @@ import type { CompetitiveDivision } from "@/lib/ufc-weight";
 type ProfileUpdatePayload = Partial<{
   nickname: string;
   division: CompetitiveDivision;
+  division_confirmed: boolean;
 }>;
 
 export async function findProfileById(

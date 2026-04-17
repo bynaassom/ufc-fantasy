@@ -26,6 +26,7 @@ export interface Profile {
   ban_reason?: string;
   total_points: number;
   division: CompetitiveDivision;
+  division_confirmed: boolean;
   created_at: string;
   updated_at: string;
 }

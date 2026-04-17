@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { createAuthClient } from "@/lib/supabase/client";
 import { Profile } from "@/types";
 import { getDisplayName, getDisplaySubtitle } from "@/lib/utils";
+import DivisionOnboardingModal from "./DivisionOnboardingModal";
 import NotificationBell from "./NotificationBell";
 
 interface NavbarProps {
@@ -16,6 +17,9 @@ export default function Navbar({ profile }: NavbarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [needsDivisionSetup, setNeedsDivisionSetup] = useState(
+    !profile.division_confirmed,
+  );
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -53,6 +57,12 @@ export default function Navbar({ profile }: NavbarProps) {
 
   return (
     <>
+      <DivisionOnboardingModal
+        initialDivision={profile.division}
+        open={needsDivisionSetup}
+        onConfirmed={() => setNeedsDivisionSetup(false)}
+      />
+
       {/* ── DESKTOP ── */}
       <nav
         className="hidden md:block sticky top-0 z-50"
