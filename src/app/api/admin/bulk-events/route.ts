@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { logAdminAction } from "@/lib/admin-audit";
 import { assertSameOriginForMutation } from "@/server/api";
+import { CACHE_TAGS } from "@/server/cache-tags";
 
 type BulkAction =
   | "open_now"
@@ -171,6 +173,9 @@ export async function POST(req: NextRequest) {
       event_ids: eventIds,
     },
   });
+
+  revalidateTag(CACHE_TAGS.events);
+  revalidatePath("/admin");
 
   return NextResponse.json({
     ok: true,

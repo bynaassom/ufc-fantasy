@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath, revalidateTag } from "next/cache";
 import {
   apiErrorFromUnknown,
   apiSuccess,
@@ -6,6 +7,7 @@ import {
   parseJsonBody,
 } from "@/server/api";
 import { requireAdmin } from "@/server/auth/guards";
+import { CACHE_TAGS } from "@/server/cache-tags";
 import { getAdminEvent, updateAdminEventById } from "@/server/services/app";
 import { adminEventSchema } from "@/server/validators/admin";
 
@@ -29,6 +31,12 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     await requireAdmin();
     const body = await parseJsonBody(request, adminEventSchema.partial());
     const event = await updateAdminEventById(params.id, body);
+    revalidateTag(CACHE_TAGS.events);
+    revalidatePath("/admin");
+    if (event?.slug) {
+      revalidatePath(`/event/${event.slug}`);
+      revalidatePath(`/historico/${event.slug}`);
+    }
     return apiSuccess({ event });
   } catch (error) {
     return apiErrorFromUnknown(error);

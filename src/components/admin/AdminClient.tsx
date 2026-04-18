@@ -90,6 +90,19 @@ function formatAdminDateTime(value?: string | null) {
   }).format(new Date(value));
 }
 
+function toEventEditForm(data: any) {
+  return {
+    name: data?.name || "",
+    location: data?.location || "",
+    event_date: data?.event_date ? data.event_date.slice(0, 16) : "",
+    picks_lock_at: data?.picks_lock_at ? data.picks_lock_at.slice(0, 16) : "",
+    picks_open_at: data?.picks_open_at ? data.picks_open_at.slice(0, 16) : "",
+    banner_image_url: data?.banner_image_url || "",
+    ufc_stats_url: data?.ufc_stats_url || "",
+    status: data?.status || "upcoming",
+  };
+}
+
 function hasDatePassed(value?: string | null) {
   if (!value) return false;
   return new Date(value).getTime() < Date.now();
@@ -135,7 +148,11 @@ function AdminEmptyState({ text }: { text: string }) {
 }
 
 async function adminGet<T>(url: string) {
-  return readApiResponse<T>(await fetch(url));
+  return readApiResponse<T>(
+    await fetch(url, {
+      cache: "no-store",
+    }),
+  );
 }
 
 async function adminSend<T>(url: string, init: RequestInit) {
@@ -1610,20 +1627,7 @@ function EventoEditar({
     adminGet<{ event: any }>(`/api/admin/events/${selectedEventId}`)
       .then(({ event: data }) => {
         setEventData(data);
-        setEditForm({
-          name: data?.name || "",
-          location: data?.location || "",
-          event_date: data?.event_date ? data.event_date.slice(0, 16) : "",
-          picks_lock_at: data?.picks_lock_at
-            ? data.picks_lock_at.slice(0, 16)
-            : "",
-          picks_open_at: data?.picks_open_at
-            ? data.picks_open_at.slice(0, 16)
-            : "",
-          banner_image_url: data?.banner_image_url || "",
-          ufc_stats_url: data?.ufc_stats_url || "",
-          status: data?.status || "upcoming",
-        });
+        setEditForm(toEventEditForm(data));
       })
       .catch((error: any) => {
         toast.error(error.message);
@@ -1638,16 +1642,21 @@ function EventoEditar({
   async function handleSaveEvent(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    setSaving(false);
     try {
-      await adminSend(`/api/admin/events/${selectedEventId}`, {
-        method: "PATCH",
-        body: JSON.stringify(editForm),
-      });
+      const { event } = await adminSend<{ event: any }>(
+        `/api/admin/events/${selectedEventId}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify(editForm),
+        },
+      );
+      setEventData(event);
+      setEditForm(toEventEditForm(event));
       toast.success("Evento atualizado!");
     } catch (error: any) {
       toast.error(error.message);
-      return;
+    } finally {
+      setSaving(false);
     }
   }
 
