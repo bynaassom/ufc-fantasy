@@ -187,4 +187,44 @@ describe("ufc-card-sync", () => {
       weight_class: "Catchweight",
     });
   });
+
+  it("parses fighters even when one corner links to a generic node instead of /athlete/", () => {
+    const html = `
+      <div id="prelims-card"></div>
+      <div class="c-listing-fight" data-fmid="12786">
+        <div class="c-listing-fight__class-text">Peso-galo Luta</div>
+        <div class="c-listing-fight__names-row">
+          <div class="c-listing-fight__corner-name c-listing-fight__corner-name--red">
+            <a href="https://www.ufc.com.br/athlete/jamie-siraj">
+              <span class="c-listing-fight__corner-given-name">Jamie</span>
+              <span class="c-listing-fight__corner-family-name">Siraj</span>
+            </a>
+          </div>
+          <div class="c-listing-fight__corner-name c-listing-fight__corner-name--blue">
+            <a href="https://www.ufc.com.br/node/149875">
+              <span class="c-listing-fight__corner-given-name">John</span>
+              <span class="c-listing-fight__corner-family-name">Yannis</span>
+            </a>
+          </div>
+        </div>
+        <div class="c-listing-fight__country-text">Canadá</div>
+        <div class="c-listing-fight__country-text">Estados Unidos</div>
+      </div>
+    `;
+
+    const fights = parseUfcEventCardHtml(
+      html,
+      "https://www.ufc.com.br/event/ufc-fight-night-april-18-2026",
+    );
+
+    expect(fights).toHaveLength(1);
+    expect(fights[0]).toMatchObject({
+      fmid: "12786",
+      card_type: "preliminary",
+      fight_order: 1,
+      weight_class: "Bantamweight",
+      fighter_a: { name: "Jamie Siraj", country: "Canadá" },
+      fighter_b: { name: "John Yannis", country: "Estados Unidos" },
+    });
+  });
 });

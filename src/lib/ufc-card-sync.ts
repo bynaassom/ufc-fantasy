@@ -155,6 +155,11 @@ function absolutizeUfcEventUrl(pathOrUrl: string) {
   return `${UFC_SITE_BASE}${pathOrUrl.startsWith("/") ? pathOrUrl : `/${pathOrUrl}`}`;
 }
 
+function getAthleteSlugFromHref(href?: string | null) {
+  if (!href) return "";
+  return href.match(/\/athlete\/([a-z0-9-]+)/i)?.[1]?.toLowerCase() || "";
+}
+
 function getEventSlugFromUrl(pathOrUrl?: string | null) {
   if (!pathOrUrl) return "";
 
@@ -360,12 +365,13 @@ function extractAthletesFromCorners(block: string): ParsedAthlete[] {
 
   for (const match of Array.from(
     block.matchAll(
-    /c-listing-fight__corner-name--(?:red|blue)[\s\S]*?<a[^>]*href="[^"]*\/athlete\/([a-z0-9-]+)[^"]*"[^>]*>([\s\S]*?)<\/a>/gi,
+      /c-listing-fight__corner-name--(?:red|blue)[\s\S]*?<a[^>]*(?:href="([^"]*)")?[^>]*>([\s\S]*?)<\/a>/gi,
     ),
   )) {
-    const slug = match[1].toLowerCase();
-    const name = stripTags(match[2]) || slugToName(slug);
-    if (!athletes.some((athlete) => athlete.slug === slug)) {
+    const slug = getAthleteSlugFromHref(match[1]);
+    const name = stripTags(match[2]) || (slug ? slugToName(slug) : "");
+    if (!name) continue;
+    if (!athletes.some((athlete) => athlete.name === name)) {
       athletes.push({ slug, name });
     }
     if (athletes.length === 2) {
@@ -376,20 +382,20 @@ function extractAthletesFromCorners(block: string): ParsedAthlete[] {
   return athletes;
 }
 
-function extractAthletesFromDetails(block: string, slugs: string[]): ParsedAthlete[] {
+function extractAthletesFromDetails(block: string): ParsedAthlete[] {
   const names = Array.from(
     block.matchAll(/details-content__name--(?:red|blue)[^>]*>([\s\S]*?)<\/div>/gi),
   )
     .map((match) => stripTags(match[1]))
     .filter(Boolean);
 
-  if (names.length < 2 || slugs.length < 2) {
+  if (names.length < 2) {
     return [];
   }
 
-  return slugs.slice(0, 2).map((slug, index) => ({
-    slug,
-    name: names[index] || slugToName(slug),
+  return names.slice(0, 2).map((name) => ({
+    slug: "",
+    name,
   }));
 }
 
@@ -412,14 +418,14 @@ function extractFightAthletes(block: string): ParsedAthlete[] {
     return fromCorners;
   }
 
+  const fromDetails = extractAthletesFromDetails(block);
+  if (fromDetails.length === 2) {
+    return fromDetails;
+  }
+
   const slugs = extractAthleteSlugs(block);
   if (slugs.length < 2) {
     return [];
-  }
-
-  const fromDetails = extractAthletesFromDetails(block, slugs);
-  if (fromDetails.length === 2) {
-    return fromDetails;
   }
 
   return extractAthletesFromAnchors(block, slugs);
@@ -701,8 +707,6 @@ export function parseUfcEventCardHtml(html: string, url: string): ScrapedCardFig
     const nextPos = positions[index + 1]?.pos;
     const blockEnd = getBlockEnd(pos, nextPos, html.length, sectionBoundaries);
     const block = html.slice(pos, blockEnd);
-
-    if (!block.includes("/athlete/")) continue;
 
     const athletes = extractFightAthletes(block);
     if (athletes.length < 2) continue;
