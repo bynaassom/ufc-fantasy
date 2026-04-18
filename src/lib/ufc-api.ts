@@ -325,14 +325,22 @@ function mergeUpcomingEventMetadata(primaryEvents: UFCEvent[], pageEvents: UFCEv
   });
 }
 
-export async function fetchUpcomingUFCEventsFromPage(): Promise<UFCEvent[]> {
-  const response = await fetch(UFC_EVENTS_PAGE, {
-    next: { revalidate: 3600 },
-    headers: { Accept: "text/html,application/xhtml+xml" },
-  });
+export async function fetchUpcomingUFCEventsFromPage(
+  limit = 5,
+  fresh = false,
+): Promise<UFCEvent[]> {
+  const response = await fetch(UFC_EVENTS_PAGE, fresh
+    ? {
+        cache: "no-store",
+        headers: { Accept: "text/html,application/xhtml+xml" },
+      }
+    : {
+        next: { revalidate: 3600 },
+        headers: { Accept: "text/html,application/xhtml+xml" },
+      });
   if (!response.ok) throw new Error("Failed to fetch UFC events page");
   const html = await response.text();
-  const parsedEvents = parseUpcomingEventsFromHtml(html).slice(0, 5);
+  const parsedEvents = parseUpcomingEventsFromHtml(html).slice(0, limit);
   return enrichUpcomingEventNames(parsedEvents);
 }
 

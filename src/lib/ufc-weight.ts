@@ -36,12 +36,12 @@ const WEIGHT_PATTERNS: Array<{
     patterns: ["light heavyweight", "meio pesado", "meio-pesado"],
   },
   {
-    value: "Middleweight",
-    patterns: ["middleweight", "peso medio", "médio", "medio"],
-  },
-  {
     value: "Welterweight",
     patterns: ["welterweight", "meio medio", "meio-medio"],
+  },
+  {
+    value: "Middleweight",
+    patterns: ["middleweight", "peso medio", "médio", "medio"],
   },
   {
     value: "Lightweight",

@@ -1,235 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
-import { isAllowedScrapeUrl } from "@/lib/security";
-import { extractEventCardHeadshots } from "@/lib/ufc-fighter-media";
+import {
+  diffScrapedCardAgainstExistingFights,
+  ensureFighter,
+  resolveEventUrlCandidates,
+  scrapeUfcEventCard,
+} from "@/lib/ufc-card-sync";
 import { readUpdateCardRequest } from "@/lib/update-card-request";
-import { extractWeightClassFromHtmlBlock } from "@/lib/ufc-weight";
 import { assertSameOriginForMutation } from "@/server/api";
 import { CACHE_TAGS } from "@/server/cache-tags";
 
-const FLAG_COUNTRY: Record<string, string> = {
-  RU: "Rússia",
-  EN: "Inglaterra",
-  US: "Estados Unidos",
-  BR: "Brasil",
-  PL: "Polônia",
-  GE: "Geórgia",
-  AU: "Austrália",
-  LT: "Lituânia",
-  PT: "Portugal",
-  PS: "Palestina",
-  WL: "País de Gales",
-  FR: "França",
-  BE: "Bélgica",
-  IR: "Irã",
-  MX: "México",
-  CA: "Canadá",
-  NZ: "Nova Zelândia",
-  KZ: "Cazaquistão",
-  KG: "Quirguistão",
-  AZ: "Azerbaijão",
-  UA: "Ucrânia",
-  NG: "Nigéria",
-  CN: "China",
-  JP: "Japão",
-  KR: "Coreia do Sul",
-  SE: "Suécia",
-  NL: "Holanda",
-  DE: "Alemanha",
-  IT: "Itália",
-  ES: "Espanha",
-  CL: "Chile",
-  AR: "Argentina",
-  CO: "Colômbia",
-};
-
-function slugToName(slug: string): string {
-  return slug
-    .split("-")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
-}
-
-function normalize(name: string): string {
-  return name.toLowerCase().replace(/[^a-z]/g, "");
-}
-
-function namesMatch(a: string, b: string): boolean {
-  if (normalize(a) === normalize(b)) return true;
-  const pa = a.toLowerCase().split(" ").filter(Boolean);
-  const pb = b.toLowerCase().split(" ").filter(Boolean);
-  if (pa[pa.length - 1] !== pb[pb.length - 1]) return false;
-  return pa[0]?.[0] === pb[0]?.[0];
-}
-
-function absolutizeUfcEventUrl(pathOrUrl: string) {
-  if (!pathOrUrl) return "";
-  if (pathOrUrl.startsWith("http://") || pathOrUrl.startsWith("https://")) {
-    return pathOrUrl;
-  }
-  return `https://www.ufc.com.br${pathOrUrl.startsWith("/") ? pathOrUrl : `/${pathOrUrl}`}`;
-}
-
-function buildEventUrlCandidates(event: {
-  slug?: string | null;
-  name?: string | null;
-  ufc_event_id?: string | null;
-}) {
-  const candidates = new Set<string>();
-
-  if (event.ufc_event_id && /\/event\//i.test(event.ufc_event_id)) {
-    candidates.add(absolutizeUfcEventUrl(event.ufc_event_id));
+function getFighterName(
+  fighter: { name?: string | null } | Array<{ name?: string | null }> | null | undefined,
+) {
+  if (Array.isArray(fighter)) {
+    return fighter[0]?.name || "";
   }
 
-  if (event.slug) {
-    candidates.add(absolutizeUfcEventUrl(`/event/${event.slug}`));
-    const numberedSlug = event.slug.match(/^(ufc-\d+)\b/i)?.[1];
-    if (numberedSlug) {
-      candidates.add(absolutizeUfcEventUrl(`/event/${numberedSlug.toLowerCase()}`));
-    }
-  }
-
-  if (event.name) {
-    const numberedName = event.name.match(/^UFC\s+(\d+)\b/i)?.[1];
-    if (numberedName) {
-      candidates.add(absolutizeUfcEventUrl(`/event/ufc-${numberedName}`));
-    }
-  }
-
-  return Array.from(candidates).filter(Boolean);
-}
-
-async function scrapeCard(url: string) {
-  const res = await fetch(url, {
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
-      Accept: "text/html,application/xhtml+xml",
-      "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
-    },
-  });
-  if (!res.ok) throw new Error(`UFC.com HTTP ${res.status}`);
-  const html = await res.text();
-
-  const eventPath = url.replace(/^https?:\/\/[^/]+/, "").replace(/\/$/, "");
-  const mainPos = html.indexOf('id="main-card"');
-  const prelimPos = html.indexOf('id="prelims-card"');
-  const earlyPos = html.indexOf('id="early-prelims"');
-
-  const fights: any[] = [];
-  const counts: Record<string, number> = {
-    main: 0,
-    preliminary: 0,
-  };
-  const seenFmids = new Set<string>();
-
-  const fmidFindRegex = /data-fmid="(\d+)"/g;
-  const fmidPositions: { fmid: string; pos: number }[] = [];
-  let fm;
-  while ((fm = fmidFindRegex.exec(html)) !== null) {
-    fmidPositions.push({ fmid: fm[1], pos: fm.index });
-  }
-
-  const uniqueFmids = fmidPositions.filter((f) => {
-    if (seenFmids.has(f.fmid)) return false;
-    seenFmids.add(f.fmid);
-    return true;
-  });
-
-  for (let i = 0; i < uniqueFmids.length; i++) {
-    const { fmid, pos } = uniqueFmids[i];
-    const nextPos = uniqueFmids[i + 1]?.pos ?? pos + 5000;
-    const block = html.slice(pos, nextPos);
-
-    let card_type = "preliminary";
-    if (mainPos > 0 && pos > mainPos) {
-      if (
-        (earlyPos > 0 && pos > earlyPos) ||
-        (prelimPos > 0 && pos > prelimPos)
-      ) {
-        card_type = "preliminary";
-      }
-      else card_type = "main";
-    }
-
-    const slugs: string[] = [];
-    const seenSlugs = new Set<string>();
-    const slugRegex = /\/athlete\/([a-z0-9-]+)/g;
-    let sm;
-    while ((sm = slugRegex.exec(block)) !== null) {
-      const s = sm[1];
-      if (!seenSlugs.has(s)) {
-        seenSlugs.add(s);
-        slugs.push(s);
-      }
-      if (slugs.length === 2) break;
-    }
-    if (slugs.length < 2) continue;
-
-    const names: string[] = [];
-    for (const slug of slugs) {
-      const anchorRe = new RegExp(
-        `href="[^"]*${slug}[^"]*"[^>]*>([\\s\\S]*?)<\\/a>`,
-        "i",
-      );
-      const am = block.match(anchorRe);
-      if (am) {
-        const text = am[1]
-          .replace(/<[^>]+>/g, " ")
-          .replace(/\s+/g, " ")
-          .trim();
-        names.push(text || slugToName(slug));
-      } else {
-        names.push(slugToName(slug));
-      }
-    }
-
-    const weight_class = extractWeightClassFromHtmlBlock(block);
-
-    const is_title_fight =
-      /title\s+fight|disputa\s+de\s+t[ií]tulo|championship\s+bout|cintur[aã]o/i.test(
-        block,
-      );
-
-    const countries: string[] = [];
-    const flagRe = /\/flags\/([A-Z]{2})\.PNG/gi;
-    let flM;
-    while ((flM = flagRe.exec(block)) !== null) {
-      countries.push(FLAG_COUNTRY[flM[1].toUpperCase()] || "");
-    }
-
-    const headshots = extractEventCardHeadshots(block, "https://www.ufc.com.br");
-
-    counts[card_type] = (counts[card_type] || 0) + 1;
-    const fight_order = counts[card_type];
-    const total_rounds =
-      (card_type === "main" && fight_order === 1) || is_title_fight ? 5 : 3;
-
-    fights.push({
-      fmid,
-      card_type,
-      fight_order,
-      weight_class,
-      is_title_fight,
-      total_rounds,
-      ufc_matchup_url: `https://www.ufc.com.br${eventPath}#${fmid}`,
-      fighter_a: {
-        name: names[0],
-        slug: slugs[0],
-        country: countries[0] || "",
-        headshot_url: headshots[0] || "",
-      },
-      fighter_b: {
-        name: names[1],
-        slug: slugs[1],
-        country: countries[1] || "",
-        headshot_url: headshots[1] || "",
-      },
-    });
-  }
-
-  return fights;
+  return fighter?.name || "";
 }
 
 export async function POST(req: NextRequest) {
@@ -240,38 +29,35 @@ export async function POST(req: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user)
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   const { data: profile } = await adminSupabase
     .from("profiles")
     .select("role, is_banned")
     .eq("id", user.id)
     .single();
-  if (!profile || profile.role !== "admin" || profile.is_banned)
+  if (!profile || profile.role !== "admin" || profile.is_banned) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const { event_id, confirm_removals, remove_ids } = await readUpdateCardRequest(req);
-  if (!event_id)
-    return NextResponse.json(
-      { error: "event_id obrigatório" },
-      { status: 400 },
-    );
+  if (!event_id) {
+    return NextResponse.json({ error: "event_id obrigatório" }, { status: 400 });
+  }
 
-  // Busca evento e URL do UFC.com
   const { data: event } = await adminSupabase
     .from("events")
-    .select("id, name, slug, ufc_event_id")
+    .select("id, name, slug, ufc_event_id, event_date")
     .eq("id", event_id)
     .single();
 
-  if (!event)
-    return NextResponse.json(
-      { error: "Evento não encontrado" },
-      { status: 404 },
-    );
+  if (!event) {
+    return NextResponse.json({ error: "Evento não encontrado" }, { status: 404 });
+  }
 
-  const candidateUrls = buildEventUrlCandidates(event);
+  const candidateUrls = await resolveEventUrlCandidates(event);
   if (!candidateUrls.length) {
     return NextResponse.json(
       { error: "Não foi possível montar a URL oficial do evento no UFC.com" },
@@ -279,23 +65,25 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let scrapedFights: any[] = [];
+  let scrapedFights: Awaited<ReturnType<typeof scrapeUfcEventCard>> = [];
   let resolvedUrl = "";
-  try {
-    for (const candidateUrl of candidateUrls) {
-      if (!isAllowedScrapeUrl(candidateUrl)) continue;
-      const fights = await scrapeCard(candidateUrl);
-      if (fights.length > 0) {
-        scrapedFights = fights;
-        resolvedUrl = candidateUrl;
-        break;
+  const attemptedErrors: string[] = [];
+
+  for (const candidateUrl of candidateUrls) {
+    try {
+      const fights = await scrapeUfcEventCard(candidateUrl);
+      if (fights.length === 0) {
+        attemptedErrors.push(`${candidateUrl}: nenhuma luta encontrada`);
+        continue;
       }
+
+      scrapedFights = fights;
+      resolvedUrl = candidateUrl;
+      break;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "falha ao buscar card";
+      attemptedErrors.push(`${candidateUrl}: ${message}`);
     }
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: `Falha ao buscar UFC.com: ${e.message}` },
-      { status: 502 },
-    );
   }
 
   if (!scrapedFights.length) {
@@ -303,6 +91,7 @@ export async function POST(req: NextRequest) {
       {
         error: "Nenhuma luta encontrada na página do UFC.com",
         attempted_urls: candidateUrls,
+        attempted_errors: attemptedErrors,
       },
       { status: 404 },
     );
@@ -313,7 +102,6 @@ export async function POST(req: NextRequest) {
     await adminSupabase.from("events").update({ slug: resolvedSlug }).eq("id", event_id);
   }
 
-  // Busca lutas atuais no banco
   const { data: currentFights } = await adminSupabase
     .from("fights")
     .select(
@@ -323,173 +111,101 @@ export async function POST(req: NextRequest) {
     )
     .eq("event_id", event_id);
 
-  const dbFights = currentFights || [];
+  const diff = diffScrapedCardAgainstExistingFights(currentFights || [], scrapedFights);
 
-  // ── Detecta diferenças ───────────────────────────────────────
-  const added: any[] = [];
-  const removed: any[] = [];
-  const updated: any[] = [];
-
-  // Lutas novas no UFC.com que não estão no banco
-  for (const sf of scrapedFights) {
-    const found = dbFights.find(
-      (db) =>
-        namesMatch((db.fighter_a as any).name, sf.fighter_a.name) &&
-        namesMatch((db.fighter_b as any).name, sf.fighter_b.name),
-    );
-    if (!found) added.push(sf);
-  }
-
-  // Lutas no banco que não estão mais no UFC.com
-  for (const db of dbFights) {
-    if (db.result_confirmed) continue; // não remove lutas já confirmadas
-    const found = scrapedFights.find(
-      (sf) =>
-        namesMatch((db.fighter_a as any).name, sf.fighter_a.name) &&
-        namesMatch((db.fighter_b as any).name, sf.fighter_b.name),
-    );
-    if (!found) removed.push(db);
-  }
-
-  // Lutas com dados alterados (peso, ordem, card)
-  for (const sf of scrapedFights) {
-    const db = dbFights.find(
-      (d) =>
-        namesMatch((d.fighter_a as any).name, sf.fighter_a.name) &&
-        namesMatch((d.fighter_b as any).name, sf.fighter_b.name),
-    );
-    if (!db) continue;
-    const changes: Record<string, { from: any; to: any }> = {};
-    if (db.weight_class !== sf.weight_class)
-      changes.weight_class = { from: db.weight_class, to: sf.weight_class };
-    if (db.card_type !== sf.card_type)
-      changes.card_type = { from: db.card_type, to: sf.card_type };
-    if (db.fight_order !== sf.fight_order)
-      changes.fight_order = { from: db.fight_order, to: sf.fight_order };
-    if (db.total_rounds !== sf.total_rounds)
-      changes.total_rounds = { from: db.total_rounds, to: sf.total_rounds };
-    if (Object.keys(changes).length > 0)
-      updated.push({ db_id: db.id, changes, fight: sf });
-  }
-
-  // ── Se só preview (sem confirm_removals) retorna o diff ──────
-  if (
-    !confirm_removals &&
-    (removed.length > 0 || added.length > 0 || updated.length > 0)
-  ) {
-    // Busca quantos picks cada luta removida tem
+  if (!confirm_removals) {
     const removedWithPicks = await Promise.all(
-      removed.map(async (r) => {
+      diff.removed.map(async (fight) => {
         const { count } = await adminSupabase
           .from("picks")
           .select("id", { count: "exact", head: true })
-          .eq("fight_id", r.id);
+          .eq("fight_id", fight.id);
+
         return {
-          ...r,
+          ...fight,
           picks_count: count || 0,
-          fighter_a_name: (r.fighter_a as any).name,
-          fighter_b_name: (r.fighter_b as any).name,
+          fighter_a_name: getFighterName(fight.fighter_a),
+          fighter_b_name: getFighterName(fight.fighter_b),
         };
       }),
     );
 
     return NextResponse.json({
       preview: true,
-      added: added.map((f) => ({
-        fighter_a: f.fighter_a.name,
-        fighter_b: f.fighter_b.name,
-        weight_class: f.weight_class,
-        card_type: f.card_type,
+      resolved_url: resolvedUrl,
+      attempted_urls: candidateUrls,
+      attempted_errors: attemptedErrors,
+      added: diff.added.map((fight) => ({
+        fighter_a: fight.fighter_a.name,
+        fighter_b: fight.fighter_b.name,
+        weight_class: fight.weight_class,
+        card_type: fight.card_type,
       })),
-      removed: removedWithPicks.map((r) => ({
-        id: r.id,
-        fighter_a: r.fighter_a_name,
-        fighter_b: r.fighter_b_name,
-        picks_count: r.picks_count,
+      removed: removedWithPicks.map((fight) => ({
+        id: fight.id,
+        fighter_a: fight.fighter_a_name,
+        fighter_b: fight.fighter_b_name,
+        picks_count: fight.picks_count,
       })),
-      updated: updated.map((u) => ({
-        fighter_a: (u.fight as any).fighter_a.name,
-        fighter_b: (u.fight as any).fighter_b.name,
-        changes: u.changes,
+      updated: diff.updated.map((fight) => ({
+        fighter_a: fight.fight.fighter_a.name,
+        fighter_b: fight.fight.fighter_b.name,
+        changes: fight.changes,
       })),
     });
   }
 
-  // ── Aplica mudanças ──────────────────────────────────────────
   const log: string[] = [];
 
-  // Adiciona lutas novas
-  for (const sf of added) {
-    // Upsert fighters
-    for (const side of ["fighter_a", "fighter_b"]) {
-      const f = sf[side];
-      const { data: existing } = await adminSupabase
-        .from("fighters")
-        .select("id")
-        .eq("name", f.name)
-        .limit(1)
-        .single();
-      if (!existing) {
-        await adminSupabase
-          .from("fighters")
-          .insert({
-            name: f.name,
-            headshot_url: f.headshot_url || "",
-            country: f.country || "",
-          });
-      }
-    }
-    const { data: fa } = await adminSupabase
-      .from("fighters")
-      .select("id")
-      .eq("name", sf.fighter_a.name)
-      .single();
-    const { data: fb } = await adminSupabase
-      .from("fighters")
-      .select("id")
-      .eq("name", sf.fighter_b.name)
-      .single();
-    if (!fa || !fb) continue;
+  for (const fight of diff.added) {
+    const fighterAId = await ensureFighter(adminSupabase, fight.fighter_a);
+    const fighterBId = await ensureFighter(adminSupabase, fight.fighter_b);
 
     await adminSupabase.from("fights").insert({
       event_id,
-      fighter_a_id: fa.id,
-      fighter_b_id: fb.id,
-      card_type: sf.card_type,
-      fight_order: sf.fight_order,
-      weight_class: sf.weight_class,
-      is_title_fight: sf.is_title_fight,
-      total_rounds: sf.total_rounds,
-      ufc_matchup_url: sf.ufc_matchup_url,
+      fighter_a_id: fighterAId,
+      fighter_b_id: fighterBId,
+      card_type: fight.card_type,
+      fight_order: fight.fight_order,
+      weight_class: fight.weight_class,
+      is_title_fight: fight.is_title_fight,
+      total_rounds: fight.total_rounds,
+      ufc_matchup_url: fight.ufc_matchup_url,
     });
-    log.push(`✓ Adicionada: ${sf.fighter_a.name} vs ${sf.fighter_b.name}`);
+
+    log.push(`✓ Adicionada: ${fight.fighter_a.name} vs ${fight.fighter_b.name}`);
   }
 
-  // Remove lutas que foram confirmadas para remoção
   for (const id of remove_ids || []) {
-    const db = dbFights.find((f) => f.id === id);
-    if (!db) continue;
+    const dbFight = (currentFights || []).find((fight) => fight.id === id);
+    if (!dbFight) continue;
+
     await adminSupabase.from("picks").delete().eq("fight_id", id);
     await adminSupabase.from("fights").delete().eq("id", id);
     log.push(
-      `✗ Removida: ${(db.fighter_a as any).name} vs ${(db.fighter_b as any).name}`,
+      `✗ Removida: ${getFighterName(dbFight.fighter_a)} vs ${getFighterName(dbFight.fighter_b)}`,
     );
   }
 
-  // Atualiza lutas com mudanças
-  for (const u of updated) {
-    const updateData: Record<string, any> = {};
-    for (const [key, val] of Object.entries(u.changes)) {
-      updateData[key] = (val as any).to;
+  for (const updatedFight of diff.updated) {
+    const updateData: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(updatedFight.changes)) {
+      updateData[key] = value.to;
     }
-    updateData.ufc_matchup_url = u.fight.ufc_matchup_url;
-    await adminSupabase.from("fights").update(updateData).eq("id", u.db_id);
+
+    await adminSupabase.from("fights").update(updateData).eq("id", updatedFight.db_id);
     log.push(
-      `↻ Atualizada: ${u.fight.fighter_a.name} vs ${u.fight.fighter_b.name}`,
+      `↻ Atualizada: ${updatedFight.fight.fighter_a.name} vs ${updatedFight.fight.fighter_b.name}`,
     );
   }
 
   revalidateTag(CACHE_TAGS.events);
 
-  return NextResponse.json({ ok: true, log });
+  return NextResponse.json({
+    ok: true,
+    resolved_url: resolvedUrl,
+    attempted_urls: candidateUrls,
+    attempted_errors: attemptedErrors,
+    log,
+  });
 }

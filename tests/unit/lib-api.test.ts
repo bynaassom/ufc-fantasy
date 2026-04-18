@@ -50,13 +50,13 @@ describe("lib/api", () => {
       },
     );
 
-    await expect(readApiResponse(response)).rejects.toMatchObject<ApiClientError>({
+    await expect(readApiResponse(response)).rejects.toMatchObject({
       name: "ApiClientError",
       status: 403,
       code: "FORBIDDEN",
       details: { reason: "admin_only" },
       message: "Acesso negado.",
-    });
+    } satisfies Partial<ApiClientError>);
   });
 
   it("extracts the best available legacy error message", () => {
