@@ -48,6 +48,21 @@ describe("validators", () => {
     expect(result.success).toBe(true);
   });
 
+  it("accepts database UUID values without an RFC version nibble in picks", () => {
+    const result = saveEventPicksSchema.safeParse({
+      picks: [
+        {
+          fightId: "908aa55f-9ff5-45dc-8bbb-ea0403f8074e",
+          winnerId: "a1000009-e014-0000-0000-000000000001",
+          method: "decision",
+          round: 3,
+        },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+  });
+
   it("rejects an empty picks batch", () => {
     const result = saveEventPicksSchema.safeParse({ picks: [] });
 

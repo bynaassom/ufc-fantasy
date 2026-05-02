@@ -1,8 +1,9 @@
 import { z } from "zod";
+import { postgresUuidSchema } from "@/server/validators/ids";
 
 export const pendingPickSchema = z.object({
-  fightId: z.string().uuid(),
-  winnerId: z.string().uuid(),
+  fightId: postgresUuidSchema,
+  winnerId: postgresUuidSchema,
   method: z.enum(["decision", "submission", "knockout"]),
   round: z.number().int().min(1).max(5),
 });
