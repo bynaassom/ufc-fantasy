@@ -16,6 +16,10 @@ import {
   isCompetitiveDivision,
   type CompetitiveDivision,
 } from "@/lib/ufc-weight";
+import {
+  resolveRankingEventSelection,
+  type RankingSelectableEvent,
+} from "@/lib/ranking-events";
 import { getServiceRoleSupabase } from "@/lib/supabase/service-role";
 import { ApiRouteError } from "@/server/api";
 import { requireActiveUser } from "@/server/auth/guards";
@@ -202,6 +206,19 @@ const getCachedEventRanking = unstable_cache(
   {
     revalidate: RANKING_CACHE_SECONDS,
     tags: [CACHE_TAGS.ranking],
+  },
+);
+
+const getCachedRecentCompletedRankingEvents = unstable_cache(
+  async (limit: number) => {
+    const supabase = getServiceRoleSupabase();
+    const events = await listCompletedEvents(supabase);
+    return events.slice(0, limit) as RankingSelectableEvent[];
+  },
+  ["recent-completed-ranking-events"],
+  {
+    revalidate: EVENTS_CACHE_SECONDS,
+    tags: [CACHE_TAGS.events],
   },
 );
 
@@ -547,9 +564,27 @@ export async function getEventPageData(slug: string) {
 export async function getRankingPageData(
   tab: "geral" | "evento" | "categoria",
   divisionParam?: string,
+  eventSlugParam?: string,
 ) {
   const { user, profile } = await requirePageUserProfile();
-  const currentEvent = await getCachedCurrentPublicEvent();
+  const [currentEvent, completedRankingEvents] = await Promise.all([
+    getCachedCurrentPublicEvent(),
+    getCachedRecentCompletedRankingEvents(7),
+  ]);
+  const { selectableEvents: rankingEvents, selectedEvent } =
+    resolveRankingEventSelection({
+      currentEvent: currentEvent
+        ? {
+            id: currentEvent.id,
+            name: currentEvent.name,
+            slug: currentEvent.slug,
+            event_date: currentEvent.event_date,
+          }
+        : null,
+      completedEvents: completedRankingEvents,
+      selectedSlug: eventSlugParam,
+      completedLimit: 7,
+    });
   const selectedDivision =
     divisionParam && isCompetitiveDivision(divisionParam)
       ? divisionParam
@@ -559,7 +594,7 @@ export async function getRankingPageData(
 
   if (tab === "evento") {
     const eventRanking =
-      currentEvent ? await getCachedEventRanking(currentEvent.id) : [];
+      selectedEvent ? await getCachedEventRanking(selectedEvent.id) : [];
 
     displayRanking = eventRanking.map((entry: EventRankingRow, index: number) => ({
       rank: index + 1,
@@ -604,6 +639,8 @@ export async function getRankingPageData(
   return {
     profile,
     currentEvent,
+    selectedRankingEvent: selectedEvent,
+    rankingEvents,
     displayRanking,
     myRank,
     tab,

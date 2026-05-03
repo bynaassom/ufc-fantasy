@@ -1,7 +1,9 @@
 import DivisionSelector from "@/components/ranking/DivisionSelector";
+import EventRankingSelector from "@/components/ranking/EventRankingSelector";
 import Navbar from "@/components/layout/Navbar";
 import Link from "next/link";
 import type { CompetitiveDivision } from "@/lib/ufc-weight";
+import type { RankingSelectableEvent } from "@/lib/ranking-events";
 import { getRankingPageData } from "@/server/services/app";
 
 type RankingRow = {
@@ -19,7 +21,7 @@ export const dynamic = "force-dynamic";
 export default async function RankingPage({
   searchParams,
 }: {
-  searchParams: { tab?: string; division?: string };
+  searchParams: { tab?: string; division?: string; event?: string };
 }) {
   const tab =
     searchParams.tab === "evento"
@@ -30,14 +32,18 @@ export default async function RankingPage({
   const {
     profile,
     currentEvent,
+    selectedRankingEvent,
+    rankingEvents,
     displayRanking,
     myRank,
     selectedDivision,
     selectedDivisionLabel,
     userDivisionLabel,
-  } = await getRankingPageData(tab, searchParams.division);
+  } = await getRankingPageData(tab, searchParams.division, searchParams.event);
   const ranking = displayRanking as RankingRow[];
   const currentMyRank = myRank as RankingRow | null;
+  const eventOptions = rankingEvents as RankingSelectableEvent[];
+  const selectedEvent = selectedRankingEvent as RankingSelectableEvent | null;
   const categoryHref = `/ranking?tab=categoria&division=${selectedDivision}`;
 
   return (
@@ -74,7 +80,11 @@ export default async function RankingPage({
             GERAL
           </Link>
           <Link
-            href="/ranking?tab=evento"
+            href={
+              selectedEvent
+                ? `/ranking?tab=evento&event=${selectedEvent.slug}`
+                : "/ranking?tab=evento"
+            }
             className="flex-1 py-3 text-center font-condensed font-900 text-xs uppercase tracking-widest transition-all"
             style={{
               backgroundColor:
@@ -83,7 +93,7 @@ export default async function RankingPage({
               borderRight: "1px solid var(--border)",
             }}
           >
-            {currentEvent?.name ?? "EVENTO ATUAL"}
+            {selectedEvent?.name ?? currentEvent?.name ?? "EVENTO"}
           </Link>
           <Link
             href={categoryHref}
@@ -125,6 +135,32 @@ export default async function RankingPage({
             </div>
             <DivisionSelector
               selectedDivision={selectedDivision as CompetitiveDivision}
+            />
+          </div>
+        )}
+
+        {tab === "evento" && eventOptions.length > 0 && selectedEvent && (
+          <div
+            className="mb-5 flex flex-col gap-4 p-4 md:flex-row md:items-end md:justify-between"
+            style={{
+              backgroundColor: "var(--bg-card)",
+              border: "1px solid var(--border)",
+            }}
+          >
+            <div>
+              <p
+                className="font-condensed font-900 text-lg uppercase tracking-wide"
+                style={{ color: "var(--text)" }}
+              >
+                {selectedEvent.name}
+              </p>
+              <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
+                Resultado do ranking por evento.
+              </p>
+            </div>
+            <EventRankingSelector
+              events={eventOptions}
+              selectedSlug={selectedEvent.slug}
             />
           </div>
         )}
@@ -203,7 +239,7 @@ export default async function RankingPage({
               className="font-condensed font-700 uppercase tracking-widest text-sm"
               style={{ color: "var(--text-muted)" }}
             >
-              Ainda sem picks confirmados neste evento
+              Ainda sem resultados para este evento
             </p>
           </div>
         )}
