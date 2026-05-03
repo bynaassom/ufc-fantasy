@@ -49,6 +49,34 @@ describe("push notification prompt", () => {
     ).toBe(false);
   });
 
+  it("can show an educational prompt for unsupported mobile browsers", () => {
+    const now = new Date("2026-05-03T12:00:00.000Z").getTime();
+
+    expect(
+      shouldShowPushNotificationPrompt({
+        publicKey: "public-key",
+        subscribed: false,
+        permission: "default",
+        dismissedUntil: null,
+        now,
+        pushSupported: false,
+        showUnsupportedPrompt: true,
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldShowPushNotificationPrompt({
+        publicKey: "public-key",
+        subscribed: false,
+        permission: "default",
+        dismissedUntil: null,
+        now,
+        pushSupported: false,
+        showUnsupportedPrompt: false,
+      }),
+    ).toBe(false);
+  });
+
   it("respects a dismissed prompt until the snooze window expires", () => {
     const now = new Date("2026-05-03T12:00:00.000Z").getTime();
 

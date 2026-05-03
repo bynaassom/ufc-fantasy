@@ -93,7 +93,7 @@ export default async function RankingPage({
               borderRight: "1px solid var(--border)",
             }}
           >
-            {selectedEvent?.name ?? currentEvent?.name ?? "EVENTO"}
+            EVENTO
           </Link>
           <Link
             href={categoryHref}

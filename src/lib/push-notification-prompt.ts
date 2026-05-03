@@ -8,14 +8,19 @@ export function shouldShowPushNotificationPrompt({
   permission,
   dismissedUntil,
   now,
+  pushSupported = true,
+  showUnsupportedPrompt = false,
 }: {
   publicKey: string | null;
   subscribed: boolean;
   permission: NotificationPermission;
   dismissedUntil: number | null;
   now: number;
+  pushSupported?: boolean;
+  showUnsupportedPrompt?: boolean;
 }) {
   if (!publicKey || subscribed || permission !== "default") return false;
+  if (!pushSupported && !showUnsupportedPrompt) return false;
   return dismissedUntil === null || dismissedUntil <= now;
 }
 

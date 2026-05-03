@@ -22,6 +22,14 @@ function isPushSupported() {
   );
 }
 
+function getPushPermission() {
+  if (typeof window === "undefined" || !("Notification" in window)) {
+    return "default" as NotificationPermission;
+  }
+
+  return Notification.permission;
+}
+
 function urlBase64ToUint8Array(base64String: string) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = `${base64String}${padding}`
@@ -72,13 +80,14 @@ export default function PushNotificationManager({
   const [subscribed, setSubscribed] = useState(false);
   const [dismissedUntil, setDismissedUntil] = useState<number | null>(null);
   const [promptOpen, setPromptOpen] = useState(false);
+  const [pushSupported, setPushSupported] = useState(true);
   const [busy, setBusy] = useState(false);
 
   const ensureSubscription = useCallback(
     async (shouldAskPermission: boolean) => {
       if (!publicKey || !isPushSupported()) return;
 
-      let nextPermission = Notification.permission;
+      let nextPermission = getPushPermission();
       if (nextPermission === "default" && shouldAskPermission) {
         nextPermission = await Notification.requestPermission();
       }
@@ -103,9 +112,9 @@ export default function PushNotificationManager({
   );
 
   useEffect(() => {
-    if (!isPushSupported()) return;
-
-    setPermission(Notification.permission);
+    const supported = isPushSupported();
+    setPushSupported(supported);
+    setPermission(getPushPermission());
     setDismissedUntil(readPushPromptDismissedUntil(window.localStorage));
 
     let cancelled = false;
@@ -119,7 +128,7 @@ export default function PushNotificationManager({
 
         setPublicKey(data.publicKey);
 
-        if (Notification.permission === "granted") {
+        if (supported && getPushPermission() === "granted") {
           const registration = await navigator.serviceWorker.register("/sw.js");
           const subscription = await registration.pushManager.getSubscription();
           if (subscription) {
@@ -146,18 +155,20 @@ export default function PushNotificationManager({
       permission,
       dismissedUntil,
       now: Date.now(),
+      pushSupported,
+      showUnsupportedPrompt: variant === "mobile",
     });
 
     setPromptOpen(shouldOpen);
-  }, [dismissedUntil, permission, publicKey, subscribed]);
+  }, [dismissedUntil, permission, publicKey, pushSupported, subscribed, variant]);
 
   async function handleEnablePush() {
     setBusy(true);
     try {
       await ensureSubscription(true);
-      if (Notification.permission === "granted") {
+      if (getPushPermission() === "granted") {
         toast.success("Alertas ativados.");
-      } else if (Notification.permission === "denied") {
+      } else if (getPushPermission() === "denied") {
         toast.error("Permissão bloqueada. Ative nas configurações do navegador.");
       }
     } catch (error) {
@@ -184,7 +195,7 @@ export default function PushNotificationManager({
       ? "md:hidden fixed right-4 bottom-20 z-50 flex items-center justify-center w-11 h-11 transition-opacity hover:opacity-80 disabled:opacity-50"
       : "hidden md:flex items-center justify-center w-10 h-10 transition-opacity hover:opacity-80 disabled:opacity-50";
 
-  const button = (
+  const button = pushSupported ? (
     <button
       type="button"
       onClick={handleEnablePush}
@@ -212,7 +223,7 @@ export default function PushNotificationManager({
         <path d="M5 5 3 3" />
       </svg>
     </button>
-  );
+  ) : null;
 
   const overlayClassName =
     variant === "mobile"
@@ -260,20 +271,21 @@ export default function PushNotificationManager({
                     className="font-condensed text-lg font-900 uppercase leading-tight"
                     style={{ color: "var(--text)" }}
                   >
-                    Ativar alertas?
+                    {pushSupported ? "Ativar alertas?" : "Alertas no celular"}
                   </p>
                   <p
                     className="mt-2 text-sm leading-snug"
                     style={{ color: "var(--text-secondary)" }}
                   >
-                    A gente te avisa quando os picks abrirem, quando estiverem
-                    quase fechando e quando o card mudar.
+                    {pushSupported
+                      ? "A gente te avisa quando os picks abrirem, quando estiverem quase fechando e quando o card mudar."
+                      : "No iPhone, as notificações só aparecem quando o app está adicionado à Tela de Início. Adicione o UFC Fantasy à tela inicial e abra por lá para ativar os alertas."}
                   </p>
                 </div>
               </div>
             </div>
             <div
-              className="grid grid-cols-2"
+              className={pushSupported ? "grid grid-cols-2" : "grid grid-cols-1"}
               style={{ borderTop: "1px solid var(--border)" }}
             >
               <button
@@ -282,20 +294,22 @@ export default function PushNotificationManager({
                 className="px-4 py-3 font-condensed text-xs font-700 uppercase tracking-widest transition-opacity hover:opacity-75"
                 style={{
                   color: "var(--text-secondary)",
-                  borderRight: "1px solid var(--border)",
+                  borderRight: pushSupported ? "1px solid var(--border)" : "none",
                 }}
               >
-                Agora não
+                {pushSupported ? "Agora não" : "Entendi"}
               </button>
-              <button
-                type="button"
-                onClick={handleEnablePush}
-                disabled={busy}
-                className="px-4 py-3 font-condensed text-xs font-900 uppercase tracking-widest text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-                style={{ backgroundColor: "var(--red)" }}
-              >
-                {busy ? "Ativando..." : "Ativar"}
-              </button>
+              {pushSupported && (
+                <button
+                  type="button"
+                  onClick={handleEnablePush}
+                  disabled={busy}
+                  className="px-4 py-3 font-condensed text-xs font-900 uppercase tracking-widest text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+                  style={{ backgroundColor: "var(--red)" }}
+                >
+                  {busy ? "Ativando..." : "Ativar"}
+                </button>
+              )}
             </div>
           </div>
         </div>
