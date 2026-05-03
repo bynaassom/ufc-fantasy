@@ -67,6 +67,23 @@ export type NotificationsResponse = {
   unreadCount: number;
 };
 
+export type VapidPublicKeyResponse = {
+  enabled: boolean;
+  publicKey: string | null;
+};
+
+export type PushSubscriptionPayload = {
+  endpoint: string;
+  keys: {
+    p256dh: string;
+    auth: string;
+  };
+};
+
+export type PushSubscriptionResponse = {
+  subscribed: boolean;
+};
+
 export type PublicProfileResponse = {
   profile: PublicProfileSummary;
   stats: PublicProfileStats;

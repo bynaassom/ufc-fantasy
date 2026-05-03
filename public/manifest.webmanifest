@@ -1,0 +1,20 @@
+{
+  "name": "UFC Fantasy",
+  "short_name": "UFC Fantasy",
+  "start_url": "/home",
+  "display": "standalone",
+  "background_color": "#050505",
+  "theme_color": "#e8001a",
+  "icons": [
+    {
+      "src": "/PNG/logo-dark.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/PNG/logo-dark@5x.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

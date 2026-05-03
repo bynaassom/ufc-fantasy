@@ -4,6 +4,7 @@ import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { logAdminAction } from "@/lib/admin-audit";
 import { assertSameOriginForMutation } from "@/server/api";
 import { CACHE_TAGS } from "@/server/cache-tags";
+import { notifyActiveUsers } from "@/server/services/notifications";
 
 type BulkAction =
   | "open_now"
@@ -15,6 +16,7 @@ type BulkAction =
 type EventRecord = {
   id: string;
   name: string;
+  slug: string;
   event_date: string;
   status: "upcoming" | "live" | "completed";
   picks_open_at?: string | null;
@@ -63,6 +65,26 @@ function validateAction(input: unknown): input is BulkAction {
   );
 }
 
+async function safelyNotifyPicksOpened(client: any, event: EventRecord, nowIso: string) {
+  const lockAt = event.picks_lock_at ? new Date(event.picks_lock_at).getTime() : null;
+  if (lockAt === null || lockAt <= Date.now()) return;
+
+  try {
+    await notifyActiveUsers(client, {
+      type: "picks_opened",
+      event: {
+        id: event.id,
+        name: event.name,
+        slug: event.slug,
+        picks_open_at: nowIso,
+        picks_lock_at: event.picks_lock_at,
+      },
+    });
+  } catch (error) {
+    console.error("Failed to create picks opened notification", error);
+  }
+}
+
 export async function POST(req: NextRequest) {
   assertSameOriginForMutation(req);
   const auth = await requireAdmin();
@@ -85,7 +107,7 @@ export async function POST(req: NextRequest) {
 
   const { data: events, error } = await auth.adminSupabase
     .from("events")
-    .select("id, name, event_date, status, picks_open_at, picks_lock_at")
+    .select("id, name, slug, event_date, status, picks_open_at, picks_lock_at")
     .in("id", eventIds)
     .order("event_date", { ascending: true });
 
@@ -157,6 +179,12 @@ export async function POST(req: NextRequest) {
 
     if (!updateError) {
       applied.push(change.name);
+      if (action === "open_now") {
+        const event = (events as EventRecord[]).find((entry) => entry.id === change.id);
+        if (event) {
+          await safelyNotifyPicksOpened(auth.adminSupabase, event, nowIso);
+        }
+      }
     }
   }
 

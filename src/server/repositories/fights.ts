@@ -48,7 +48,9 @@ export async function deleteFight(client: any, fightId: string) {
 export async function findFightById(client: any, fightId: string) {
   const { data, error } = await client
     .from("fights")
-    .select("id, event_id, fighter_a_id, fighter_b_id, event:events(slug)")
+    .select(
+      "id, event_id, fighter_a_id, fighter_b_id, fighter_a:fighters!fights_fighter_a_id_fkey(id,name), fighter_b:fighters!fights_fighter_b_id_fkey(id,name), event:events(id,name,slug,picks_open_at,picks_lock_at)",
+    )
     .eq("id", fightId)
     .single();
 

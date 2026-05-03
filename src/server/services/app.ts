@@ -74,6 +74,7 @@ import {
   listNotificationsForUser,
   markNotificationAsRead,
 } from "@/server/repositories/notifications";
+import { notifyActiveUsers } from "@/server/services/notifications";
 import {
   requireAdminPageProfile,
   requirePageUserProfile,
@@ -211,6 +212,46 @@ function slugifyEventName(name: string) {
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
+}
+
+function getSingleRelation<T>(value: T | T[] | null | undefined): T | null {
+  if (Array.isArray(value)) return value[0] || null;
+  return value || null;
+}
+
+function getRelatedFighterName(
+  fighter: { name?: string | null } | Array<{ name?: string | null }> | null | undefined,
+) {
+  return getSingleRelation(fighter)?.name || "";
+}
+
+function toNotificationEvent(event: any) {
+  return {
+    id: event.id,
+    name: event.name,
+    slug: event.slug,
+    picks_open_at: event.picks_open_at || null,
+    picks_lock_at: event.picks_lock_at || null,
+  };
+}
+
+function shouldNotifyPicksOpened(event: any) {
+  const openAt = event?.picks_open_at ? new Date(event.picks_open_at).getTime() : null;
+  const lockAt = event?.picks_lock_at ? new Date(event.picks_lock_at).getTime() : null;
+  const now = Date.now();
+
+  return openAt !== null && lockAt !== null && openAt <= now && lockAt > now;
+}
+
+async function safelyNotifyActiveUsers(
+  client: any,
+  input: Parameters<typeof notifyActiveUsers>[1],
+) {
+  try {
+    await notifyActiveUsers(client, input);
+  } catch (error) {
+    console.error("Failed to create notification", error);
+  }
 }
 
 function hasDatePassed(date: string | null | undefined) {
@@ -1273,7 +1314,16 @@ export async function updateAdminEventById(
   payload: Record<string, unknown>,
 ) {
   const adminSupabase = await getAdminSupabase();
-  return updateEvent(adminSupabase, eventId, payload);
+  const event = await updateEvent(adminSupabase, eventId, payload);
+
+  if (shouldNotifyPicksOpened(event)) {
+    await safelyNotifyActiveUsers(adminSupabase, {
+      type: "picks_opened",
+      event: toNotificationEvent(event),
+    });
+  }
+
+  return event;
 }
 
 async function resolveOrCreateFighter(
@@ -1319,16 +1369,28 @@ export async function createAdminFightForEvent(
     resolveOrCreateFighter(adminSupabase, payload.fighter_b),
   ]);
 
-  return createFight(adminSupabase, {
-    event_id: eventId,
-    fighter_a_id: fighterAId,
-    fighter_b_id: fighterBId,
-    weight_class: payload.weight_class,
-    is_title_fight: payload.is_title_fight,
-    total_rounds: payload.total_rounds,
-    card_type: payload.card_type,
-    fight_order: payload.fight_order,
+  const [event, fight] = await Promise.all([
+    findEventById(adminSupabase, eventId),
+    createFight(adminSupabase, {
+      event_id: eventId,
+      fighter_a_id: fighterAId,
+      fighter_b_id: fighterBId,
+      weight_class: payload.weight_class,
+      is_title_fight: payload.is_title_fight,
+      total_rounds: payload.total_rounds,
+      card_type: payload.card_type,
+      fight_order: payload.fight_order,
+    }),
+  ]);
+
+  await safelyNotifyActiveUsers(adminSupabase, {
+    type: "fight_added",
+    event: toNotificationEvent(event),
+    fightId: fight.id,
+    fightName: `${payload.fighter_a.name} vs ${payload.fighter_b.name}`,
   });
+
+  return fight;
 }
 
 export async function updateAdminFightById(
@@ -1341,6 +1403,20 @@ export async function updateAdminFightById(
 
 export async function deleteAdminFightById(fightId: string) {
   const adminSupabase = await getAdminSupabase();
+  const fight = await findFightById(adminSupabase, fightId);
+  const event = getSingleRelation(fight.event);
+
+  if (event) {
+    await safelyNotifyActiveUsers(adminSupabase, {
+      type: "fight_removed",
+      event: toNotificationEvent(event),
+      fightId: fight.id,
+      fightName: `${getRelatedFighterName(fight.fighter_a)} vs ${getRelatedFighterName(
+        fight.fighter_b,
+      )}`,
+    });
+  }
+
   return deleteFight(adminSupabase, fightId);
 }
 

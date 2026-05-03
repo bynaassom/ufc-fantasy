@@ -14,7 +14,16 @@ export type NotificationType =
   | "challenge_received"
   | "challenge_accepted"
   | "challenge_declined"
-  | "challenge_result";
+  | "challenge_result"
+  | "picks_opened"
+  | "picks_closing_tomorrow"
+  | "picks_closing_today"
+  | "picks_closing_1h"
+  | "picks_closing_30m"
+  | "picks_closing_15m"
+  | "fight_removed"
+  | "fight_added"
+  | "card_updated";
 
 export interface Profile {
   id: string;
@@ -152,8 +161,22 @@ export interface Notification {
   message: string;
   target_path?: string | null;
   challenge_id?: string | null;
+  event_id?: string | null;
+  fight_id?: string | null;
+  dedupe_key?: string | null;
   read_at?: string | null;
   created_at: string;
+}
+
+export interface PushSubscriptionRecord {
+  id: string;
+  user_id: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  user_agent?: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface PublicProfileStats {

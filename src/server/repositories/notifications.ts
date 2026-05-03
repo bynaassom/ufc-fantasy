@@ -6,6 +6,9 @@ const NOTIFICATION_FIELDS = `
   message,
   target_path,
   challenge_id,
+  event_id,
+  fight_id,
+  dedupe_key,
   read_at,
   created_at
 `;
@@ -22,6 +25,48 @@ export async function createNotification(
 
   if (error) throw error;
   return data;
+}
+
+export async function createNotificationOnce(
+  client: any,
+  payload: Record<string, unknown>,
+) {
+  const { data, error } = await client
+    .from("notifications")
+    .insert(payload)
+    .select(NOTIFICATION_FIELDS)
+    .maybeSingle();
+
+  if (error) {
+    if (error.code === "23505") return null;
+    throw error;
+  }
+
+  return data;
+}
+
+export async function listActiveNotificationRecipients(client: any) {
+  const { data, error } = await client
+    .from("profiles")
+    .select("id, is_banned")
+    .eq("is_banned", false);
+
+  if (error) throw error;
+  return data || [];
+}
+
+export async function listConfirmedPickUsersForEvent(
+  client: any,
+  eventId: string,
+) {
+  const { data, error } = await client
+    .from("picks")
+    .select("user_id, event_id, is_confirmed")
+    .eq("event_id", eventId)
+    .eq("is_confirmed", true);
+
+  if (error) throw error;
+  return data || [];
 }
 
 export async function listNotificationsForUser(

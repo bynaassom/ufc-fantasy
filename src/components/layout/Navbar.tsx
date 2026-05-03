@@ -8,6 +8,7 @@ import { Profile } from "@/types";
 import { getDisplayName, getDisplaySubtitle } from "@/lib/utils";
 import DivisionOnboardingModal from "./DivisionOnboardingModal";
 import NotificationBell from "./NotificationBell";
+import PushNotificationManager from "./PushNotificationManager";
 
 interface NavbarProps {
   profile: Profile;
@@ -62,6 +63,7 @@ export default function Navbar({ profile }: NavbarProps) {
         open={needsDivisionSetup}
         onConfirmed={() => setNeedsDivisionSetup(false)}
       />
+      <PushNotificationManager variant="mobile" />
 
       {/* ── DESKTOP ── */}
       <nav
@@ -102,6 +104,9 @@ export default function Navbar({ profile }: NavbarProps) {
           <div className="flex items-center gap-3">
             {profile && (
               <NotificationBell />
+            )}
+            {profile && (
+              <PushNotificationManager />
             )}
             {profile && (
               <div id="user-menu" className="relative">

@@ -17,6 +17,7 @@ export const metadata: Metadata = {
   description:
     "Faça seus picks, acerte os resultados e suba no ranking com seus amigos.",
   icons: { icon: "/favicon.ico" },
+  manifest: "/manifest.webmanifest",
   openGraph: {
     title: "UFC Fantasy | Faça seus picks",
     description:
