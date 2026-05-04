@@ -82,3 +82,14 @@ export async function listPicksForUsersEvent(
   if (error) throw error;
   return data || [];
 }
+
+export async function listPerfectPickUsersForFight(client: any, fightId: string) {
+  const { data, error } = await client
+    .from("picks")
+    .select("user_id, event_id, fight_id, total_points")
+    .eq("fight_id", fightId)
+    .eq("total_points", 3);
+
+  if (error) throw error;
+  return data || [];
+}

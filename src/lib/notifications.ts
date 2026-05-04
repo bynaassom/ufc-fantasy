@@ -11,7 +11,8 @@ export type UfcNotificationType =
   | "picks_closing_15m"
   | "fight_removed"
   | "fight_added"
-  | "card_updated";
+  | "card_updated"
+  | "perfect_pick";
 
 export type PickReminderType = Extract<
   UfcNotificationType,
@@ -191,6 +192,11 @@ export function buildNotificationContent({
       return {
         title: "Card atualizado",
         message: `O card do ${eventName} mudou. Da uma conferida antes de cravar seus picks.`,
+      };
+    case "perfect_pick":
+      return {
+        title: "Cravada!",
+        message: `Voce cravou ${displayFightName} no ${eventName}: vencedor, metodo e round. Ai sim!`,
       };
     default:
       return {

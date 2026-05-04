@@ -95,7 +95,21 @@ describe("notifications", () => {
       }),
     ).toMatchObject({
       title: "Ih, deu ruim",
-      message: "A luta Lutador A vs Lutador B caiu do card do UFC Fortaleza.",
+        message: "A luta Lutador A vs Lutador B caiu do card do UFC Fortaleza.",
+      });
+  });
+
+  it("builds celebratory copy for a perfect pick", () => {
+    expect(
+      buildNotificationContent({
+        type: "perfect_pick",
+        eventName: "UFC Fortaleza",
+        fightName: "Lutador A vs Lutador B",
+      }),
+    ).toMatchObject({
+      title: "Cravada!",
+      message:
+        "Voce cravou Lutador A vs Lutador B no UFC Fortaleza: vencedor, metodo e round. Ai sim!",
     });
   });
 

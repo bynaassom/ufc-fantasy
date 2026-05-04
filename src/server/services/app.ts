@@ -57,6 +57,7 @@ import {
   updateFighter,
 } from "@/server/repositories/fights";
 import {
+  listPerfectPickUsersForFight,
   listPicksForUser,
   listPicksForUserEvent,
   listPicksForUsersEvent,
@@ -75,10 +76,14 @@ import {
 import {
   countUnreadNotifications,
   createNotification,
+  listActiveNotificationRecipients,
   listNotificationsForUser,
   markNotificationAsRead,
 } from "@/server/repositories/notifications";
-import { notifyActiveUsers } from "@/server/services/notifications";
+import {
+  createNotificationsForUsers,
+  notifyActiveUsers,
+} from "@/server/services/notifications";
 import {
   requireAdminPageProfile,
   requirePageUserProfile,
@@ -266,6 +271,17 @@ async function safelyNotifyActiveUsers(
 ) {
   try {
     await notifyActiveUsers(client, input);
+  } catch (error) {
+    console.error("Failed to create notification", error);
+  }
+}
+
+async function safelyNotifyUsers(
+  client: any,
+  input: Parameters<typeof createNotificationsForUsers>[1],
+) {
+  try {
+    await createNotificationsForUsers(client, input);
   } catch (error) {
     console.error("Failed to create notification", error);
   }
@@ -1550,6 +1566,34 @@ export async function setAdminFightResult(
   });
 
   if (error) throw error;
+
+  const event = getSingleRelation(fight.event);
+  if (event) {
+    const [perfectPicks, activeRecipients] = await Promise.all([
+      listPerfectPickUsersForFight(adminSupabase, fightId),
+      listActiveNotificationRecipients(adminSupabase),
+    ]);
+    const activeUserIds = new Set(
+      activeRecipients.map((profile: { id: string }) => profile.id),
+    );
+    const perfectPickUserIds: string[] = Array.from(
+      new Set<string>(
+        perfectPicks
+          .map((pick: { user_id: string }) => pick.user_id)
+          .filter((userId: string) => activeUserIds.has(userId)),
+      ),
+    );
+
+    await safelyNotifyUsers(adminSupabase, {
+      userIds: perfectPickUserIds,
+      type: "perfect_pick",
+      event: toNotificationEvent(event),
+      fightId,
+      fightName: `${getRelatedFighterName(fight.fighter_a)} vs ${getRelatedFighterName(
+        fight.fighter_b,
+      )}`,
+    });
+  }
 
   return {
     fight,
