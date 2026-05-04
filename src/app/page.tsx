@@ -20,7 +20,14 @@ export default async function LandingPage() {
       <header style={{ borderBottom: "1px solid var(--border)" }}>
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <img src="/logo-dark.svg" alt="UFC Fantasy" className="h-5" />
+            <Image
+              src="/logo-dark.svg"
+              alt="UFC Fantasy"
+              width={113}
+              height={20}
+              className="h-5 w-auto"
+              priority
+            />
           </div>
           <div className="flex items-center gap-3">
             <Link
@@ -229,10 +236,10 @@ export default async function LandingPage() {
               Crie sua conta grátis e faça seus picks antes do lock.
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex w-full flex-col gap-3 min-[380px]:w-auto min-[380px]:flex-row min-[380px]:items-center">
             <Link
               href="/login"
-              className="font-condensed font-700 text-sm uppercase tracking-widest px-6 py-3 transition-all hover:opacity-70"
+              className="w-full px-6 py-3 text-center font-condensed font-700 text-sm uppercase tracking-widest transition-all hover:opacity-70 min-[380px]:w-auto"
               style={{
                 border: "1px solid var(--border)",
                 color: "var(--text)",
@@ -242,7 +249,7 @@ export default async function LandingPage() {
             </Link>
             <Link
               href="/register"
-              className="font-condensed font-900 text-sm uppercase tracking-widest px-6 py-3 text-white transition-all hover:opacity-90"
+              className="w-full px-6 py-3 text-center font-condensed font-900 text-sm uppercase tracking-widest text-white transition-all hover:opacity-90 min-[380px]:w-auto"
               style={{ backgroundColor: "var(--red)" }}
             >
               Registre-se

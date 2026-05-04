@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { apiErrorFromUnknown, apiSuccess } from "@/server/api";
 import { getMyProfile } from "@/server/services/app";
 

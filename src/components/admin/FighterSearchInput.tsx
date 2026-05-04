@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import Image from "next/image";
 
 interface FighterData {
@@ -39,23 +39,23 @@ export default function FighterSearchInput({ label, value, onChange }: Props) {
   >("idle");
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Quando nome muda, dispara busca com debounce
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (query.trim().length < 3) {
-      setStatus("idle");
-      return;
+  const probeFirstWorking = useCallback(async (urls: string[]): Promise<string | null> => {
+    // Testa em paralelo em grupos de 5
+    for (let i = 0; i < urls.length; i += 5) {
+      const batch = urls.slice(i, i + 5);
+      const results = await Promise.all(
+        batch.map(async (url) => ({
+          url,
+          ok: await probeImage(url),
+        })),
+      );
+      const working = results.find((r) => r.ok);
+      if (working) return working.url;
     }
+    return null;
+  }, []);
 
-    debounceRef.current = setTimeout(() => {
-      searchFighter(query.trim());
-    }, 600);
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [query]);
-
-  async function searchFighter(name: string) {
+  const searchFighter = useCallback(async (name: string) => {
     setLoading(true);
     setStatus("idle");
     try {
@@ -102,23 +102,23 @@ export default function FighterSearchInput({ label, value, onChange }: Props) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [onChange, probeFirstWorking]);
 
-  async function probeFirstWorking(urls: string[]): Promise<string | null> {
-    // Testa em paralelo em grupos de 5
-    for (let i = 0; i < urls.length; i += 5) {
-      const batch = urls.slice(i, i + 5);
-      const results = await Promise.all(
-        batch.map(async (url) => ({
-          url,
-          ok: await probeImage(url),
-        })),
-      );
-      const working = results.find((r) => r.ok);
-      if (working) return working.url;
+  // Quando nome muda, dispara busca com debounce
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (query.trim().length < 3) {
+      setStatus("idle");
+      return;
     }
-    return null;
-  }
+
+    debounceRef.current = setTimeout(() => {
+      searchFighter(query.trim());
+    }, 600);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [query, searchFighter]);
 
   const inputStyle: React.CSSProperties = {
     backgroundColor: "var(--bg-elevated)",
@@ -249,10 +249,13 @@ export default function FighterSearchInput({ label, value, onChange }: Props) {
             }}
           >
             {value.headshot_url ? (
-              <img
+              <Image
                 src={value.headshot_url}
                 alt={value.name}
-                className="w-full h-full object-cover object-top"
+                width={64}
+                height={64}
+                className="h-full w-full object-cover object-top"
+                unoptimized
                 onError={(e) => {
                   (e.target as HTMLImageElement).style.display = "none";
                 }}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 
 interface FighterStats {
   name: string;
@@ -138,18 +138,22 @@ export default function FightStatsCompare({
   const [activeTab, setActiveTab] = useState<
     "confronto" | "vitoria" | "striking" | "grappling"
   >("confronto");
+  const statsUrlA = useMemo(
+    () => `/api/fighter-stats/${slugA}?name=${encodeURIComponent(nameA)}`,
+    [slugA, nameA],
+  );
+  const statsUrlB = useMemo(
+    () => `/api/fighter-stats/${slugB}?name=${encodeURIComponent(nameB)}`,
+    [slugB, nameB],
+  );
 
   useEffect(() => {
     if (!open || statsA || loading) return;
     setLoading(true);
     setError(false);
     Promise.all([
-      fetch(
-        `/api/fighter-stats/${slugA}?name=${encodeURIComponent(nameA)}`,
-      ).then((r) => r.json()),
-      fetch(
-        `/api/fighter-stats/${slugB}?name=${encodeURIComponent(nameB)}`,
-      ).then((r) => r.json()),
+      fetch(statsUrlA).then((r) => r.json()),
+      fetch(statsUrlB).then((r) => r.json()),
     ])
       .then(([a, b]) => {
         if (a.error || b.error) {
@@ -165,7 +169,7 @@ export default function FightStatsCompare({
         setError(true);
         setLoading(false);
       });
-  }, [open, slugA, slugB, statsA, loading]);
+  }, [open, statsUrlA, statsUrlB, statsA, loading]);
 
   const tabs: { key: typeof activeTab; label: string }[] = [
     { key: "confronto", label: "CONFRONTO" },

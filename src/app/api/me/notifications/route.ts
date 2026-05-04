@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { apiErrorFromUnknown, apiSuccess } from "@/server/api";
 import { getMyNotifications } from "@/server/services/app";
 

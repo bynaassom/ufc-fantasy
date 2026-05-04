@@ -135,7 +135,6 @@ export default async function HistoricoEventoPage({
                   fight={fight}
                   existingPick={picksMap[fight.id]}
                   locked={true}
-                  onPickChange={() => undefined}
                 />
               ))}
             </div>
@@ -165,7 +164,6 @@ export default async function HistoricoEventoPage({
                   fight={fight}
                   existingPick={picksMap[fight.id]}
                   locked={true}
-                  onPickChange={() => undefined}
                 />
               ))}
             </div>

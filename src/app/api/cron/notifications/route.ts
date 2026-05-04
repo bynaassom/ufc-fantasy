@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextRequest } from "next/server";
 import { apiFailure, apiSuccess, apiErrorFromUnknown } from "@/server/api";
 import { dispatchDuePickNotifications } from "@/server/services/notifications";

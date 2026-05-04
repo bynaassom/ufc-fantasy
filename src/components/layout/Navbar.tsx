@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createAuthClient } from "@/lib/supabase/client";
@@ -47,12 +48,13 @@ export default function Navbar({ profile }: NavbarProps) {
 
   const isActive = (href: string) => pathname.startsWith(href);
   const logo = (
-    <img
+    <Image
       src="/logo-dark.svg"
       alt="UFC Fantasy"
-      className="h-5"
       width={113}
       height={20}
+      className="h-5 w-auto"
+      priority
     />
   );
 

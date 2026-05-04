@@ -1,6 +1,13 @@
 "use client";
 
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { readApiResponse } from "@/lib/api";
 import toast from "react-hot-toast";
 import FighterSearchInput from "./FighterSearchInput";
@@ -278,7 +285,7 @@ export default function AdminClient({
     <div>
       {/* ── Main tabs ── */}
       <div
-        className="flex gap-0 mb-0"
+        className="mb-0 flex gap-0 overflow-x-auto"
         style={{ borderBottom: "1px solid var(--border)" }}
       >
         {nav.map((n) => (
@@ -287,7 +294,7 @@ export default function AdminClient({
             onClick={() =>
               switchMain(n.key, n.subs[0]?.key || ("usuarios" as SubTab))
             }
-            className="relative font-condensed font-700 text-xs uppercase tracking-widest px-6 py-3 transition-all"
+            className="relative flex-shrink-0 font-condensed font-700 text-xs uppercase tracking-widest px-5 md:px-6 py-3 transition-all"
             style={{
               color: mainTab === n.key ? "var(--red)" : "var(--text-muted)",
             }}
@@ -306,7 +313,7 @@ export default function AdminClient({
       {/* ── Sub tabs ── */}
       {nav.find((n) => n.key === mainTab)?.subs.length ? (
         <div
-          className="flex gap-0 mb-8"
+          className="mb-8 flex gap-0 overflow-x-auto"
           style={{
             borderBottom: "1px solid var(--border)",
             backgroundColor: "var(--bg-elevated)",
@@ -318,7 +325,7 @@ export default function AdminClient({
               <button
                 key={s.key}
                 onClick={() => setSubTab(s.key)}
-                className="font-condensed font-600 text-xs uppercase tracking-widest px-5 py-2.5 transition-all relative"
+                className="relative flex-shrink-0 font-condensed font-600 text-xs uppercase tracking-widest px-4 md:px-5 py-2.5 transition-all"
                 style={{
                   color: subTab === s.key ? "var(--text)" : "var(--text-muted)",
                 }}
@@ -447,11 +454,7 @@ function EventoPendencias({
   const [error, setError] = useState("");
   const [pendingFights, setPendingFights] = useState<PendingFight[]>([]);
 
-  useEffect(() => {
-    loadPendingFights();
-  }, []);
-
-  async function loadPendingFights() {
+  const loadPendingFights = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
@@ -465,7 +468,11 @@ function EventoPendencias({
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    loadPendingFights();
+  }, [loadPendingFights]);
 
   const fightCountByEvent = useMemo(() => {
     const counts = new Map<string, number>();
@@ -1156,10 +1163,6 @@ function EventoImportar() {
 
   const selectedCount = selectedUpcomingIds.length;
 
-  useEffect(() => {
-    loadUpcomingEventsPreview();
-  }, []);
-
   function generateSql(d: { event: any; fights: any[] }): string {
     const { event, fights } = d;
     const slug = (event.name || "")
@@ -1240,7 +1243,7 @@ function EventoImportar() {
     }
   }
 
-  async function loadUpcomingEventsPreview() {
+  const loadUpcomingEventsPreview = useCallback(async () => {
     setLoadingUpcoming(true);
     setError("");
     try {
@@ -1267,7 +1270,11 @@ function EventoImportar() {
     } finally {
       setLoadingUpcoming(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    loadUpcomingEventsPreview();
+  }, [loadUpcomingEventsPreview]);
 
   function toggleUpcomingSelection(sourceId: string) {
     setSelectedUpcomingIds((current) =>

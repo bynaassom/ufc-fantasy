@@ -20,7 +20,7 @@ interface FightCardProps {
   fight: FightWithFighters;
   existingPick?: Pick;
   locked: boolean;
-  onPickChange: (
+  onPickChange?: (
     fightId: string,
     winnerId: string,
     method: FightMethod,
@@ -95,7 +95,7 @@ export default function FightCard({
       setSelectedMethod(m);
       if (m === "decision") {
         setSelectedRound(fight.total_rounds);
-        onPickChange(fight.id, selectedWinnerId!, m, fight.total_rounds);
+        onPickChange?.(fight.id, selectedWinnerId!, m, fight.total_rounds);
       } else {
         setSelectedRound(null);
       }
@@ -105,7 +105,7 @@ export default function FightCard({
   function selectRound(r: number) {
     if (locked || !selectedMethod) return;
     setSelectedRound(r);
-    onPickChange(fight.id, selectedWinnerId!, selectedMethod!, r);
+    onPickChange?.(fight.id, selectedWinnerId!, selectedMethod!, r);
   }
 
   const complete = selectedWinnerId && selectedMethod && selectedRound;

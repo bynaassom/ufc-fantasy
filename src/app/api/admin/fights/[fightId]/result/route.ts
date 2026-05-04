@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { revalidatePath, revalidateTag } from "next/cache";
 import { NextRequest } from "next/server";
 import { logAdminAction } from "@/lib/admin-audit";

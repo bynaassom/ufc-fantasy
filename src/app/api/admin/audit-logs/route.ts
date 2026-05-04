@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { apiErrorFromUnknown, apiSuccess } from "@/server/api";
 import { requireAdmin } from "@/server/auth/guards";
 import { getAdminAuditLogs } from "@/server/services/app";
