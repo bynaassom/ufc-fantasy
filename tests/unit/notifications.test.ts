@@ -31,24 +31,47 @@ describe("notifications", () => {
 
     expect(
       getDuePickReminderTypes({
-        now: new Date("2026-05-02T20:08:00.000Z"),
+        now: new Date("2026-05-02T20:02:00.000Z"),
         event,
       }),
     ).toEqual(["picks_closing_1h"]);
 
     expect(
       getDuePickReminderTypes({
-        now: new Date("2026-05-02T20:38:00.000Z"),
+        now: new Date("2026-05-02T20:32:00.000Z"),
         event,
       }),
     ).toEqual(["picks_closing_30m"]);
 
     expect(
       getDuePickReminderTypes({
-        now: new Date("2026-05-02T20:50:00.000Z"),
+        now: new Date("2026-05-02T20:46:00.000Z"),
         event,
       }),
     ).toEqual(["picks_closing_15m"]);
+  });
+
+  it("does not send stale minute reminders after their five-minute cron window has passed", () => {
+    expect(
+      getDuePickReminderTypes({
+        now: new Date("2026-05-02T20:08:00.000Z"),
+        event,
+      }),
+    ).toEqual([]);
+
+    expect(
+      getDuePickReminderTypes({
+        now: new Date("2026-05-02T20:38:00.000Z"),
+        event,
+      }),
+    ).toEqual([]);
+
+    expect(
+      getDuePickReminderTypes({
+        now: new Date("2026-05-02T20:50:00.000Z"),
+        event,
+      }),
+    ).toEqual([]);
   });
 
   it("does not return close reminders before picks open or after they lock", () => {

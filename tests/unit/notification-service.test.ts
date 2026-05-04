@@ -51,7 +51,7 @@ describe("notification service", () => {
 
     const result = await dispatchDuePickNotifications(
       {},
-      { now: new Date("2026-05-02T20:50:00.000Z") },
+      { now: new Date("2026-05-02T20:46:00.000Z") },
       deps,
     );
 

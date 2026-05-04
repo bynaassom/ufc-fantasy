@@ -70,6 +70,18 @@ async function saveSubscription(subscription: PushSubscription) {
   );
 }
 
+async function getOrCreateSubscription(publicKey: string) {
+  const registration = await navigator.serviceWorker.register("/sw.js");
+  const existingSubscription = await registration.pushManager.getSubscription();
+
+  if (existingSubscription) return existingSubscription;
+
+  return registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(publicKey),
+  });
+}
+
 export default function PushNotificationManager({
   variant = "desktop",
 }: {
@@ -96,15 +108,7 @@ export default function PushNotificationManager({
       setPromptOpen(false);
       if (nextPermission !== "granted") return;
 
-      const registration = await navigator.serviceWorker.register("/sw.js");
-      const existingSubscription = await registration.pushManager.getSubscription();
-      const subscription =
-        existingSubscription ||
-        (await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(publicKey),
-        }));
-
+      const subscription = await getOrCreateSubscription(publicKey);
       await saveSubscription(subscription);
       setSubscribed(true);
     },
@@ -129,12 +133,9 @@ export default function PushNotificationManager({
         setPublicKey(data.publicKey);
 
         if (supported && getPushPermission() === "granted") {
-          const registration = await navigator.serviceWorker.register("/sw.js");
-          const subscription = await registration.pushManager.getSubscription();
-          if (subscription) {
-            await saveSubscription(subscription);
-            if (!cancelled) setSubscribed(true);
-          }
+          const subscription = await getOrCreateSubscription(data.publicKey);
+          await saveSubscription(subscription);
+          if (!cancelled) setSubscribed(true);
         }
       } catch (error) {
         console.error(error);

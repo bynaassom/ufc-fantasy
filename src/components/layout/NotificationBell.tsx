@@ -32,7 +32,11 @@ function writeNotificationsCache(data: NotificationsResponse) {
   };
 }
 
-export default function NotificationBell() {
+export default function NotificationBell({
+  variant = "desktop",
+}: {
+  variant?: "desktop" | "mobile";
+}) {
   const cachedNotifications = readNotificationsCache();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -116,8 +120,35 @@ export default function NotificationBell() {
     }
   }
 
+  const isMobile = variant === "mobile";
+  const rootClassName = isMobile ? "relative flex flex-1 min-w-0 justify-center" : "relative";
+  const buttonClassName = isMobile
+    ? "relative flex w-full min-w-0 flex-col items-center gap-0.5 px-1 py-2"
+    : "relative flex items-center justify-center w-10 h-10 transition-opacity hover:opacity-80";
+  const buttonStyle = isMobile
+    ? {
+        color: unreadCount > 0 ? "var(--red)" : "var(--text-muted)",
+        touchAction: "manipulation",
+        WebkitTapHighlightColor: "transparent",
+      }
+    : {
+        backgroundColor: "var(--bg-card)",
+        border: "1px solid var(--border)",
+      };
+  const iconColor = isMobile
+    ? unreadCount > 0
+      ? "var(--red)"
+      : "var(--text-muted)"
+    : "var(--text)";
+  const panelClassName = isMobile
+    ? "fixed left-3 right-3 bottom-[calc(3.5rem+env(safe-area-inset-bottom)+0.75rem)] z-[70] max-h-[70vh] overflow-hidden"
+    : "absolute right-0 top-full mt-2 w-80 z-50";
+  const listClassName = isMobile
+    ? "max-h-[52vh] overflow-y-auto"
+    : "max-h-96 overflow-y-auto";
+
   return (
-    <div className="relative">
+    <div className={rootClassName}>
       <button
         onClick={() => {
           const nextOpen = !open;
@@ -126,26 +157,41 @@ export default function NotificationBell() {
             void loadNotifications(!readNotificationsCache());
           }
         }}
-        className="relative flex items-center justify-center w-10 h-10 transition-opacity hover:opacity-80"
-        style={{
-          backgroundColor: "var(--bg-card)",
-          border: "1px solid var(--border)",
-        }}
+        className={buttonClassName}
+        style={buttonStyle}
         aria-label="Notificações"
       >
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.75"
-          style={{ color: "var(--text)" }}
-        >
-          <path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5" />
-          <path d="M10 21a2 2 0 0 0 4 0" />
-        </svg>
-        {unreadCount > 0 && (
+        <span className="relative flex items-center justify-center">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.75"
+            style={{ color: iconColor }}
+          >
+            <path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5" />
+            <path d="M10 21a2 2 0 0 0 4 0" />
+          </svg>
+          {isMobile && unreadCount > 0 && (
+            <span
+              className="absolute -top-2 -right-2 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full text-[10px] font-black"
+              style={{ backgroundColor: "var(--red)", color: "white" }}
+            >
+              {unreadCount > 9 ? "9+" : unreadCount}
+            </span>
+          )}
+        </span>
+        {isMobile && (
+          <span
+            className="font-condensed font-700 uppercase tracking-widest"
+            style={{ fontSize: "9px" }}
+          >
+            ALERTAS
+          </span>
+        )}
+        {!isMobile && unreadCount > 0 && (
           <span
             className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full text-[10px] font-black"
             style={{ backgroundColor: "var(--red)", color: "white" }}
@@ -157,7 +203,7 @@ export default function NotificationBell() {
 
       {open && (
         <div
-          className="absolute right-0 top-full mt-2 w-80 z-50"
+          className={panelClassName}
           style={{
             backgroundColor: "var(--bg-card)",
             border: "1px solid var(--border)",
@@ -198,7 +244,7 @@ export default function NotificationBell() {
               Nenhuma notificação por enquanto.
             </div>
           ) : (
-            <div className="max-h-96 overflow-y-auto">
+            <div className={listClassName}>
               {notifications.map((notification, index) => (
                 <Link
                   key={notification.id}

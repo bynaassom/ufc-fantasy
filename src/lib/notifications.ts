@@ -51,6 +51,7 @@ type DedupeKeyInput = {
 
 const MINUTE_MS = 60 * 1000;
 const HOUR_MS = 60 * MINUTE_MS;
+const CRON_WINDOW_MS = 5 * MINUTE_MS;
 const APP_TIME_ZONE = "America/Fortaleza";
 
 const DATE_PARTS_FORMATTER = new Intl.DateTimeFormat("en-CA", {
@@ -96,6 +97,10 @@ function getCalendarDayDiff(left: Date, right: Date) {
   return Math.round((rightDay - leftDay) / (24 * HOUR_MS));
 }
 
+function isWithinCronReminderWindow(remainingMs: number, targetMs: number) {
+  return remainingMs <= targetMs && remainingMs > targetMs - CRON_WINDOW_MS;
+}
+
 export function isPicksOpenedNotificationDue({
   now,
   event,
@@ -127,9 +132,20 @@ export function getDuePickReminderTypes({
   const remainingMs = lockAt - nowMs;
   if (remainingMs <= 0) return [];
 
-  if (remainingMs <= 15 * MINUTE_MS) return ["picks_closing_15m"];
-  if (remainingMs <= 30 * MINUTE_MS) return ["picks_closing_30m"];
-  if (remainingMs <= HOUR_MS) return ["picks_closing_1h"];
+  if (isWithinCronReminderWindow(remainingMs, 15 * MINUTE_MS)) {
+    return ["picks_closing_15m"];
+  }
+  if (remainingMs <= 15 * MINUTE_MS) return [];
+
+  if (isWithinCronReminderWindow(remainingMs, 30 * MINUTE_MS)) {
+    return ["picks_closing_30m"];
+  }
+  if (remainingMs <= 30 * MINUTE_MS) return [];
+
+  if (isWithinCronReminderWindow(remainingMs, HOUR_MS)) {
+    return ["picks_closing_1h"];
+  }
+  if (remainingMs <= HOUR_MS) return [];
 
   if (openAt !== null && nowMs <= openAt + HOUR_MS) return [];
 

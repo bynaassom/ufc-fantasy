@@ -363,7 +363,7 @@ export default function Navbar({ profile }: NavbarProps) {
             <Link
               key={link.href}
               href={link.href}
-              className="flex flex-col items-center gap-0.5 px-4 py-2"
+              className="flex flex-1 min-w-0 flex-col items-center gap-0.5 px-1 py-2"
               style={{
                 color: isActive(link.href) ? "var(--red)" : "var(--text-muted)",
                 touchAction: "manipulation",
@@ -379,9 +379,10 @@ export default function Navbar({ profile }: NavbarProps) {
               </span>
             </Link>
           ))}
+          <NotificationBell variant="mobile" />
           <button
             onClick={handleLogout}
-            className="flex flex-col items-center gap-0.5 px-4 py-2"
+            className="flex flex-1 min-w-0 flex-col items-center gap-0.5 px-1 py-2"
             style={{
               color: "var(--text-muted)",
               touchAction: "manipulation",
