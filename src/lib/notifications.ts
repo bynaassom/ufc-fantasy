@@ -9,6 +9,7 @@ export type UfcNotificationType =
   | "picks_closing_1h"
   | "picks_closing_30m"
   | "picks_closing_15m"
+  | "picks_closed"
   | "fight_removed"
   | "fight_added"
   | "card_updated"
@@ -146,6 +147,20 @@ export function isPicksOpenedNotificationDue({
   return nowMs >= openAt && nowMs < lockAt && nowMs <= openAt + HOUR_MS;
 }
 
+export function isPicksClosedNotificationDue({
+  now,
+  event,
+}: {
+  now: Date;
+  event: NotificationEvent;
+}) {
+  const lockAt = toTime(event.picks_lock_at);
+  const nowMs = now.getTime();
+
+  if (lockAt === null || !isPicksOpenAt(nowMs, event)) return false;
+  return nowMs >= lockAt && nowMs < lockAt + CRON_WINDOW_MS;
+}
+
 export function getDuePickReminderTypes({
   now,
   event,
@@ -224,6 +239,11 @@ export function buildNotificationContent({
       return {
         title: "So 15 minutos",
         message: "E ai, ja fez seus picks? Faltam so 15 minutos pra fechar, hein.",
+      };
+    case "picks_closed":
+      return {
+        title: "Picks fechados",
+        message: `Acabou o tempo! Os picks do ${eventName} fecharam.`,
       };
     case "fight_removed":
       return {

@@ -4,6 +4,7 @@ import {
   buildNotificationDedupeKey,
   filterUsersWithoutConfirmedPicks,
   getDuePickReminderTypes,
+  isPicksClosedNotificationDue,
   isPicksOpenedNotificationDue,
   type UfcNotificationType,
 } from "@/lib/notifications";
@@ -293,6 +294,21 @@ export async function dispatchDuePickNotifications(
         {
           userIds: activeRecipients.map((profile) => profile.id),
           type: "picks_opened",
+          event,
+        },
+        deps,
+      ),
+    );
+  }
+
+  if (isPicksClosedNotificationDue({ now, event })) {
+    result = addBatchResults(
+      result,
+      await createNotificationsForUsers(
+        client,
+        {
+          userIds: activeRecipients.map((profile) => profile.id),
+          type: "picks_closed",
           event,
         },
         deps,

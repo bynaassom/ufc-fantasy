@@ -3,6 +3,7 @@ import {
   buildNotificationDedupeKey,
   filterUsersWithoutConfirmedPicks,
   getDuePickReminderTypes,
+  isPicksClosedNotificationDue,
 } from "@/lib/notifications";
 
 describe("notifications", () => {
@@ -128,6 +129,36 @@ describe("notifications", () => {
     ).toEqual([]);
   });
 
+  it("sends the picks closed notification only right after picks lock", () => {
+    expect(
+      isPicksClosedNotificationDue({
+        now: new Date("2026-05-02T20:59:59.000Z"),
+        event,
+      }),
+    ).toBe(false);
+
+    expect(
+      isPicksClosedNotificationDue({
+        now: new Date("2026-05-02T21:00:00.000Z"),
+        event,
+      }),
+    ).toBe(true);
+
+    expect(
+      isPicksClosedNotificationDue({
+        now: new Date("2026-05-02T21:04:59.000Z"),
+        event,
+      }),
+    ).toBe(true);
+
+    expect(
+      isPicksClosedNotificationDue({
+        now: new Date("2026-05-02T21:05:00.000Z"),
+        event,
+      }),
+    ).toBe(false);
+  });
+
   it("does not stack calendar reminders during the first hour after picks open", () => {
     expect(
       getDuePickReminderTypes({
@@ -171,6 +202,18 @@ describe("notifications", () => {
       title: "Cravada!",
       message:
         "Voce cravou Lutador A vs Lutador B no UFC Fortaleza: vencedor, metodo e round. Ai sim!",
+    });
+  });
+
+  it("builds copy for closed picks", () => {
+    expect(
+      buildNotificationContent({
+        type: "picks_closed",
+        eventName: "UFC Fortaleza",
+      }),
+    ).toMatchObject({
+      title: "Picks fechados",
+      message: "Acabou o tempo! Os picks do UFC Fortaleza fecharam.",
     });
   });
 

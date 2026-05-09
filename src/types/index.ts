@@ -21,6 +21,7 @@ export type NotificationType =
   | "picks_closing_1h"
   | "picks_closing_30m"
   | "picks_closing_15m"
+  | "picks_closed"
   | "fight_removed"
   | "fight_added"
   | "card_updated"

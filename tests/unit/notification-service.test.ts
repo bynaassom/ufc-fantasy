@@ -30,6 +30,41 @@ function createDeps(overrides: Partial<NotificationServiceDeps> = {}) {
 }
 
 describe("notification service", () => {
+  it("dispatches closed picks notifications to active users when picks lock", async () => {
+    const { created, deps } = createDeps({
+      getCurrentEvent: vi.fn(async () => ({
+        id: "event-1",
+        name: "UFC Fortaleza",
+        slug: "ufc-fortaleza",
+        status: "upcoming",
+        picks_open_at: "2026-05-02T18:00:00.000Z",
+        picks_lock_at: "2026-05-02T21:00:00.000Z",
+      })),
+      listActiveRecipients: vi.fn(async () => [
+        { id: "user-1", is_banned: false },
+        { id: "user-2", is_banned: false },
+      ]),
+    });
+
+    const result = await dispatchDuePickNotifications(
+      {},
+      { now: new Date("2026-05-02T21:00:00.000Z") },
+      deps,
+    );
+
+    expect(result.created).toBe(2);
+    expect(created).toHaveLength(2);
+    expect(created.map((entry) => entry.user_id)).toEqual(["user-1", "user-2"]);
+    expect(created[0]).toMatchObject({
+      event_id: "event-1",
+      type: "picks_closed",
+      dedupe_key: "picks_closed:event-1",
+      target_path: "/event/ufc-fortaleza",
+      message: "Acabou o tempo! Os picks do UFC Fortaleza fecharam.",
+    });
+    expect(deps.listConfirmedPickUsersForEvent).not.toHaveBeenCalled();
+  });
+
   it("dispatches closing reminders only to active users without confirmed picks", async () => {
     const { created, deps } = createDeps({
       getCurrentEvent: vi.fn(async () => ({
