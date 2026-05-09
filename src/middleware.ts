@@ -58,6 +58,12 @@ export async function middleware(request: NextRequest) {
   const isProtected = protectedRoutes.some((r) => pathname.startsWith(r));
   const isAuthRoute = authRoutes.some((r) => pathname.startsWith(r));
 
+  if (pathname === "/" && user) {
+    const response = NextResponse.redirect(new URL("/home", request.url));
+    applySecurityHeaders(response.headers);
+    return response;
+  }
+
   if (isProtected && !user) {
     const response = NextResponse.redirect(new URL("/login", request.url));
     applySecurityHeaders(response.headers);
