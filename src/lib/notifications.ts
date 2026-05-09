@@ -37,6 +37,12 @@ type DateParts = {
   day: number;
 };
 
+type DateTimeParts = DateParts & {
+  hour: number;
+  minute: number;
+  second: number;
+};
+
 type NotificationContentInput = {
   type: UfcNotificationType;
   eventName: string;
@@ -52,13 +58,18 @@ type DedupeKeyInput = {
 const MINUTE_MS = 60 * 1000;
 const HOUR_MS = 60 * MINUTE_MS;
 const CRON_WINDOW_MS = 5 * MINUTE_MS;
-const APP_TIME_ZONE = "America/Fortaleza";
+const CALENDAR_REMINDER_HOUR = 12;
+const APP_TIME_ZONE = "America/Sao_Paulo";
 
-const DATE_PARTS_FORMATTER = new Intl.DateTimeFormat("en-CA", {
+const DATE_TIME_PARTS_FORMATTER = new Intl.DateTimeFormat("en-CA", {
   timeZone: APP_TIME_ZONE,
   year: "numeric",
   month: "2-digit",
   day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hourCycle: "h23",
 });
 
 function toTime(value?: string | null) {
@@ -72,11 +83,13 @@ function isPicksOpenAt(nowMs: number, event: NotificationEvent) {
   return openAt === null || nowMs >= openAt;
 }
 
-function getDateParts(date: Date): DateParts {
-  const parts = DATE_PARTS_FORMATTER.formatToParts(date);
+function getDateTimeParts(date: Date): DateTimeParts {
+  const parts = DATE_TIME_PARTS_FORMATTER.formatToParts(date);
   const values = Object.fromEntries(
     parts
-      .filter((part) => ["year", "month", "day"].includes(part.type))
+      .filter((part) =>
+        ["year", "month", "day", "hour", "minute", "second"].includes(part.type),
+      )
       .map((part) => [part.type, Number(part.value)]),
   );
 
@@ -84,7 +97,15 @@ function getDateParts(date: Date): DateParts {
     year: values.year,
     month: values.month,
     day: values.day,
+    hour: values.hour,
+    minute: values.minute,
+    second: values.second,
   };
+}
+
+function getDateParts(date: Date): DateParts {
+  const { year, month, day } = getDateTimeParts(date);
+  return { year, month, day };
 }
 
 function getUtcDateFromParts(parts: DateParts) {
@@ -99,6 +120,15 @@ function getCalendarDayDiff(left: Date, right: Date) {
 
 function isWithinCronReminderWindow(remainingMs: number, targetMs: number) {
   return remainingMs <= targetMs && remainingMs > targetMs - CRON_WINDOW_MS;
+}
+
+function isWithinCalendarReminderWindow(date: Date) {
+  const { hour, minute, second } = getDateTimeParts(date);
+  const localMs =
+    ((hour * 60 + minute) * 60 + second) * 1000 + date.getMilliseconds();
+  const startMs = CALENDAR_REMINDER_HOUR * HOUR_MS;
+
+  return localMs >= startMs && localMs < startMs + CRON_WINDOW_MS;
 }
 
 export function isPicksOpenedNotificationDue({
@@ -148,6 +178,7 @@ export function getDuePickReminderTypes({
   if (remainingMs <= HOUR_MS) return [];
 
   if (openAt !== null && nowMs <= openAt + HOUR_MS) return [];
+  if (!isWithinCalendarReminderWindow(now)) return [];
 
   const dayDiff = getCalendarDayDiff(now, new Date(lockAt));
   if (dayDiff === 0) return ["picks_closing_today"];

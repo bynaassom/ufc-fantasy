@@ -17,14 +17,17 @@ describe("notifications", () => {
   it("returns only the active reminder window for pick close alerts", () => {
     expect(
       getDuePickReminderTypes({
-        now: new Date("2026-05-01T21:30:00.000Z"),
-        event,
+        now: new Date("2026-05-01T15:00:00.000Z"),
+        event: {
+          ...event,
+          picks_open_at: "2026-04-30T18:00:00.000Z",
+        },
       }),
     ).toEqual(["picks_closing_tomorrow"]);
 
     expect(
       getDuePickReminderTypes({
-        now: new Date("2026-05-02T10:00:00.000Z"),
+        now: new Date("2026-05-02T15:00:00.000Z"),
         event,
       }),
     ).toEqual(["picks_closing_today"]);
@@ -69,6 +72,41 @@ describe("notifications", () => {
     expect(
       getDuePickReminderTypes({
         now: new Date("2026-05-02T20:50:00.000Z"),
+        event,
+      }),
+    ).toEqual([]);
+  });
+
+  it("only sends calendar day reminders near noon in Brasilia time", () => {
+    const earlyOpenEvent = {
+      ...event,
+      picks_open_at: "2026-04-30T18:00:00.000Z",
+    };
+
+    expect(
+      getDuePickReminderTypes({
+        now: new Date("2026-05-01T03:00:00.000Z"),
+        event: earlyOpenEvent,
+      }),
+    ).toEqual([]);
+
+    expect(
+      getDuePickReminderTypes({
+        now: new Date("2026-05-01T15:04:59.000Z"),
+        event: earlyOpenEvent,
+      }),
+    ).toEqual(["picks_closing_tomorrow"]);
+
+    expect(
+      getDuePickReminderTypes({
+        now: new Date("2026-05-01T15:05:00.000Z"),
+        event: earlyOpenEvent,
+      }),
+    ).toEqual([]);
+
+    expect(
+      getDuePickReminderTypes({
+        now: new Date("2026-05-02T03:00:00.000Z"),
         event,
       }),
     ).toEqual([]);
