@@ -547,9 +547,13 @@ export async function getLandingPageData() {
 
 export async function getHomePageData() {
   const { profile } = await requirePageUserProfile();
-  const events = await getCachedUpcomingAndCompletedEvents(10);
+  const [cachedCurrentEvent, events] = await Promise.all([
+    getCachedCurrentPublicEvent(),
+    getCachedUpcomingAndCompletedEvents(10),
+  ]);
 
   const currentEvent =
+    cachedCurrentEvent ||
     events.find((event) => event.status === "live" || event.status === "upcoming") ||
     null;
   const upcomingEvents = events.filter(
