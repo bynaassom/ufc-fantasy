@@ -140,6 +140,11 @@ describe("notification service", () => {
 
   it("sends one generic card notification per user for a bulk update", async () => {
     const { created, deps } = createDeps({
+      getCurrentEvent: vi.fn(async () => ({
+        id: "event-1",
+        name: "UFC Fortaleza",
+        slug: "ufc-fortaleza",
+      })),
       listActiveRecipients: vi.fn(async () => [
         { id: "user-1", is_banned: false },
         { id: "user-2", is_banned: false },
@@ -201,6 +206,36 @@ describe("notification service", () => {
 
     expect(result.created).toBe(0);
     expect(created).toHaveLength(0);
+    expect(deps.listActiveRecipients).not.toHaveBeenCalled();
+  });
+
+  it("does not notify users when bulk changes belong to a non-current event", async () => {
+    const { created, deps } = createDeps({
+      getCurrentEvent: vi.fn(async () => ({
+        id: "current-event",
+        name: "UFC Atual",
+        slug: "ufc-atual",
+      })),
+      listActiveRecipients: vi.fn(async () => [{ id: "user-1", is_banned: false }]),
+    });
+
+    const result = await notifyBulkCardChanges(
+      {},
+      {
+        event: {
+          id: "future-event",
+          name: "UFC Futuro",
+          slug: "ufc-futuro",
+        },
+        changeCount: 4,
+        batchId: "sync-123",
+      },
+      deps,
+    );
+
+    expect(result.created).toBe(0);
+    expect(created).toHaveLength(0);
+    expect(deps.getCurrentEvent).toHaveBeenCalledOnce();
     expect(deps.listActiveRecipients).not.toHaveBeenCalled();
   });
 });

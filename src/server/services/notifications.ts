@@ -382,6 +382,11 @@ export async function notifyBulkCardChanges(
     return { ...emptyNotificationBatchResult };
   }
 
+  const currentEvent = await deps.getCurrentEvent(client);
+  if (!currentEvent || currentEvent.id !== input.event.id) {
+    return { ...emptyNotificationBatchResult };
+  }
+
   return notifyActiveUsers(
     client,
     {
