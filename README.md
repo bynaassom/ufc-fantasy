@@ -76,6 +76,19 @@ SET role = 'admin'
 WHERE id = 'SEU_USER_UUID';
 ```
 
+## Verificação automática do card
+
+O endpoint `GET|POST /api/cron/card-verification` verifica eventos em T-72h e
+T-18h antes de `picks_lock_at`. Ele usa UFC.com como fonte principal, Sherdog
+como tira-teima e registra a disponibilidade do UFCStats.
+
+- Rode a migration `supabase/migrations/20260603203000_card_verification_runs.sql`.
+- Configure um job externo para chamar o endpoint uma vez por hora.
+- Envie `Authorization: Bearer <SYNC_SECRET>`.
+- T-18h remove lutas somente quando UFC.com e Sherdog concordam; se uma fonte
+  estiver indisponível, a execução gera alerta e não altera o card.
+- Alterações em massa geram uma única notificação, apenas quando o evento é o atual.
+
 ## Segurança
 
 O projeto foi endurecido para reduzir risco de vazamento e abuso:
