@@ -40,9 +40,11 @@ import {
   getCurrentPublicEvent,
   listCompletedEvents,
   listRecentEvents,
-  listUpcomingAndCompletedEvents,
+  listRecentCompletedEvents,
+  listUpcomingEvents,
   updateEvent,
 } from "@/server/repositories/events";
+import { resolvePublicEventSequence } from "@/lib/event-sequence";
 import {
   createFight,
   createFighter,
@@ -142,12 +144,24 @@ const getCachedCurrentPublicEvent = unstable_cache(
   },
 );
 
-const getCachedUpcomingAndCompletedEvents = unstable_cache(
+const getCachedUpcomingEvents = unstable_cache(
   async (limit: number) => {
     const supabase = getServiceRoleSupabase();
-    return (await listUpcomingAndCompletedEvents(supabase, limit)) as Event[];
+    return (await listUpcomingEvents(supabase, limit)) as Event[];
   },
-  ["upcoming-and-completed-events"],
+  ["upcoming-events"],
+  {
+    revalidate: EVENTS_CACHE_SECONDS,
+    tags: [CACHE_TAGS.events],
+  },
+);
+
+const getCachedRecentCompletedEvents = unstable_cache(
+  async (limit: number) => {
+    const supabase = getServiceRoleSupabase();
+    return (await listRecentCompletedEvents(supabase, limit)) as Event[];
+  },
+  ["recent-completed-events"],
   {
     revalidate: EVENTS_CACHE_SECONDS,
     tags: [CACHE_TAGS.events],
@@ -547,27 +561,27 @@ export async function getLandingPageData() {
 
 export async function getHomePageData() {
   const { profile } = await requirePageUserProfile();
-  const [cachedCurrentEvent, events] = await Promise.all([
+  const [cachedCurrentEvent, rawUpcomingEvents, completedEvents] = await Promise.all([
     getCachedCurrentPublicEvent(),
-    getCachedUpcomingAndCompletedEvents(10),
+    getCachedUpcomingEvents(10),
+    getCachedRecentCompletedEvents(3),
   ]);
 
-  const currentEvent =
-    cachedCurrentEvent ||
-    events.find((event) => event.status === "live" || event.status === "upcoming") ||
-    null;
-  const upcomingEvents = events.filter(
+  const eventSequence = resolvePublicEventSequence([
+    cachedCurrentEvent,
+    ...rawUpcomingEvents,
+  ]);
+  const currentEvent = eventSequence[0] || null;
+  const upcomingEvents = eventSequence.filter(
     (event) => event.status === "upcoming" && event.id !== currentEvent?.id,
   );
-  const completedEvents = events
-    .filter((event) => event.status === "completed")
-    .sort(
-      (left, right) =>
-        new Date(right.event_date).getTime() - new Date(left.event_date).getTime(),
-    )
-    .slice(0, 3);
 
-  return { profile, currentEvent, upcomingEvents, completedEvents };
+  return {
+    profile,
+    currentEvent,
+    upcomingEvents,
+    completedEvents: completedEvents.slice(0, 3),
+  };
 }
 
 export async function getEventPageData(slug: string) {

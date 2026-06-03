@@ -188,6 +188,7 @@ export async function createNotificationsForUsers(
     fightId?: string | null;
     fightName?: string | null;
     targetPath?: string | null;
+    dedupeKey?: string | null;
   },
   deps: NotificationServiceDeps = defaultDeps,
 ): Promise<NotificationBatchResult> {
@@ -200,11 +201,13 @@ export async function createNotificationsForUsers(
     eventName: input.event.name,
     fightName: input.fightName || undefined,
   });
-  const dedupeKey = buildNotificationDedupeKey({
-    type: input.type,
-    eventId: input.event.id,
-    fightId: input.fightId,
-  });
+  const dedupeKey =
+    input.dedupeKey ||
+    buildNotificationDedupeKey({
+      type: input.type,
+      eventId: input.event.id,
+      fightId: input.fightId,
+    });
 
   const createdNotifications: NotificationPayload[] = [];
 
@@ -351,6 +354,7 @@ export async function notifyActiveUsers(
     event: NotificationEvent;
     fightId?: string | null;
     fightName?: string | null;
+    dedupeKey?: string | null;
   },
   deps: NotificationServiceDeps = defaultDeps,
 ) {
@@ -360,6 +364,30 @@ export async function notifyActiveUsers(
     {
       userIds: activeRecipients.map((profile) => profile.id),
       ...input,
+    },
+    deps,
+  );
+}
+
+export async function notifyBulkCardChanges(
+  client: any,
+  input: {
+    event: NotificationEvent;
+    changeCount: number;
+    batchId: string;
+  },
+  deps: NotificationServiceDeps = defaultDeps,
+) {
+  if (input.changeCount <= 0) {
+    return { ...emptyNotificationBatchResult };
+  }
+
+  return notifyActiveUsers(
+    client,
+    {
+      type: "card_updated",
+      event: input.event,
+      dedupeKey: `card_updated:${input.event.id}:bulk:${input.batchId}`,
     },
     deps,
   );

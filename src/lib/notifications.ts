@@ -257,8 +257,8 @@ export function buildNotificationContent({
       };
     case "card_updated":
       return {
-        title: "Card atualizado",
-        message: `O card do ${eventName} mudou. Da uma conferida antes de cravar seus picks.`,
+        title: "Atualizacao no evento",
+        message: `O card do ${eventName} teve atualizacoes. Confira antes de confirmar seus picks.`,
       };
     case "perfect_pick":
       return {

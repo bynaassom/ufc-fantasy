@@ -1,6 +1,7 @@
 import {
   createNotificationsForUsers,
   dispatchDuePickNotifications,
+  notifyBulkCardChanges,
   type NotificationServiceDeps,
 } from "@/server/services/notifications";
 
@@ -135,5 +136,71 @@ describe("notification service", () => {
       {},
       "https://push.example.invalid/stale",
     );
+  });
+
+  it("sends one generic card notification per user for a bulk update", async () => {
+    const { created, deps } = createDeps({
+      listActiveRecipients: vi.fn(async () => [
+        { id: "user-1", is_banned: false },
+        { id: "user-2", is_banned: false },
+      ]),
+    });
+
+    const result = await notifyBulkCardChanges(
+      {},
+      {
+        event: {
+          id: "event-1",
+          name: "UFC Fortaleza",
+          slug: "ufc-fortaleza",
+        },
+        changeCount: 12,
+        batchId: "sync-123",
+      },
+      deps,
+    );
+
+    expect(result.created).toBe(2);
+    expect(created).toHaveLength(2);
+    expect(created).toEqual([
+      expect.objectContaining({
+        user_id: "user-1",
+        type: "card_updated",
+        title: "Atualizacao no evento",
+        message: "O card do UFC Fortaleza teve atualizacoes. Confira antes de confirmar seus picks.",
+        dedupe_key: "card_updated:event-1:bulk:sync-123",
+        fight_id: null,
+      }),
+      expect.objectContaining({
+        user_id: "user-2",
+        type: "card_updated",
+        dedupe_key: "card_updated:event-1:bulk:sync-123",
+        fight_id: null,
+      }),
+    ]);
+  });
+
+  it("does not notify users when a bulk update applies no changes", async () => {
+    const { created, deps } = createDeps({
+      listActiveRecipients: vi.fn(async () => [{ id: "user-1", is_banned: false }]),
+    });
+
+    const result = await notifyBulkCardChanges(
+      {},
+      {
+        event: {
+          id: "event-1",
+          name: "UFC Fortaleza",
+          slug: "ufc-fortaleza",
+        },
+        changeCount: 0,
+        batchId: "sync-123",
+      },
+      deps,
+    );
+
+    expect(result.created).toBe(0);
+    expect(created).toHaveLength(0);
+    expect(deps.listActiveRecipients).not.toHaveBeenCalled();
   });
 });

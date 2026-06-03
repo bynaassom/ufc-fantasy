@@ -189,6 +189,17 @@ describe("notifications", () => {
       title: "Ih, deu ruim",
         message: "A luta Lutador A vs Lutador B caiu do card do UFC Fortaleza.",
       });
+
+    expect(
+      buildNotificationContent({
+        type: "card_updated",
+        eventName: "UFC Fortaleza",
+      }),
+    ).toMatchObject({
+      title: "Atualizacao no evento",
+      message:
+        "O card do UFC Fortaleza teve atualizacoes. Confira antes de confirmar seus picks.",
+    });
   });
 
   it("builds celebratory copy for a perfect pick", () => {

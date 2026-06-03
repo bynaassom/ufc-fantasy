@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
@@ -12,7 +13,7 @@ import {
 import { readUpdateCardRequest } from "@/lib/update-card-request";
 import { assertSameOriginForMutation } from "@/server/api";
 import { CACHE_TAGS } from "@/server/cache-tags";
-import { notifyActiveUsers } from "@/server/services/notifications";
+import { notifyBulkCardChanges } from "@/server/services/notifications";
 
 function getFighterName(
   fighter: { name?: string | null } | Array<{ name?: string | null }> | null | undefined,
@@ -24,12 +25,12 @@ function getFighterName(
   return fighter?.name || "";
 }
 
-async function safelyNotifyCardChange(
+async function safelyNotifyBulkCardChanges(
   client: any,
-  input: Parameters<typeof notifyActiveUsers>[1],
+  input: Parameters<typeof notifyBulkCardChanges>[1],
 ) {
   try {
-    await notifyActiveUsers(client, input);
+    await notifyBulkCardChanges(client, input);
   } catch (error) {
     console.error("Failed to create card notification", error);
   }
@@ -170,12 +171,13 @@ export async function POST(req: NextRequest) {
   }
 
   const log: string[] = [];
+  let appliedChangeCount = 0;
 
   for (const fight of diff.added) {
     const fighterAId = await ensureFighter(adminSupabase, fight.fighter_a);
     const fighterBId = await ensureFighter(adminSupabase, fight.fighter_b);
 
-    const { data: createdFight, error: createFightError } = await adminSupabase
+    const { error: createFightError } = await adminSupabase
       .from("fights")
       .insert({
         event_id,
@@ -187,40 +189,24 @@ export async function POST(req: NextRequest) {
         is_title_fight: fight.is_title_fight,
         total_rounds: fight.total_rounds,
         ufc_matchup_url: fight.ufc_matchup_url,
-      })
-      .select("id")
-      .single();
+      });
 
     if (createFightError) throw createFightError;
 
-    await safelyNotifyCardChange(adminSupabase, {
-      type: "fight_added",
-      event,
-      fightId: createdFight?.id || null,
-      fightName: `${fight.fighter_a.name} vs ${fight.fighter_b.name}`,
-    });
-
     log.push(`✓ Adicionada: ${fight.fighter_a.name} vs ${fight.fighter_b.name}`);
+    appliedChangeCount += 1;
   }
 
   for (const id of remove_ids || []) {
     const dbFight = (currentFights || []).find((fight) => fight.id === id);
     if (!dbFight) continue;
 
-    await safelyNotifyCardChange(adminSupabase, {
-      type: "fight_removed",
-      event,
-      fightId: dbFight.id,
-      fightName: `${getFighterName(dbFight.fighter_a)} vs ${getFighterName(
-        dbFight.fighter_b,
-      )}`,
-    });
-
     await adminSupabase.from("picks").delete().eq("fight_id", id);
     await adminSupabase.from("fights").delete().eq("id", id);
     log.push(
       `✗ Removida: ${getFighterName(dbFight.fighter_a)} vs ${getFighterName(dbFight.fighter_b)}`,
     );
+    appliedChangeCount += 1;
   }
 
   for (const updatedFight of diff.updated) {
@@ -233,14 +219,14 @@ export async function POST(req: NextRequest) {
     log.push(
       `↻ Atualizada: ${updatedFight.fight.fighter_a.name} vs ${updatedFight.fight.fighter_b.name}`,
     );
+    appliedChangeCount += 1;
   }
 
-  if (diff.updated.length > 0) {
-    await safelyNotifyCardChange(adminSupabase, {
-      type: "card_updated",
-      event,
-    });
-  }
+  await safelyNotifyBulkCardChanges(adminSupabase, {
+    event,
+    changeCount: appliedChangeCount,
+    batchId: randomUUID(),
+  });
 
   revalidateTag(CACHE_TAGS.events);
 

@@ -3,7 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getCurrentPublicEvent: vi.fn(),
-  listUpcomingAndCompletedEvents: vi.fn(),
+  listRecentCompletedEvents: vi.fn(),
+  listUpcomingEvents: vi.fn(),
   requirePageUserProfile: vi.fn(),
 }));
 
@@ -29,7 +30,8 @@ vi.mock("@/server/repositories/events", () => ({
   getCurrentPublicEvent: mocks.getCurrentPublicEvent,
   listCompletedEvents: vi.fn(),
   listRecentEvents: vi.fn(),
-  listUpcomingAndCompletedEvents: mocks.listUpcomingAndCompletedEvents,
+  listRecentCompletedEvents: mocks.listRecentCompletedEvents,
+  listUpcomingEvents: mocks.listUpcomingEvents,
   updateEvent: vi.fn(),
 }));
 
@@ -56,6 +58,8 @@ describe("getHomePageData", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-03T12:00:00.000Z"));
 
     mocks.requirePageUserProfile.mockResolvedValue({
       profile: {
@@ -72,9 +76,15 @@ describe("getHomePageData", () => {
         updated_at: "2026-05-01T00:00:00.000Z",
       } satisfies Partial<Profile>,
     });
+    mocks.listRecentCompletedEvents.mockResolvedValue([]);
+    mocks.listUpcomingEvents.mockResolvedValue([]);
   });
 
-  it("shows the current upcoming event even when the mixed event list is filled by completed events", async () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("shows the current upcoming event alongside recent completed events", async () => {
     const currentEvent = makeEvent({
       id: "ufc-326",
       name: "UFC 326",
@@ -93,7 +103,7 @@ describe("getHomePageData", () => {
     );
 
     mocks.getCurrentPublicEvent.mockResolvedValue(currentEvent);
-    mocks.listUpcomingAndCompletedEvents.mockResolvedValue(completedEvents);
+    mocks.listRecentCompletedEvents.mockResolvedValue(completedEvents);
 
     const { getHomePageData } = await import("@/server/services/app");
 
@@ -104,5 +114,75 @@ describe("getHomePageData", () => {
       },
     });
     expect(mocks.getCurrentPublicEvent).toHaveBeenCalledOnce();
+  });
+
+  it("promotes the next event when the previous upcoming event has expired", async () => {
+    const expiredEvent = makeEvent({
+      id: "expired-event",
+      name: "Expired event",
+      slug: "expired-event",
+      event_date: "2026-05-30T02:00:00.000Z",
+    });
+    const nextEvent = makeEvent({
+      id: "next-event",
+      name: "Next event",
+      slug: "next-event",
+      event_date: "2026-06-07T00:00:00.000Z",
+    });
+    const laterEvent = makeEvent({
+      id: "later-event",
+      name: "Later event",
+      slug: "later-event",
+      event_date: "2026-06-15T00:00:00.000Z",
+    });
+
+    mocks.getCurrentPublicEvent.mockResolvedValue(expiredEvent);
+    mocks.listUpcomingEvents.mockResolvedValue([
+      expiredEvent,
+      nextEvent,
+      laterEvent,
+    ]);
+
+    const { getHomePageData } = await import("@/server/services/app");
+    const result = await getHomePageData();
+
+    expect(result.currentEvent?.id).toBe("next-event");
+    expect(result.upcomingEvents.map((event) => event.id)).toEqual(["later-event"]);
+  });
+
+  it("loads upcoming events independently from the completed event list", async () => {
+    const currentEvent = makeEvent({
+      id: "current-event",
+      name: "Current event",
+      slug: "current-event",
+      event_date: "2026-06-07T00:00:00.000Z",
+    });
+    const laterEvent = makeEvent({
+      id: "later-event",
+      name: "Later event",
+      slug: "later-event",
+      event_date: "2026-06-15T00:00:00.000Z",
+    });
+    const completedEvents = Array.from({ length: 10 }, (_, index) =>
+      makeEvent({
+        id: `completed-${index}`,
+        name: `Completed ${index}`,
+        slug: `completed-${index}`,
+        status: "completed",
+        event_date: `2026-05-${String(index + 1).padStart(2, "0")}T23:00:00.000Z`,
+      }),
+    );
+
+    mocks.getCurrentPublicEvent.mockResolvedValue(currentEvent);
+    mocks.listUpcomingEvents.mockResolvedValue([currentEvent, laterEvent]);
+    mocks.listRecentCompletedEvents.mockResolvedValue(completedEvents);
+
+    const { getHomePageData } = await import("@/server/services/app");
+    const result = await getHomePageData();
+
+    expect(result.upcomingEvents.map((event) => event.id)).toEqual(["later-event"]);
+    expect(result.completedEvents).toHaveLength(3);
+    expect(mocks.listUpcomingEvents).toHaveBeenCalledOnce();
+    expect(mocks.listRecentCompletedEvents).toHaveBeenCalledOnce();
   });
 });

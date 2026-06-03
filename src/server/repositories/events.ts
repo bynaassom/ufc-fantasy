@@ -1,3 +1,5 @@
+import { getPublicEventCutoffIso } from "@/lib/event-sequence";
+
 const EVENT_PUBLIC_FIELDS = `
   id,
   name,
@@ -47,6 +49,7 @@ export async function getCurrentPublicEvent(client: any) {
     .from("events")
     .select(EVENT_PUBLIC_FIELDS)
     .in("status", ["upcoming", "live"])
+    .gte("event_date", getPublicEventCutoffIso())
     .order("event_date", { ascending: true })
     .limit(1)
     .maybeSingle();
@@ -66,11 +69,25 @@ export async function listRecentEvents(client: any, limit = 20) {
   return data || [];
 }
 
-export async function listUpcomingAndCompletedEvents(client: any, limit = 10) {
+export async function listUpcomingEvents(client: any, limit = 10) {
   const { data, error } = await client
     .from("events")
     .select(EVENT_PUBLIC_FIELDS)
+    .eq("status", "upcoming")
+    .gte("event_date", getPublicEventCutoffIso())
     .order("event_date", { ascending: true })
+    .limit(limit);
+
+  if (error) throw error;
+  return data || [];
+}
+
+export async function listRecentCompletedEvents(client: any, limit = 3) {
+  const { data, error } = await client
+    .from("events")
+    .select(EVENT_PUBLIC_FIELDS)
+    .eq("status", "completed")
+    .order("event_date", { ascending: false })
     .limit(limit);
 
   if (error) throw error;
@@ -127,6 +144,7 @@ export async function getCurrentEventForRanking(client: any) {
     .from("events")
     .select("id, name")
     .in("status", ["upcoming", "live"])
+    .gte("event_date", getPublicEventCutoffIso())
     .order("event_date", { ascending: true })
     .limit(1)
     .maybeSingle();

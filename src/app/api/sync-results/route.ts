@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { revalidatePath, revalidateTag } from "next/cache";
+import { getPublicEventCutoffIso } from "@/lib/event-sequence";
 import {
   namesMatch,
   parseUfcStatsEventResults,
@@ -75,6 +76,7 @@ export async function POST(req: NextRequest) {
       .select("id, event_date, picks_lock_at, ufc_stats_url")
       .in("status", ["upcoming", "live"])
       .not("ufc_stats_url", "is", null)
+      .gte("event_date", getPublicEventCutoffIso(now))
       .order("event_date", { ascending: true })
       .limit(1)
       .single();
