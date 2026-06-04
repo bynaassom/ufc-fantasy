@@ -14,6 +14,7 @@ import { isAllowedScrapeUrl } from "@/lib/security";
 import { logAdminAction } from "@/lib/admin-audit";
 import { assertSameOriginForMutation } from "@/server/api";
 import { CACHE_TAGS } from "@/server/cache-tags";
+import { completeEventIfAllResultsConfirmed } from "@/server/services/event-lifecycle";
 
 // ─── Scrape UFCStats ─────────────────────────────────────────
 async function scrapeUfcStats(url: string): Promise<UfcStatsResult[]> {
@@ -244,8 +245,11 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  const lifecycle = await completeEventIfAllResultsConfirmed(adminSupabase, event_id);
+
   revalidatePath("/ranking");
   revalidatePath("/home");
+  revalidatePath("/admin");
   revalidateTag(CACHE_TAGS.ranking);
   revalidateTag(CACHE_TAGS.events);
   Array.from(slugsToRevalidate).forEach((slug) => {
@@ -260,6 +264,8 @@ export async function POST(req: NextRequest) {
       imported_count: saved,
       scraped_count: ufcResults.length,
       event_slug: event?.slug || null,
+      event_completed: lifecycle.completed,
+      next_event_id: lifecycle.nextEvent?.id || null,
     },
   });
 
@@ -267,6 +273,8 @@ export async function POST(req: NextRequest) {
     ok: true,
     message: `${saved} resultado(s) importado(s) e picks pontuados`,
     results: savedLabels,
+    event_completed: lifecycle.completed,
+    next_event: lifecycle.nextEvent,
   });
 }
 

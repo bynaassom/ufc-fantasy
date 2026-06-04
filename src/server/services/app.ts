@@ -86,6 +86,7 @@ import {
   createNotificationsForUsers,
   notifyActiveUsers,
 } from "@/server/services/notifications";
+import { completeEventIfAllResultsConfirmed } from "@/server/services/event-lifecycle";
 import {
   requireAdminPageProfile,
   requirePageUserProfile,
@@ -1611,6 +1612,8 @@ export async function setAdminFightResult(
         fight.fighter_b,
       )}`,
     });
+
+    await completeEventIfAllResultsConfirmed(adminSupabase, event.id);
   }
 
   return {

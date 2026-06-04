@@ -34,6 +34,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=sua_anon_key
 SUPABASE_SERVICE_ROLE_KEY=sua_service_role_key
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 SYNC_SECRET=um_segredo_para_jobs_externos
+NOTIFICATIONS_CRON_SECRET=um_segredo_para_o_cron_de_notificacoes
 ODDS_API_KEY=sua_key_da_the_odds_api
 ```
 
@@ -88,6 +89,20 @@ como tira-teima e registra a disponibilidade do UFCStats.
 - T-18h remove lutas somente quando UFC.com e Sherdog concordam; se uma fonte
   estiver indisponível, a execução gera alerta e não altera o card.
 - Alterações em massa geram uma única notificação, apenas quando o evento é o atual.
+
+## Ciclo automático dos eventos
+
+O endpoint `GET|POST /api/cron/notifications` também mantém o ciclo dos eventos:
+
+- Promove o evento de `upcoming` para `live` quando chega `event_date`.
+- Marca o evento como `completed` após todas as lutas terem resultado confirmado.
+- Agenda `picks_open_at` do próximo evento para o dia seguinte à conclusão, às
+  `15:00 UTC` (`12:00` em Fortaleza).
+- Envia a notificação de picks abertos pelo fluxo deduplicado existente.
+
+Configure o job para chamar esse endpoint a cada 5 minutos usando
+`Authorization: Bearer <NOTIFICATIONS_CRON_SECRET>`. A confirmação do último
+resultado, manual ou automática, também conclui o evento imediatamente.
 
 ## Segurança
 
