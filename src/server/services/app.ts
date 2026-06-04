@@ -38,8 +38,8 @@ import {
   findEventBySlugForPickValidation,
   findEventBySlugWithFights,
   getCurrentPublicEvent,
+  listAdminEvents,
   listCompletedEvents,
-  listRecentEvents,
   listRecentCompletedEvents,
   listUpcomingEvents,
   updateEvent,
@@ -724,7 +724,7 @@ export async function getAdminPageData() {
   const context = await requireAdminPageProfile();
   const supabase = await getUserSupabase();
   const [events, users] = await Promise.all([
-    listRecentEvents(supabase, 20),
+    listAdminEvents(supabase),
     listRecentProfiles(supabase, 100),
   ]);
 

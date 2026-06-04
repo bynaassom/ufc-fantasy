@@ -9,6 +9,8 @@ import {
   useState,
 } from "react";
 import { readApiResponse } from "@/lib/api";
+import { groupAdminEvents } from "@/lib/admin-event-groups";
+import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import FighterSearchInput from "./FighterSearchInput";
 
@@ -182,6 +184,7 @@ export default function AdminClient({
   events: any[];
   users: any[];
 }) {
+  const router = useRouter();
   const [mainTab, setMainTab] = useState<MainTab>("eventos");
   const [subTab, setSubTab] = useState<SubTab>("evento-manual");
 
@@ -193,9 +196,13 @@ export default function AdminClient({
       ),
     [events],
   );
+  const defaultEventId = useMemo(
+    () => groupAdminEvents(sortedEvents)[0]?.events[0]?.id || "",
+    [sortedEvents],
+  );
 
   const [selectedEventId, setSelectedEventId] = useState(
-    sortedEvents[0]?.id || "",
+    defaultEventId,
   );
   const [eventFights, setEventFights] = useState<any[]>([]);
   const [userList, setUserList] = useState(users);
@@ -233,6 +240,10 @@ export default function AdminClient({
 
     setMainTab("usuarios");
     setSubTab("usuarios");
+  }
+
+  function refreshEvents() {
+    router.refresh();
   }
 
   // ── Nav config ───────────────────────────────────────────────
@@ -352,9 +363,11 @@ export default function AdminClient({
         />
       )}
       {subTab === "evento-manual" && (
-        <EventoManual sortedEvents={sortedEvents} />
+        <EventoManual onEventsChanged={refreshEvents} />
       )}
-      {subTab === "evento-importar" && <EventoImportar />}
+      {subTab === "evento-importar" && (
+        <EventoImportar onEventsChanged={refreshEvents} />
+      )}
       {subTab === "evento-editar" && (
         <EventoEditar
           sortedEvents={sortedEvents}
@@ -959,6 +972,11 @@ function EventSelector({
   value: string;
   onChange: (id: string) => void;
 }) {
+  const groupedEvents = useMemo(
+    () => groupAdminEvents(sortedEvents),
+    [sortedEvents],
+  );
+
   return (
     <div>
       <label className={lbl} style={{ color: "var(--text-secondary)" }}>
@@ -971,10 +989,14 @@ function EventSelector({
         onFocus={focus}
         onBlur={blur}
       >
-        {sortedEvents.map((ev) => (
-          <option key={ev.id} value={ev.id}>
-            {ev.name}
-          </option>
+        {groupedEvents.map((group) => (
+          <optgroup key={group.label} label={group.label}>
+            {group.events.map((ev) => (
+              <option key={ev.id} value={ev.id}>
+                {ev.name}
+              </option>
+            ))}
+          </optgroup>
         ))}
       </select>
     </div>
@@ -982,7 +1004,7 @@ function EventSelector({
 }
 
 // ─── EVENTOS: Manual ─────────────────────────────────────────
-function EventoManual({ sortedEvents }: { sortedEvents: any[] }) {
+function EventoManual({ onEventsChanged }: { onEventsChanged: () => void }) {
   const [form, setForm] = useState({
     name: "",
     location: "",
@@ -1001,6 +1023,7 @@ function EventoManual({ sortedEvents }: { sortedEvents: any[] }) {
         body: JSON.stringify(form),
       });
       toast.success("Evento criado!");
+      onEventsChanged();
       setForm({
         name: "",
         location: "",
@@ -1089,7 +1112,7 @@ function EventoManual({ sortedEvents }: { sortedEvents: any[] }) {
 }
 
 // ─── EVENTOS: Importar ───────────────────────────────────────
-function EventoImportar() {
+function EventoImportar({ onEventsChanged }: { onEventsChanged: () => void }) {
   type SyncAction = "create" | "update" | "unchanged";
   type MatchStrategy =
     | "ufc_event_id"
@@ -1315,6 +1338,7 @@ function EventoImportar() {
       setSyncResult(json);
       toast.success("Eventos sincronizados!");
       await loadUpcomingEventsPreview();
+      onEventsChanged();
     } catch (err) {
       setError(String(err));
     } finally {

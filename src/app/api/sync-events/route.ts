@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { revalidateTag } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import {
@@ -523,6 +523,7 @@ export async function POST(req: NextRequest) {
     });
 
     revalidateTag(CACHE_TAGS.events);
+    revalidatePath("/admin");
 
     return NextResponse.json({
       ok: true,

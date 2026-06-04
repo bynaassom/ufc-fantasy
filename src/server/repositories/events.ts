@@ -69,6 +69,16 @@ export async function listRecentEvents(client: any, limit = 20) {
   return data || [];
 }
 
+export async function listAdminEvents(client: any) {
+  const { data, error } = await client
+    .from("events")
+    .select(EVENT_PUBLIC_FIELDS)
+    .order("event_date", { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}
+
 export async function listUpcomingEvents(client: any, limit = 10) {
   const { data, error } = await client
     .from("events")
