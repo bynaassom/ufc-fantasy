@@ -21,6 +21,11 @@ import {
 } from "@/lib/fight-result-sources";
 import { resolveEventUrlCandidates } from "@/lib/ufc-card-sync";
 import { isAllowedScrapeUrl } from "@/lib/security";
+import { blockedResultSource } from "@/lib/result-source-url";
+import {
+  extractResultSyncEventId,
+  resultSyncRequestDiagnostics,
+} from "@/lib/result-sync-request";
 import { logAdminAction } from "@/lib/admin-audit";
 import { assertSameOriginForMutation } from "@/server/api";
 import { CACHE_TAGS } from "@/server/cache-tags";
@@ -81,6 +86,9 @@ async function scrapeSource(
   url: string,
   parser: (html: string) => UfcStatsResult[],
 ): Promise<ResultSourceSet> {
+  const blockedSource = blockedResultSource(source, label, url);
+  if (blockedSource) return blockedSource;
+
   try {
     const html = await fetchResultHtml(url);
     if (looksLikeBotChallenge(html)) {
@@ -113,6 +121,9 @@ async function scrapeSource(
 }
 
 async function scrapeUfcStatsSource(url: string): Promise<ResultSourceSet> {
+  const blockedSource = blockedResultSource("ufcstats", "UFCStats", url);
+  if (blockedSource) return blockedSource;
+
   try {
     const results = await scrapeUfcStats(url);
     return {
@@ -211,15 +222,6 @@ function sourceDiagnostics(sourceSets: ResultSourceSet[]) {
   }));
 }
 
-function configuredResultUrls(event: ResultSyncEvent) {
-  return [
-    { label: "UFCStats", url: event.ufc_stats_url },
-    { label: "ESPN FightCenter", url: event.espn_fightcenter_url },
-    { label: "Sherdog", url: event.sherdog_event_url },
-    { label: "Tapology", url: event.tapology_event_url },
-  ].filter((entry): entry is { label: string; url: string } => !!entry.url);
-}
-
 // ─── Handler ─────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   const adminSupabase = await createAdminClient();
@@ -252,7 +254,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => ({}));
-  let { event_id } = body;
+  let event_id = extractResultSyncEventId(body, req.url);
   const dryRun = body?.dry_run === true;
 
   // Chamada externa: busca evento ativo automaticamente
@@ -299,7 +301,15 @@ export async function POST(req: NextRequest) {
 
   if (!event_id)
     return NextResponse.json(
-      { error: "event_id obrigatório" },
+      {
+        error: "event_id obrigatório",
+        details: resultSyncRequestDiagnostics({
+          body,
+          isExternalCall: !!isExternalCall,
+          authHeader,
+          syncSecret,
+        }),
+      },
       { status: 400 },
     );
 
@@ -314,15 +324,6 @@ export async function POST(req: NextRequest) {
       { error: "Evento não encontrado" },
       { status: 404 },
     );
-
-  for (const source of configuredResultUrls(event)) {
-    if (!isAllowedScrapeUrl(source.url)) {
-      return NextResponse.json(
-        { error: `Host não permitido para scraping: ${source.label}` },
-        { status: 400 },
-      );
-    }
-  }
 
   const { data: fights } = await adminSupabase
     .from("fights")

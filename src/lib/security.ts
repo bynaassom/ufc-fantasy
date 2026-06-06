@@ -13,6 +13,8 @@ const HOST_PROTOCOL_RULES: Record<string, string[]> = {
   "www.sherdog.com": ["https:"],
   "espn.com": ["https:"],
   "www.espn.com": ["https:"],
+  "espn.com.br": ["https:"],
+  "www.espn.com.br": ["https:"],
   "tapology.com": ["https:"],
   "www.tapology.com": ["https:"],
   "api.the-odds-api.com": ["https:"],
