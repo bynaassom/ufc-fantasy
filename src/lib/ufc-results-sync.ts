@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 export type SyncedResultMethod = "decision" | "submission" | "knockout";
 
 export interface UfcStatsResult {
@@ -7,7 +9,21 @@ export interface UfcStatsResult {
   round: number;
 }
 
+type FetchLike = (
+  input: RequestInfo | URL,
+  init?: RequestInit,
+) => Promise<Response>;
+
 const NAME_SUFFIXES = new Set(["jr", "sr", "ii", "iii", "iv"]);
+const UFC_STATS_HEADERS = {
+  "User-Agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0",
+  Accept: "text/html,application/xhtml+xml",
+  "Accept-Language": "en-US,en;q=0.9",
+  "Cache-Control": "no-cache",
+  Pragma: "no-cache",
+};
+const MAX_BROWSER_CHALLENGE_ATTEMPTS = 10_000_000;
 
 function decodeHtml(value: string) {
   return value
@@ -91,6 +107,123 @@ function parseRound(raw: string) {
   const match = stripTags(raw).match(/\b([1-5])\b/);
   if (!match) return null;
   return Number(match[1]);
+}
+
+function extractSetCookies(headers: Headers) {
+  const withGetSetCookie = headers as Headers & {
+    getSetCookie?: () => string[];
+  };
+  const setCookies = withGetSetCookie.getSetCookie?.();
+  if (setCookies?.length) return setCookies;
+
+  const cookie = headers.get("set-cookie");
+  return cookie ? [cookie] : [];
+}
+
+function cookieHeaderFromSetCookies(setCookies: string[]) {
+  return setCookies
+    .map((cookie) => cookie.split(";")[0]?.trim())
+    .filter(Boolean)
+    .join("; ");
+}
+
+function mergeCookieHeaders(...headers: Array<string | null | undefined>) {
+  const cookies = new Map<string, string>();
+
+  for (const header of headers) {
+    for (const cookie of (header || "").split(";")) {
+      const trimmed = cookie.trim();
+      if (!trimmed) continue;
+
+      const eqIndex = trimmed.indexOf("=");
+      if (eqIndex < 1) continue;
+      cookies.set(trimmed.slice(0, eqIndex), trimmed);
+    }
+  }
+
+  return Array.from(cookies.values()).join("; ");
+}
+
+function parseBrowserChallenge(html: string) {
+  if (!/Checking your browser/i.test(html) || !/\/__c/.test(html)) return null;
+
+  const nonce = html.match(/\bnonce\s*=\s*"([^"]+)"/)?.[1];
+  const zeroCount = Number(
+    html.match(/new Array\((\d+)\s*\+\s*1\)\.join\(['"]0['"]\)/)?.[1],
+  );
+  const path = html.match(
+    /xhr\.open\(['"]POST['"],\s*["']([^"']+)["']/,
+  )?.[1];
+
+  if (!nonce || !zeroCount || !path) return null;
+  return { nonce, zeroCount, path };
+}
+
+function solveBrowserChallenge(nonce: string, zeroCount: number) {
+  const target = "0".repeat(zeroCount);
+
+  for (let n = 0; n <= MAX_BROWSER_CHALLENGE_ATTEMPTS; n += 1) {
+    const hash = createHash("sha256").update(`${nonce}:${n}`).digest("hex");
+    if (hash.slice(0, zeroCount) === target) return n;
+  }
+
+  throw new Error("UFCStats browser challenge exceeded attempt limit");
+}
+
+async function fetchUfcStatsText(
+  url: string,
+  fetchImpl: FetchLike,
+  cookieHeader?: string,
+) {
+  const headers = new Headers(UFC_STATS_HEADERS);
+  if (cookieHeader) headers.set("Cookie", cookieHeader);
+
+  const res = await fetchImpl(url, {
+    headers,
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`UFCStats HTTP ${res.status}`);
+
+  return {
+    html: await res.text(),
+    cookieHeader: cookieHeaderFromSetCookies(extractSetCookies(res.headers)),
+  };
+}
+
+export async function fetchUfcStatsHtml(
+  url: string,
+  fetchImpl: FetchLike = fetch,
+) {
+  const first = await fetchUfcStatsText(url, fetchImpl);
+  const challenge = parseBrowserChallenge(first.html);
+  if (!challenge) return first.html;
+
+  const answer = solveBrowserChallenge(challenge.nonce, challenge.zeroCount);
+  const challengeUrl = new URL(challenge.path, url).toString();
+  const challengeHeaders = new Headers(UFC_STATS_HEADERS);
+  challengeHeaders.set("Content-Type", "application/x-www-form-urlencoded");
+  if (first.cookieHeader) challengeHeaders.set("Cookie", first.cookieHeader);
+
+  const challengeRes = await fetchImpl(challengeUrl, {
+    method: "POST",
+    headers: challengeHeaders,
+    body: new URLSearchParams({
+      nonce: challenge.nonce,
+      n: String(answer),
+    }).toString(),
+  });
+  if (!challengeRes.ok) throw new Error(`UFCStats HTTP ${challengeRes.status}`);
+
+  const verifiedCookieHeader = mergeCookieHeaders(
+    first.cookieHeader,
+    cookieHeaderFromSetCookies(extractSetCookies(challengeRes.headers)),
+  );
+  const verified = await fetchUfcStatsText(url, fetchImpl, verifiedCookieHeader);
+  if (parseBrowserChallenge(verified.html)) {
+    throw new Error("UFCStats browser challenge was not resolved");
+  }
+
+  return verified.html;
 }
 
 function extractFighterNamesFromRow(rowHtml: string) {

@@ -1363,6 +1363,26 @@ export async function getAdminEvent(eventId: string) {
   return findEventById(adminSupabase, eventId);
 }
 
+const EVENT_RESULT_SOURCE_FIELDS = [
+  "ufc_event_id",
+  "ufc_stats_url",
+  "espn_fightcenter_url",
+  "sherdog_event_url",
+  "tapology_event_url",
+] as const;
+
+function normalizeEventSourceFields(payload: Record<string, unknown>) {
+  const normalized: Record<string, unknown> = { ...payload };
+
+  for (const field of EVENT_RESULT_SOURCE_FIELDS) {
+    if (typeof normalized[field] === "string" && !normalized[field].trim()) {
+      normalized[field] = null;
+    }
+  }
+
+  return normalized;
+}
+
 export async function createAdminEvent(payload: {
   name: string;
   location?: string;
@@ -1370,12 +1390,18 @@ export async function createAdminEvent(payload: {
   picks_lock_at?: string;
   picks_open_at?: string;
   banner_image_url?: string;
+  ufc_event_id?: string;
   ufc_stats_url?: string;
+  espn_fightcenter_url?: string;
+  sherdog_event_url?: string;
+  tapology_event_url?: string;
   status?: "upcoming" | "live" | "completed";
 }) {
   const adminSupabase = await getAdminSupabase();
+  const normalizedPayload = normalizeEventSourceFields(payload);
+
   return createEvent(adminSupabase, {
-    ...payload,
+    ...normalizedPayload,
     slug: slugifyEventName(payload.name),
     status: payload.status || "upcoming",
   });
@@ -1386,7 +1412,11 @@ export async function updateAdminEventById(
   payload: Record<string, unknown>,
 ) {
   const adminSupabase = await getAdminSupabase();
-  const event = await updateEvent(adminSupabase, eventId, payload);
+  const event = await updateEvent(
+    adminSupabase,
+    eventId,
+    normalizeEventSourceFields(payload),
+  );
 
   if (shouldNotifyPicksOpened(event)) {
     await safelyNotifyActiveUsers(adminSupabase, {

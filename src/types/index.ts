@@ -57,11 +57,14 @@ export interface Event {
   event_date: string;
   location?: string;
   banner_image_url?: string;
-  ufc_event_id?: string;
+  ufc_event_id?: string | null;
   status: EventStatus;
   picks_lock_at: string;
   picks_open_at: string | null;
   ufc_stats_url?: string | null;
+  espn_fightcenter_url?: string | null;
+  sherdog_event_url?: string | null;
+  tapology_event_url?: string | null;
   created_at: string;
   updated_at: string;
 }

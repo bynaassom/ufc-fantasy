@@ -65,7 +65,11 @@ CREATE TABLE events (
   status event_status NOT NULL DEFAULT 'upcoming',
   picks_lock_at TIMESTAMPTZ GENERATED ALWAYS AS (event_date - INTERVAL '30 minutes') STORED,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  ufc_stats_url TEXT,
+  espn_fightcenter_url TEXT,
+  sherdog_event_url TEXT,
+  tapology_event_url TEXT
 );
 
 -- ============================================================

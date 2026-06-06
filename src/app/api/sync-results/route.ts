@@ -5,33 +5,219 @@ import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { getPublicEventCutoffIso } from "@/lib/event-sequence";
 import {
-  namesMatch,
+  fetchUfcStatsHtml,
   parseUfcStatsEventResults,
-  type SyncedResultMethod,
   type UfcStatsResult,
 } from "@/lib/ufc-results-sync";
+import {
+  buildResultConsensusUpdates,
+  parseEspnFightCenterResults,
+  parseSherdogEventResults,
+  parseTapologyEventResults,
+  parseUfcOfficialEventResults,
+  type ConsensusUpdate,
+  type ResultSourceId,
+  type ResultSourceSet,
+} from "@/lib/fight-result-sources";
+import { resolveEventUrlCandidates } from "@/lib/ufc-card-sync";
 import { isAllowedScrapeUrl } from "@/lib/security";
 import { logAdminAction } from "@/lib/admin-audit";
 import { assertSameOriginForMutation } from "@/server/api";
 import { CACHE_TAGS } from "@/server/cache-tags";
 import { completeEventIfAllResultsConfirmed } from "@/server/services/event-lifecycle";
 
-// ─── Scrape UFCStats ─────────────────────────────────────────
+type ResultSyncEvent = {
+  slug?: string | null;
+  name?: string | null;
+  event_date?: string | null;
+  ufc_event_id?: string | null;
+  ufc_stats_url?: string | null;
+  espn_fightcenter_url?: string | null;
+  sherdog_event_url?: string | null;
+  tapology_event_url?: string | null;
+};
+
+const RESULT_SOURCE_HEADERS = {
+  "User-Agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0",
+  Accept: "text/html,application/xhtml+xml",
+  "Accept-Language": "en-US,en;q=0.9,pt-BR;q=0.8,pt;q=0.7",
+  "Cache-Control": "no-cache",
+  Pragma: "no-cache",
+};
+
+const EVENT_RESULT_SOURCE_SELECT = `
+  slug,
+  name,
+  event_date,
+  ufc_event_id,
+  ufc_stats_url,
+  espn_fightcenter_url,
+  sherdog_event_url,
+  tapology_event_url
+`;
+
 async function scrapeUfcStats(url: string): Promise<UfcStatsResult[]> {
-  const res = await fetch(`${url}?_=${Date.now()}`, {
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0",
-      Accept: "text/html,application/xhtml+xml",
-      "Accept-Language": "en-US,en;q=0.9",
-      "Cache-Control": "no-cache",
-      Pragma: "no-cache",
-    },
+  const html = await fetchUfcStatsHtml(url);
+  return parseUfcStatsEventResults(html);
+}
+
+async function fetchResultHtml(url: string) {
+  const response = await fetch(url, {
+    headers: RESULT_SOURCE_HEADERS,
     cache: "no-store",
   });
-  if (!res.ok) throw new Error(`UFCStats HTTP ${res.status}`);
-  const html = await res.text();
-  return parseUfcStatsEventResults(html);
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return response.text();
+}
+
+function looksLikeBotChallenge(html: string) {
+  return /Just a moment|Checking your browser|cf-chl|cloudflare/i.test(html);
+}
+
+async function scrapeSource(
+  source: ResultSourceId,
+  label: string,
+  url: string,
+  parser: (html: string) => UfcStatsResult[],
+): Promise<ResultSourceSet> {
+  try {
+    const html = await fetchResultHtml(url);
+    if (looksLikeBotChallenge(html)) {
+      return {
+        source,
+        label,
+        url,
+        results: [],
+        error: "desafio anti-bot detectado",
+      };
+    }
+
+    const results = parser(html);
+    return {
+      source,
+      label,
+      url,
+      results,
+      error: results.length ? null : "sem resultados publicados",
+    };
+  } catch (error: any) {
+    return {
+      source,
+      label,
+      url,
+      results: [],
+      error: error?.message || "falha ao buscar fonte",
+    };
+  }
+}
+
+async function scrapeUfcStatsSource(url: string): Promise<ResultSourceSet> {
+  try {
+    const results = await scrapeUfcStats(url);
+    return {
+      source: "ufcstats",
+      label: "UFCStats",
+      url,
+      results,
+      error: results.length ? null : "sem resultados publicados",
+    };
+  } catch (error: any) {
+    return {
+      source: "ufcstats",
+      label: "UFCStats",
+      url,
+      results: [],
+      error: error?.message || "falha ao buscar UFCStats",
+    };
+  }
+}
+
+async function scrapeOfficialUfcSource(
+  event: ResultSyncEvent,
+): Promise<ResultSourceSet | null> {
+  const candidates = await resolveEventUrlCandidates(event);
+  const attempted: ResultSourceSet[] = [];
+
+  for (const url of candidates) {
+    if (!isAllowedScrapeUrl(url)) continue;
+
+    const source = await scrapeSource(
+      "ufc",
+      "UFC.com",
+      url,
+      parseUfcOfficialEventResults,
+    );
+    if (source.results.length) return source;
+    attempted.push(source);
+  }
+
+  return attempted[0] || null;
+}
+
+async function collectResultSources(event: ResultSyncEvent) {
+  const sources: ResultSourceSet[] = [];
+
+  if (event.ufc_stats_url) {
+    sources.push(await scrapeUfcStatsSource(event.ufc_stats_url));
+  }
+
+  const officialUfcSource = await scrapeOfficialUfcSource(event);
+  if (officialUfcSource) sources.push(officialUfcSource);
+
+  if (event.espn_fightcenter_url) {
+    sources.push(
+      await scrapeSource(
+        "espn",
+        "ESPN FightCenter",
+        event.espn_fightcenter_url,
+        parseEspnFightCenterResults,
+      ),
+    );
+  }
+
+  if (event.sherdog_event_url) {
+    sources.push(
+      await scrapeSource(
+        "sherdog",
+        "Sherdog",
+        event.sherdog_event_url,
+        parseSherdogEventResults,
+      ),
+    );
+  }
+
+  if (event.tapology_event_url) {
+    sources.push(
+      await scrapeSource(
+        "tapology",
+        "Tapology",
+        event.tapology_event_url,
+        parseTapologyEventResults,
+      ),
+    );
+  }
+
+  return sources;
+}
+
+function sourceDiagnostics(sourceSets: ResultSourceSet[]) {
+  return sourceSets.map((source) => ({
+    source: source.source,
+    label: source.label,
+    url: source.url || null,
+    results_count: source.results.length,
+    error: source.error || null,
+  }));
+}
+
+function configuredResultUrls(event: ResultSyncEvent) {
+  return [
+    { label: "UFCStats", url: event.ufc_stats_url },
+    { label: "ESPN FightCenter", url: event.espn_fightcenter_url },
+    { label: "Sherdog", url: event.sherdog_event_url },
+    { label: "Tapology", url: event.tapology_event_url },
+  ].filter((entry): entry is { label: string; url: string } => !!entry.url);
 }
 
 // ─── Handler ─────────────────────────────────────────────────
@@ -74,9 +260,22 @@ export async function POST(req: NextRequest) {
     const now = new Date();
     const { data: activeEvent } = await adminSupabase
       .from("events")
-      .select("id, event_date, picks_lock_at, ufc_stats_url")
+      .select(
+        `
+        id,
+        event_date,
+        picks_lock_at,
+        ufc_event_id,
+        ufc_stats_url,
+        espn_fightcenter_url,
+        sherdog_event_url,
+        tapology_event_url
+      `,
+      )
       .in("status", ["upcoming", "live"])
-      .not("ufc_stats_url", "is", null)
+      .or(
+        "ufc_stats_url.not.is.null,ufc_event_id.not.is.null,espn_fightcenter_url.not.is.null,sherdog_event_url.not.is.null,tapology_event_url.not.is.null",
+      )
       .gte("event_date", getPublicEventCutoffIso(now))
       .order("event_date", { ascending: true })
       .limit(1)
@@ -103,37 +302,26 @@ export async function POST(req: NextRequest) {
       { error: "event_id obrigatório" },
       { status: 400 },
     );
-  // Busca ufc_stats_url do próprio evento
+
   const { data: event } = await adminSupabase
     .from("events")
-    .select("slug, ufc_stats_url")
+    .select(EVENT_RESULT_SOURCE_SELECT)
     .eq("id", event_id)
     .single();
 
-  const ufc_stats_url = event?.ufc_stats_url;
-  if (!ufc_stats_url)
+  if (!event)
     return NextResponse.json(
-      {
-        error:
-          "URL do UFCStats não configurada para este evento. Adicione em Novo Evento.",
-      },
-      { status: 400 },
+      { error: "Evento não encontrado" },
+      { status: 404 },
     );
-  if (!event_id)
-    return NextResponse.json(
-      { error: "event_id obrigatório" },
-      { status: 400 },
-    );
-  if (!ufc_stats_url)
-    return NextResponse.json(
-      { error: "ufc_stats_url obrigatório" },
-      { status: 400 },
-    );
-  if (!isAllowedScrapeUrl(ufc_stats_url)) {
-    return NextResponse.json(
-      { error: "Host não permitido para scraping" },
-      { status: 400 },
-    );
+
+  for (const source of configuredResultUrls(event)) {
+    if (!isAllowedScrapeUrl(source.url)) {
+      return NextResponse.json(
+        { error: `Host não permitido para scraping: ${source.label}` },
+        { status: 400 },
+      );
+    }
   }
 
   const { data: fights } = await adminSupabase
@@ -154,59 +342,39 @@ export async function POST(req: NextRequest) {
       { status: 404 },
     );
 
-  let ufcResults: UfcStatsResult[] = [];
-  try {
-    ufcResults = await scrapeUfcStats(ufc_stats_url);
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: `UFCStats: ${e.message}` },
-      { status: 502 },
-    );
-  }
+  const resultSources = await collectResultSources(event);
+  const diagnostics = sourceDiagnostics(resultSources);
+  const scrapedCount = resultSources.reduce(
+    (count, source) => count + source.results.length,
+    0,
+  );
 
-  if (!ufcResults.length) {
+  if (!scrapedCount) {
     return NextResponse.json({
       ok: true,
-      message: "Nenhum resultado no UFCStats ainda — tente em breve",
+      message:
+        "Nenhum resultado disponível nas fontes configuradas ainda — tente em breve",
+      sources: diagnostics,
     });
   }
 
-  const updates: Update[] = [];
-  const remainingResults = [...ufcResults];
-
-  for (const fight of fights) {
-    if (fight.result_confirmed) continue;
-
-    const fa = (fight.fighter_a as any)?.name as string;
-    const fb = (fight.fighter_b as any)?.name as string;
-    const faId = (fight.fighter_a as any)?.id as string;
-    const fbId = (fight.fighter_b as any)?.id as string;
-    if (!fa || !fb) continue;
-
-    const resultIndex = remainingResults.findIndex(
-      (r) =>
-        (namesMatch(r.winner, fa) || namesMatch(r.winner, fb)) &&
-        (namesMatch(r.loser, fa) || namesMatch(r.loser, fb)),
-    );
-    if (resultIndex < 0) continue;
-
-    const [ufc] = remainingResults.splice(resultIndex, 1);
-
-    updates.push({
-      fight_id: fight.id,
-      winner_id: namesMatch(ufc.winner, fa) ? faId : fbId,
-      method: ufc.method,
-      round: ufc.round,
-      label: `${fa} vs ${fb} → ${namesMatch(ufc.winner, fa) ? fa : fb} (${ufc.method}, R${ufc.round})`,
-      eventSlug: (fight.event as any)?.slug,
-    });
-  }
+  const consensus = buildResultConsensusUpdates(fights as any[], resultSources);
+  const updates: Update[] = consensus.updates;
 
   if (!updates.length) {
     return NextResponse.json({
       ok: true,
-      message: `UFCStats tem ${ufcResults.length} resultado(s), mas nenhum casa com lutas pendentes`,
-      ufc_names: ufcResults.map((r) => `${r.winner} vs ${r.loser}`),
+      message: consensus.conflicts.length
+        ? "Fontes divergentes encontradas — revise antes de importar"
+        : `${scrapedCount} resultado(s) encontrados, mas nenhum consenso casa com lutas pendentes`,
+      sources: diagnostics,
+      conflicts: consensus.conflicts,
+      source_names: resultSources.flatMap((source) =>
+        source.results.map((result) => ({
+          source: source.source,
+          label: `${result.winner} vs ${result.loser}`,
+        })),
+      ),
     });
   }
 
@@ -216,7 +384,9 @@ export async function POST(req: NextRequest) {
       dry_run: true,
       message: `${updates.length} resultado(s) prontos para importar`,
       results: updates.map((update) => update.label),
-      ufc_results_count: ufcResults.length,
+      sources: diagnostics,
+      conflicts: consensus.conflicts,
+      results_count: scrapedCount,
     });
   }
 
@@ -259,13 +429,15 @@ export async function POST(req: NextRequest) {
   await logAdminAction(adminSupabase, {
     userId: adminUserId || null,
     action: "admin_sync_results",
-    details: {
-      event_id,
-      imported_count: saved,
-      scraped_count: ufcResults.length,
-      event_slug: event?.slug || null,
-      event_completed: lifecycle.completed,
-      next_event_id: lifecycle.nextEvent?.id || null,
+      details: {
+        event_id,
+        imported_count: saved,
+        scraped_count: scrapedCount,
+        sources: diagnostics,
+        conflicts: consensus.conflicts,
+        event_slug: event?.slug || null,
+        event_completed: lifecycle.completed,
+        next_event_id: lifecycle.nextEvent?.id || null,
     },
   });
 
@@ -273,16 +445,11 @@ export async function POST(req: NextRequest) {
     ok: true,
     message: `${saved} resultado(s) importado(s) e picks pontuados`,
     results: savedLabels,
+    sources: diagnostics,
+    conflicts: consensus.conflicts,
     event_completed: lifecycle.completed,
     next_event: lifecycle.nextEvent,
   });
 }
 
-interface Update {
-  fight_id: string;
-  winner_id: string;
-  method: SyncedResultMethod;
-  round: number;
-  label: string;
-  eventSlug: string | undefined;
-}
+type Update = ConsensusUpdate;

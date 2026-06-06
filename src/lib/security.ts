@@ -11,6 +11,10 @@ const HOST_PROTOCOL_RULES: Record<string, string[]> = {
   "www.ufcstats.com": ["http:", "https:"],
   "sherdog.com": ["https:"],
   "www.sherdog.com": ["https:"],
+  "espn.com": ["https:"],
+  "www.espn.com": ["https:"],
+  "tapology.com": ["https:"],
+  "www.tapology.com": ["https:"],
   "api.the-odds-api.com": ["https:"],
 };
 

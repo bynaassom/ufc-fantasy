@@ -67,7 +67,10 @@ CREATE TABLE events (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   picks_open_at TIMESTAMPTZ,
-  ufc_stats_url TEXT
+  ufc_stats_url TEXT,
+  espn_fightcenter_url TEXT,
+  sherdog_event_url TEXT,
+  tapology_event_url TEXT
 );
 
 -- ============================================================

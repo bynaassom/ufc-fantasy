@@ -105,7 +105,11 @@ export type AdminEventPayload = {
   picks_lock_at?: string;
   picks_open_at?: string;
   banner_image_url?: string;
+  ufc_event_id?: string;
   ufc_stats_url?: string;
+  espn_fightcenter_url?: string;
+  sherdog_event_url?: string;
+  tapology_event_url?: string;
   status?: "upcoming" | "live" | "completed";
 };
 

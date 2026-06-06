@@ -12,6 +12,9 @@ const EVENT_PUBLIC_FIELDS = `
   picks_lock_at,
   picks_open_at,
   ufc_stats_url,
+  espn_fightcenter_url,
+  sherdog_event_url,
+  tapology_event_url,
   created_at,
   updated_at
 `;

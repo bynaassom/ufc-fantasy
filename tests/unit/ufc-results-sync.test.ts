@@ -1,4 +1,5 @@
 import {
+  fetchUfcStatsHtml,
   mapMethod,
   namesMatch,
   parseUfcStatsEventResults,
@@ -77,5 +78,61 @@ describe("ufc-results-sync", () => {
         round: 5,
       },
     ]);
+  });
+
+  it("resolves UFCStats browser challenge and retries with the verification cookie", async () => {
+    const url = "http://ufcstats.com/event-details/example";
+    const challengeHtml = `
+      <!doctype html>
+      <html>
+        <head><title>Loading…</title></head>
+        <body>
+          <p>Checking your browser…</p>
+          <script>
+            var nonce="testnonce",
+                target=new Array(2+1).join('0');
+            var n=0;
+            xhr.open('POST',"/__c",true);
+          </script>
+        </body>
+      </html>
+    `;
+    const eventHtml = "<table><tr><td>real event table</td></tr></table>";
+    let eventFetches = 0;
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const requestUrl = String(input);
+
+      if (requestUrl === url) {
+        eventFetches += 1;
+        if (eventFetches === 1) {
+          return new Response(challengeHtml, {
+            status: 200,
+            headers: { "Set-Cookie": "_first=abc; Path=/; HttpOnly" },
+          });
+        }
+
+        expect(new Headers(init?.headers).get("Cookie")).toContain("_fmc=verified");
+        return new Response(eventHtml, { status: 200 });
+      }
+
+      if (requestUrl === "http://ufcstats.com/__c") {
+        expect(init?.method).toBe("POST");
+        expect(init?.body).toBe("nonce=testnonce&n=539");
+        expect(new Headers(init?.headers).get("Cookie")).toContain("_first=abc");
+
+        return new Response(null, {
+          status: 204,
+          headers: {
+            "Set-Cookie": "_fmc=verified; Path=/; Max-Age=604800; HttpOnly",
+          },
+        });
+      }
+
+      throw new Error(`Unexpected request: ${requestUrl}`);
+    });
+
+    await expect(fetchUfcStatsHtml(url, fetchMock)).resolves.toBe(eventHtml);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 });

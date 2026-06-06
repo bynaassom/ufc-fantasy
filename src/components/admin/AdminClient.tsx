@@ -107,7 +107,11 @@ function toEventEditForm(data: any) {
     picks_lock_at: data?.picks_lock_at ? data.picks_lock_at.slice(0, 16) : "",
     picks_open_at: data?.picks_open_at ? data.picks_open_at.slice(0, 16) : "",
     banner_image_url: data?.banner_image_url || "",
+    ufc_event_id: data?.ufc_event_id || "",
     ufc_stats_url: data?.ufc_stats_url || "",
+    espn_fightcenter_url: data?.espn_fightcenter_url || "",
+    sherdog_event_url: data?.sherdog_event_url || "",
+    tapology_event_url: data?.tapology_event_url || "",
     status: data?.status || "upcoming",
   };
 }
@@ -509,9 +513,16 @@ function EventoPendencias({
     [currentEvents, fightCountByEvent],
   );
 
-  const eventsWithoutStats = useMemo(
+  const eventsWithoutResultSources = useMemo(
     () =>
-      currentEvents.filter((event) => !event.ufc_stats_url),
+      currentEvents.filter(
+        (event) =>
+          !event.ufc_stats_url &&
+          !event.ufc_event_id &&
+          !event.espn_fightcenter_url &&
+          !event.sherdog_event_url &&
+          !event.tapology_event_url,
+      ),
     [currentEvents],
   );
 
@@ -561,7 +572,7 @@ function EventoPendencias({
     { label: "Picks abertos sem card", value: openEventsWithoutFights.length },
     { label: "Lutas sem odds", value: fightsMissingOdds.length },
     { label: "Lutas sem link UFC", value: fightsMissingLinks.length },
-    { label: "Eventos sem UFCStats", value: eventsWithoutStats.length },
+    { label: "Eventos sem fonte resultado", value: eventsWithoutResultSources.length },
     { label: "Eventos pendentes de resultado", value: overdueEvents.length },
   ];
 
@@ -835,15 +846,15 @@ function EventoPendencias({
       </Section>
 
       <Section
-        title="Eventos sem UFCStats"
-        description="Eventos atuais ainda sem a URL de stats oficial."
-        count={eventsWithoutStats.length}
+        title="Eventos sem fonte de resultado"
+        description="Eventos atuais sem UFCStats, UFC.com, ESPN, Sherdog ou Tapology."
+        count={eventsWithoutResultSources.length}
       >
-        {eventsWithoutStats.length === 0 ? (
-          <EmptyState text="Todos os eventos atuais têm UFCStats URL." />
+        {eventsWithoutResultSources.length === 0 ? (
+          <EmptyState text="Todos os eventos atuais têm ao menos uma fonte de resultado." />
         ) : (
           <div className="space-y-3">
-            {eventsWithoutStats.map((event) => (
+            {eventsWithoutResultSources.map((event) => (
               <div
                 key={event.id}
                 className="p-3 flex items-center justify-between gap-3"
@@ -1012,7 +1023,11 @@ function EventoManual({ onEventsChanged }: { onEventsChanged: () => void }) {
     picks_lock_at: "",
     picks_open_at: "",
     banner_image_url: "",
+    ufc_event_id: "",
     ufc_stats_url: "",
+    espn_fightcenter_url: "",
+    sherdog_event_url: "",
+    tapology_event_url: "",
   });
 
   async function handleSubmit(e: React.FormEvent) {
@@ -1031,7 +1046,11 @@ function EventoManual({ onEventsChanged }: { onEventsChanged: () => void }) {
         picks_lock_at: "",
         picks_open_at: "",
         banner_image_url: "",
+        ufc_event_id: "",
         ufc_stats_url: "",
+        espn_fightcenter_url: "",
+        sherdog_event_url: "",
+        tapology_event_url: "",
       });
     } catch (error: any) {
       toast.error(error.message);
@@ -1078,10 +1097,34 @@ function EventoManual({ onEventsChanged }: { onEventsChanged: () => void }) {
           placeholder: "https://...",
         },
         {
+          label: "URL/ID UFC.com",
+          key: "ufc_event_id",
+          type: "text",
+          placeholder: "https://www.ufc.com/event/...",
+        },
+        {
           label: "URL UFCStats",
           key: "ufc_stats_url",
           type: "text",
           placeholder: "http://www.ufcstats.com/event-details/...",
+        },
+        {
+          label: "URL ESPN FightCenter",
+          key: "espn_fightcenter_url",
+          type: "text",
+          placeholder: "https://www.espn.com/mma/fightcenter/...",
+        },
+        {
+          label: "URL Sherdog",
+          key: "sherdog_event_url",
+          type: "text",
+          placeholder: "https://www.sherdog.com/events/...",
+        },
+        {
+          label: "URL Tapology",
+          key: "tapology_event_url",
+          type: "text",
+          placeholder: "https://www.tapology.com/fightcenter/events/...",
         },
       ].map(({ label, key, type, required, placeholder }) => (
         <div key={key}>
@@ -1789,7 +1832,15 @@ function EventoEditar({
             type: "datetime-local",
           },
           { label: "Banner URL", key: "banner_image_url", type: "text" },
+          { label: "URL/ID UFC.com", key: "ufc_event_id", type: "text" },
           { label: "URL UFCStats", key: "ufc_stats_url", type: "text" },
+          {
+            label: "URL ESPN FightCenter",
+            key: "espn_fightcenter_url",
+            type: "text",
+          },
+          { label: "URL Sherdog", key: "sherdog_event_url", type: "text" },
+          { label: "URL Tapology", key: "tapology_event_url", type: "text" },
         ].map(({ label, key, type, options }) => (
           <div key={key}>
             <label className={lbl} style={{ color: "var(--text-secondary)" }}>
@@ -3256,8 +3307,9 @@ function ResAutoSync({
         onChange={setSelectedEventId}
       />
       <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-        A URL do UFCStats é configurada na aba <strong>Eventos → Editar</strong>
-        . O sync busca resultados automaticamente.
+        As fontes de resultado são configuradas na aba{" "}
+        <strong>Eventos → Editar</strong>. O sync busca e compara resultados
+        automaticamente.
       </p>
       <div className="grid grid-cols-2 gap-3">
         <button
