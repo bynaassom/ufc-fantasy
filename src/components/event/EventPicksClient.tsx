@@ -4,7 +4,10 @@ import { useMemo, useState } from "react";
 import { FightWithFighters, Pick, FightMethod, EventWithFights } from "@/types";
 import FightCard from "./FightCard";
 import { readApiResponse } from "@/lib/api";
-import { isPicksLocked } from "@/lib/utils";
+import {
+  getFightCardUnavailablePicksLabel,
+  isPicksLocked,
+} from "@/lib/utils";
 import toast from "react-hot-toast";
 
 interface EventPicksClientProps {
@@ -42,6 +45,7 @@ export default function EventPicksClient({
   const [saving, setSaving] = useState(false);
 
   const locked = isPicksLocked(event.picks_lock_at) || !picksOpen;
+  const unavailablePicksLabel = getFightCardUnavailablePicksLabel({ picksOpen });
 
   const { mainCard, prelimCard, fightById } = useMemo(() => {
     const fights = [...event.fights].sort((a, b) => {
@@ -232,6 +236,7 @@ export default function EventPicksClient({
                 fight={fight}
                 existingPick={confirmedPicksMap[fight.id]}
                 locked={locked}
+                unavailablePicksLabel={unavailablePicksLabel}
                 onPickChange={handlePickChange}
               />
             ))}
@@ -269,6 +274,7 @@ export default function EventPicksClient({
                 fight={fight}
                 existingPick={confirmedPicksMap[fight.id]}
                 locked={locked}
+                unavailablePicksLabel={unavailablePicksLabel}
                 onPickChange={handlePickChange}
               />
             ))}

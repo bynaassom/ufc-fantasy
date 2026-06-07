@@ -138,6 +138,60 @@ describe("notification service", () => {
     );
   });
 
+  it("includes perfect pick rarity in in-app and push notifications", async () => {
+    const { created, deps } = createDeps({
+      listPushSubscriptionsForUsers: vi.fn(async () => [
+        {
+          user_id: "user-1",
+          endpoint: "https://push.example.invalid/ok",
+          p256dh: "p256dh",
+          auth: "auth",
+        },
+      ]),
+      sendPush: vi.fn(async () => ({ ok: true, removeSubscription: false })),
+    });
+
+    const result = await createNotificationsForUsers(
+      {},
+      {
+        userIds: ["user-1"],
+        type: "perfect_pick",
+        event: {
+          id: "event-1",
+          name: "UFC Fortaleza",
+          slug: "ufc-fortaleza",
+        },
+        fightId: "fight-1",
+        fightName: "Lutador A vs Lutador B",
+        perfectPickRarity: {
+          perfectPickCount: 1,
+          confirmedPickCount: 100,
+        },
+      },
+      deps,
+    );
+
+    const expectedMessage =
+      "Voce cravou Lutador A vs Lutador B no UFC Fortaleza: vencedor, metodo e round. Ai sim! Apenas 1% dos usuarios acertaram esse palpite.";
+
+    expect(result.created).toBe(1);
+    expect(result.pushSent).toBe(1);
+    expect(created[0]).toMatchObject({
+      user_id: "user-1",
+      type: "perfect_pick",
+      fight_id: "fight-1",
+      message: expectedMessage,
+    });
+    expect(deps.sendPush).toHaveBeenCalledWith(
+      expect.objectContaining({ user_id: "user-1" }),
+      expect.objectContaining({
+        body: expectedMessage,
+        type: "perfect_pick",
+        fightId: "fight-1",
+      }),
+    );
+  });
+
   it("sends one generic card notification per user for a bulk update", async () => {
     const { created, deps } = createDeps({
       getCurrentEvent: vi.fn(async () => ({

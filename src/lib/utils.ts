@@ -35,6 +35,32 @@ export function timeUntilPicksOpen(picksOpenAt: string): string {
   });
 }
 
+export function getHomePicksStatusLabel({
+  picksOpenAt,
+  picksLockAt,
+}: {
+  picksOpenAt: string | null;
+  picksLockAt: string;
+}): string {
+  if (!isPicksOpen(picksOpenAt) && picksOpenAt) {
+    return `PICKS ABREM ${timeUntilPicksOpen(picksOpenAt).toUpperCase()}`;
+  }
+
+  if (isPicksLocked(picksLockAt)) {
+    return "PICKS ENCERRADOS";
+  }
+
+  return `PICKS FECHAM ${timeUntilEvent(picksLockAt).toUpperCase()}`;
+}
+
+export function getFightCardUnavailablePicksLabel({
+  picksOpen,
+}: {
+  picksOpen: boolean;
+}): string {
+  return picksOpen ? "PICKS ENCERRADOS" : "PICKS FECHADOS";
+}
+
 export function getMethodLabel(method: string): string {
   const labels: Record<string, string> = {
     decision: "Decisão",

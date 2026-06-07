@@ -32,6 +32,11 @@ type NotificationEvent = {
   picks_lock_at?: string | null;
 };
 
+export type PerfectPickRarity = {
+  perfectPickCount: number;
+  confirmedPickCount: number;
+};
+
 type DateParts = {
   year: number;
   month: number;
@@ -48,6 +53,7 @@ type NotificationContentInput = {
   type: UfcNotificationType;
   eventName: string;
   fightName?: string;
+  perfectPickRarity?: PerfectPickRarity | null;
 };
 
 type DedupeKeyInput = {
@@ -117,6 +123,28 @@ function getCalendarDayDiff(left: Date, right: Date) {
   const leftDay = getUtcDateFromParts(getDateParts(left));
   const rightDay = getUtcDateFromParts(getDateParts(right));
   return Math.round((rightDay - leftDay) / (24 * HOUR_MS));
+}
+
+function formatPerfectPickRarity(rarity?: PerfectPickRarity | null) {
+  const confirmedPickCount = Math.max(
+    0,
+    Math.floor(Number(rarity?.confirmedPickCount || 0)),
+  );
+  const perfectPickCount = Math.max(
+    0,
+    Math.floor(Number(rarity?.perfectPickCount || 0)),
+  );
+
+  if (!confirmedPickCount || !perfectPickCount) return "";
+
+  const cappedPerfectPickCount = Math.min(perfectPickCount, confirmedPickCount);
+  const rawPercent = (cappedPerfectPickCount / confirmedPickCount) * 100;
+
+  if (rawPercent > 0 && rawPercent < 1) {
+    return "Menos de 1% dos usuarios acertaram esse palpite.";
+  }
+
+  return `Apenas ${Math.round(rawPercent)}% dos usuarios acertaram esse palpite.`;
 }
 
 function isWithinCronReminderWindow(remainingMs: number, targetMs: number) {
@@ -206,6 +234,7 @@ export function buildNotificationContent({
   type,
   eventName,
   fightName,
+  perfectPickRarity,
 }: NotificationContentInput) {
   const displayFightName = fightName || "essa luta";
 
@@ -260,11 +289,15 @@ export function buildNotificationContent({
         title: "Atualizacao no evento",
         message: `O card do ${eventName} teve atualizacoes. Confira antes de confirmar seus picks.`,
       };
-    case "perfect_pick":
+    case "perfect_pick": {
+      const rarityCopy = formatPerfectPickRarity(perfectPickRarity);
+      const baseMessage = `Voce cravou ${displayFightName} no ${eventName}: vencedor, metodo e round. Ai sim!`;
+
       return {
         title: "Cravada!",
-        message: `Voce cravou ${displayFightName} no ${eventName}: vencedor, metodo e round. Ai sim!`,
+        message: [baseMessage, rarityCopy].filter(Boolean).join(" "),
       };
+    }
     default:
       return {
         title: "Notificacao",

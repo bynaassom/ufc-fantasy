@@ -20,6 +20,7 @@ interface FightCardProps {
   fight: FightWithFighters;
   existingPick?: Pick;
   locked: boolean;
+  unavailablePicksLabel?: string;
   onPickChange?: (
     fightId: string,
     winnerId: string,
@@ -38,6 +39,7 @@ export default function FightCard({
   fight,
   existingPick,
   locked,
+  unavailablePicksLabel = "PICKS ENCERRADOS",
   onPickChange,
 }: FightCardProps) {
   const [selectedWinnerId, setSelectedWinnerId] = useState<string | null>(
@@ -526,7 +528,7 @@ export default function FightCard({
         </div>
       )}
 
-      {/* Sem pick e picks encerrados */}
+      {/* Sem pick e picks indisponíveis */}
       {locked && !completed && !existingPick && (
         <div
           className="px-4 py-2.5 flex items-center gap-2"
@@ -548,7 +550,7 @@ export default function FightCard({
             className="font-condensed font-700 text-xs uppercase tracking-widest"
             style={{ color: "var(--text-muted)" }}
           >
-            PICKS ENCERRADOS
+            {unavailablePicksLabel}
           </span>
         </div>
       )}

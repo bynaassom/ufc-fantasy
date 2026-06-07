@@ -88,8 +88,20 @@ export async function listPerfectPickUsersForFight(client: any, fightId: string)
     .from("picks")
     .select("user_id, event_id, fight_id, total_points")
     .eq("fight_id", fightId)
+    .eq("is_confirmed", true)
     .eq("total_points", 3);
 
   if (error) throw error;
   return data || [];
+}
+
+export async function countConfirmedPicksForFight(client: any, fightId: string) {
+  const { count, error } = await client
+    .from("picks")
+    .select("id", { count: "exact", head: true })
+    .eq("fight_id", fightId)
+    .eq("is_confirmed", true);
+
+  if (error) throw error;
+  return count || 0;
 }

@@ -3,8 +3,8 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   formatEventDate,
+  getHomePicksStatusLabel,
   isPicksLocked,
-  timeUntilEvent,
   getDisplayName,
 } from "@/lib/utils";
 import { getHomePageData } from "@/server/services/app";
@@ -161,9 +161,10 @@ export default async function HomePage() {
                       : "var(--text-secondary)",
                   }}
                 >
-                  {isPicksLocked(currentEvent.picks_lock_at)
-                    ? "PICKS ENCERRADOS"
-                    : `PICKS FECHAM ${timeUntilEvent(currentEvent.picks_lock_at).toUpperCase()}`}
+                  {getHomePicksStatusLabel({
+                    picksOpenAt: currentEvent.picks_open_at,
+                    picksLockAt: currentEvent.picks_lock_at,
+                  })}
                 </p>
                 <span
                   className="flex items-center gap-2 font-condensed font-900 text-xs uppercase tracking-widest px-4 py-2 text-white"

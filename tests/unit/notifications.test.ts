@@ -216,6 +216,36 @@ describe("notifications", () => {
     });
   });
 
+  it("adds rarity copy to a perfect pick notification", () => {
+    expect(
+      buildNotificationContent({
+        type: "perfect_pick",
+        eventName: "UFC Fortaleza",
+        fightName: "Lutador A vs Lutador B",
+        perfectPickRarity: {
+          perfectPickCount: 1,
+          confirmedPickCount: 100,
+        },
+      }),
+    ).toMatchObject({
+      title: "Cravada!",
+      message:
+        "Voce cravou Lutador A vs Lutador B no UFC Fortaleza: vencedor, metodo e round. Ai sim! Apenas 1% dos usuarios acertaram esse palpite.",
+    });
+
+    expect(
+      buildNotificationContent({
+        type: "perfect_pick",
+        eventName: "UFC Fortaleza",
+        fightName: "Lutador A vs Lutador B",
+        perfectPickRarity: {
+          perfectPickCount: 1,
+          confirmedPickCount: 250,
+        },
+      }).message,
+    ).toContain("Menos de 1% dos usuarios acertaram esse palpite.");
+  });
+
   it("builds copy for closed picks", () => {
     expect(
       buildNotificationContent({

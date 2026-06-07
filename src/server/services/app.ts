@@ -59,6 +59,7 @@ import {
   updateFighter,
 } from "@/server/repositories/fights";
 import {
+  countConfirmedPicksForFight,
   listPerfectPickUsersForFight,
   listPicksForUser,
   listPicksForUserEvent,
@@ -1618,8 +1619,9 @@ export async function setAdminFightResult(
 
   const event = getSingleRelation(fight.event);
   if (event) {
-    const [perfectPicks, activeRecipients] = await Promise.all([
+    const [perfectPicks, confirmedPickCount, activeRecipients] = await Promise.all([
       listPerfectPickUsersForFight(adminSupabase, fightId),
+      countConfirmedPicksForFight(adminSupabase, fightId),
       listActiveNotificationRecipients(adminSupabase),
     ]);
     const activeUserIds = new Set(
@@ -1641,6 +1643,10 @@ export async function setAdminFightResult(
       fightName: `${getRelatedFighterName(fight.fighter_a)} vs ${getRelatedFighterName(
         fight.fighter_b,
       )}`,
+      perfectPickRarity: {
+        perfectPickCount: perfectPicks.length,
+        confirmedPickCount,
+      },
     });
 
     await completeEventIfAllResultsConfirmed(adminSupabase, event.id);

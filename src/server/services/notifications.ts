@@ -6,6 +6,7 @@ import {
   getDuePickReminderTypes,
   isPicksClosedNotificationDue,
   isPicksOpenedNotificationDue,
+  type PerfectPickRarity,
   type UfcNotificationType,
 } from "@/lib/notifications";
 import { getCurrentPublicEvent } from "@/server/repositories/events";
@@ -187,6 +188,7 @@ export async function createNotificationsForUsers(
     event: NotificationEvent;
     fightId?: string | null;
     fightName?: string | null;
+    perfectPickRarity?: PerfectPickRarity | null;
     targetPath?: string | null;
     dedupeKey?: string | null;
   },
@@ -200,6 +202,7 @@ export async function createNotificationsForUsers(
     type: input.type,
     eventName: input.event.name,
     fightName: input.fightName || undefined,
+    perfectPickRarity: input.perfectPickRarity || undefined,
   });
   const dedupeKey =
     input.dedupeKey ||
@@ -354,6 +357,7 @@ export async function notifyActiveUsers(
     event: NotificationEvent;
     fightId?: string | null;
     fightName?: string | null;
+    perfectPickRarity?: PerfectPickRarity | null;
     dedupeKey?: string | null;
   },
   deps: NotificationServiceDeps = defaultDeps,
