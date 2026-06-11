@@ -384,6 +384,9 @@ export default function Navbar({ profile }: NavbarProps) {
               </span>
             </Link>
           ))}
+          <div className="flex items-center justify-center min-tap px-2">
+            <ThemeToggle />
+          </div>
           <NotificationBell variant="mobile" />
         </div>
       </nav>
