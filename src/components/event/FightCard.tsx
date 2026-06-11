@@ -179,8 +179,12 @@ export default function FightCard({
             !completed && !!selectedWinnerId && selectedWinnerId !== fighter.id;
           const isHovered = hoveredFighterId === fighter.id && !locked && !completed;
 
-          // Corner gradient opacity: selecionado > hover > nada
-          const cornerOpacity = isSelected ? 1 : isHovered ? 0.35 : 0;
+          // Corner: vermelho (esquerda) / azul (direita)
+          const cornerColor = idx === 0 ? "var(--red)" : "var(--blue)";
+          const cornerActive = !completed && (isSelected || isHovered);
+          const traceOpacity = isSelected ? 1 : isHovered ? 0.7 : 0;
+          const gradientOpacity = isSelected ? 0.9 : isHovered ? 0.35 : 0;
+          const easedTransition = "0.4s cubic-bezier(0.4, 0, 0.2, 1)";
 
           // Cor do nome
           let nameColor = "var(--text)";
@@ -189,7 +193,7 @@ export default function FightCard({
               nameColor = "#22c55e"; // acertou — verde
             else if (isWinner && !isMyPick) nameColor = "var(--text)"; // vencedor mas não apostei
           } else if (isSelected) {
-            nameColor = "var(--red)";
+            nameColor = cornerColor;
           }
 
           // Borda da foto — sem vermelho, apenas resultados
@@ -222,16 +226,45 @@ export default function FightCard({
                 transition: "filter 0.3s",
               }}
             >
-              {/* Corner gradient dinâmico */}
+              {/* Gradient de fundo — área total */}
               <div
-                className="absolute top-0 pointer-events-none z-10"
+                className="absolute inset-0 pointer-events-none z-0"
                 style={{
-                  width: "clamp(60px, 15vw, 110px)",
-                  height: "clamp(60px, 15vw, 110px)",
+                  background: `linear-gradient(${idx === 0 ? "135deg" : "225deg"}, ${cornerColor} 0%, transparent 65%)`,
+                  opacity: gradientOpacity,
+                  transition: `opacity ${easedTransition}`,
+                }}
+              />
+              {/* Traçado de seleção — 3 lados, abertura pro centro */}
+              {/* Topo */}
+              <div
+                className="absolute top-0 left-0 right-0 pointer-events-none z-10"
+                style={{
+                  height: 2,
+                  backgroundColor: cornerColor,
+                  opacity: traceOpacity,
+                  transition: `opacity ${easedTransition}`,
+                }}
+              />
+              {/* Base */}
+              <div
+                className="absolute bottom-0 left-0 right-0 pointer-events-none z-10"
+                style={{
+                  height: 2,
+                  backgroundColor: cornerColor,
+                  opacity: traceOpacity,
+                  transition: `opacity ${easedTransition}`,
+                }}
+              />
+              {/* Lado externo (esquerda p/ fighter A, direita p/ fighter B) */}
+              <div
+                className="absolute top-0 bottom-0 pointer-events-none z-10"
+                style={{
                   [idx === 0 ? "left" : "right"]: 0,
-                  background: `linear-gradient(${idx === 0 ? "135deg" : "225deg"}, var(--red) 0%, transparent 70%)`,
-                  opacity: cornerOpacity,
-                  transition: "opacity 0.25s ease",
+                  width: 2,
+                  backgroundColor: cornerColor,
+                  opacity: traceOpacity,
+                  transition: `opacity ${easedTransition}`,
                 }}
               />
               {/* Headshot */}
@@ -301,7 +334,7 @@ export default function FightCard({
               {isSelected && !completed && (
                 <div
                   className="absolute top-3 right-3 w-5 h-5 flex items-center justify-center"
-                  style={{ backgroundColor: "var(--red)" }}
+                  style={{ backgroundColor: cornerColor }}
                 >
                   <svg
                     width="10"
@@ -479,16 +512,18 @@ export default function FightCard({
           className="px-4 py-2.5 flex items-center gap-2 slide-down"
           style={{
             borderTop: "1px solid var(--border)",
-            backgroundColor: "rgba(232,0,26,0.06)",
+            backgroundColor: selectedWinnerId === fight.fighter_a.id
+              ? "rgba(232,0,26,0.08)"
+              : "rgba(59,130,246,0.08)",
           }}
         >
           <div
             className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-            style={{ backgroundColor: "var(--red)" }}
+            style={{ backgroundColor: selectedWinnerId === fight.fighter_a.id ? "var(--red)" : "var(--blue)" }}
           />
           <span
             className="font-condensed font-700 text-xs uppercase tracking-widest"
-            style={{ color: "var(--red)" }}
+            style={{ color: selectedWinnerId === fight.fighter_a.id ? "var(--red)" : "var(--blue)" }}
           >
             {selectedWinnerId === fight.fighter_a.id
               ? fight.fighter_a.name
