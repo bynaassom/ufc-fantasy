@@ -4,6 +4,7 @@ import type {
   EventStatus,
   FightMethod,
   Notification,
+  NotificationPreferences,
   Profile,
   PublicProfileStats,
   PublicProfileSummary,
@@ -151,6 +152,15 @@ export type AdminEventFightOddsUpdate = {
   fightId: string;
   odds_a: string | null;
   odds_b: string | null;
+};
+
+export type NotificationPreferencesPayload = Record<
+  "picks_opened" | "picks_closed" | "reminder_24h" | "reminder_6h" | "reminder_1h" | "fight_result" | "event_completed" | "card_updated",
+  boolean
+>;
+
+export type NotificationPreferencesResponse = {
+  preferences: NotificationPreferences;
 };
 
 export type AdminFightResultPayload = {

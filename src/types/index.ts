@@ -39,6 +39,7 @@ export interface Profile {
   division: CompetitiveDivision;
   division_confirmed: boolean;
   onboarding_completed: boolean;
+  notification_preferences: NotificationPreferences;
   created_at: string;
   updated_at: string;
 }
@@ -185,6 +186,17 @@ export interface PushSubscriptionRecord {
   created_at: string;
   updated_at: string;
 }
+
+export type NotificationPreferences = {
+  picks_opened: boolean;
+  picks_closed: boolean;
+  reminder_24h: boolean;
+  reminder_6h: boolean;
+  reminder_1h: boolean;
+  fight_result: boolean;
+  event_completed: boolean;
+  card_updated: boolean;
+};
 
 export interface PublicProfileStats {
   challenges_total: number;

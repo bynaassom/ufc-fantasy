@@ -7,6 +7,7 @@ import type {
   FightWithFighters,
   GroupWithMembers,
   Notification as AppNotification,
+  NotificationPreferences,
   Profile,
   PublicProfileStats,
 } from "@/types";
@@ -1880,4 +1881,38 @@ export async function getGroupDetail(groupId: string): Promise<GroupWithMembers 
     members: enrichedMembers,
     member_count: enrichedMembers.length,
   } as GroupWithMembers;
+}
+
+const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
+  picks_opened: true,
+  picks_closed: true,
+  reminder_24h: true,
+  reminder_6h: true,
+  reminder_1h: true,
+  fight_result: true,
+  event_completed: true,
+  card_updated: true,
+};
+
+export async function getMyNotificationPreferences() {
+  const { supabase, user } = await requireActiveUser();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("notification_preferences")
+    .eq("id", user.id)
+    .single();
+  if (error) throw error;
+  return (data?.notification_preferences || DEFAULT_NOTIFICATION_PREFERENCES) as NotificationPreferences;
+}
+
+export async function updateMyNotificationPreferences(preferences: NotificationPreferences) {
+  const { supabase, user } = await requireActiveUser();
+  const { data, error } = await supabase
+    .from("profiles")
+    .update({ notification_preferences: preferences })
+    .eq("id", user.id)
+    .select("notification_preferences")
+    .single();
+  if (error) throw error;
+  return data?.notification_preferences as NotificationPreferences;
 }

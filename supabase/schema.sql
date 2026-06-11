@@ -31,6 +31,7 @@ CREATE TABLE profiles (
   division TEXT NOT NULL DEFAULT 'Lightweight',
   division_confirmed BOOLEAN NOT NULL DEFAULT false,
   onboarding_completed BOOLEAN NOT NULL DEFAULT false,
+  notification_preferences JSONB NOT NULL DEFAULT '{"picks_opened": true, "picks_closed": true, "reminder_24h": true, "reminder_6h": true, "reminder_1h": true, "fight_result": true, "event_completed": true, "card_updated": true}',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT nickname_length CHECK (char_length(nickname) >= 3 AND char_length(nickname) <= 20),

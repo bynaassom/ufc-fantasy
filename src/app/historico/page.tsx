@@ -1,4 +1,5 @@
 import Navbar from "@/components/layout/Navbar";
+import Pagination from "@/components/ui/Pagination";
 import Link from "next/link";
 import { formatEventDate } from "@/lib/utils";
 import { getHistoryPageData } from "@/server/services/app";
@@ -6,13 +7,35 @@ import type { Event as FantasyEvent } from "@/types";
 
 export const revalidate = 3600;
 
-export default async function HistoricoPage() {
+const ITEMS_PER_PAGE = 15;
+
+export default async function HistoricoPage({
+  searchParams,
+}: {
+  searchParams: { page?: string };
+}) {
+  const currentPage = Math.max(1, Number(searchParams.page) || 1);
   const { profile, events, scoresMap } = await getHistoryPageData();
   const historyEvents = events as FantasyEvent[];
   const historyScores = scoresMap as Record<
     string,
     { total_points: number; perfect_picks: number } | undefined
   >;
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(historyEvents.length / ITEMS_PER_PAGE),
+  );
+  const paginatedEvents = historyEvents.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE,
+  );
+
+  function historyPageHref(page: number) {
+    const params = new URLSearchParams();
+    if (page > 1) params.set("page", String(page));
+    return `/historico?${params.toString()}`;
+  }
 
   return (
     <div
@@ -46,7 +69,7 @@ export default async function HistoricoPage() {
             className="space-y-0"
             style={{ border: "1px solid var(--border)" }}
           >
-            {historyEvents.map((event, i) => {
+            {paginatedEvents.map((event, i) => {
               const score = historyScores[event.id];
               return (
                 <Link
@@ -55,7 +78,7 @@ export default async function HistoricoPage() {
                   className="flex items-center justify-between px-5 py-4 transition-colors"
                   style={{
                     borderBottom:
-                      i < historyEvents.length - 1
+                      i < paginatedEvents.length - 1
                         ? "1px solid var(--border)"
                         : "none",
                     borderLeft: score
@@ -128,6 +151,14 @@ export default async function HistoricoPage() {
               );
             })}
           </div>
+        )}
+
+        {paginatedEvents.length > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            buildHref={historyPageHref}
+          />
         )}
       </main>
     </div>

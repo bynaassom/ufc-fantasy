@@ -52,6 +52,7 @@ export default function FightCard({
     existingPick?.picked_round || null,
   );
   const [hoveredFighterId, setHoveredFighterId] = useState<string | null>(null);
+  const [loadedHeadshots, setLoadedHeadshots] = useState<Record<string, boolean>>({});
 
   const weightLabel = WEIGHT_CLASS_PT[fight.weight_class] || fight.weight_class;
   const rounds = Array.from({ length: fight.total_rounds }, (_, i) => i + 1);
@@ -279,13 +280,26 @@ export default function FightCard({
                   transition: "all 0.2s",
                 }}
               >
+                {!loadedHeadshots[fighter.id] && (
+                  <div
+                    className="skeleton absolute inset-0"
+                    style={{ backgroundColor: "var(--bg-elevated)" }}
+                  />
+                )}
                 <Image
                   src={
                     fighter.headshot_url || getFallbackHeadshot(fighter.name)
                   }
                   alt={fighter.name}
                   fill
-                  className="object-cover object-top"
+                  className="object-cover object-top transition-opacity duration-300"
+                  onLoad={() =>
+                    setLoadedHeadshots((current) => ({
+                      ...current,
+                      [fighter.id]: true,
+                    }))
+                  }
+                  style={{ opacity: loadedHeadshots[fighter.id] ? 1 : 0 }}
                 />
               </div>
 

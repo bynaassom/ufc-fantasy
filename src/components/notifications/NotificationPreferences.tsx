@@ -1,0 +1,170 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import toast from "react-hot-toast";
+import { readApiResponse } from "@/lib/api";
+import type { NotificationPreferences } from "@/types";
+
+type NotificationKey = keyof NotificationPreferences;
+
+type Section = {
+  title: string;
+  keys: { key: NotificationKey; label: string; desc: string }[];
+};
+
+const SECTIONS: Section[] = [
+  {
+    title: "Picks",
+    keys: [
+      { key: "picks_opened", label: "Picks abertos", desc: "Notificar quando os picks abrirem para um evento" },
+      { key: "picks_closed", label: "Picks fechados", desc: "Notificar quando os picks fecharem" },
+    ],
+  },
+  {
+    title: "Lembretes",
+    keys: [
+      { key: "reminder_24h", label: "Lembrete 24h", desc: "Lembrar 24 horas antes do evento" },
+      { key: "reminder_6h", label: "Lembrete 6h", desc: "Lembrar 6 horas antes do evento" },
+      { key: "reminder_1h", label: "Lembrete 1h", desc: "Lembrar 1 hora antes do evento" },
+    ],
+  },
+  {
+    title: "Resultados",
+    keys: [
+      { key: "fight_result", label: "Resultado de luta", desc: "Notificar quando uma luta for finalizada" },
+      { key: "event_completed", label: "Evento finalizado", desc: "Notificar quando o evento for concluído" },
+    ],
+  },
+  {
+    title: "Cartas",
+    keys: [
+      { key: "card_updated", label: "Card atualizado", desc: "Notificar quando o card do evento for alterado" },
+    ],
+  },
+];
+
+export default function NotificationPreferencesSection() {
+  const [preferences, setPreferences] = useState<NotificationPreferences | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState<NotificationKey | null>(null);
+
+  useEffect(() => {
+    fetch("/api/me/notification-preferences")
+      .then((res) => readApiResponse<{ preferences: NotificationPreferences }>(res))
+      .then((data) => setPreferences(data.preferences))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleToggle = useCallback(
+    async (key: NotificationKey) => {
+      if (!preferences) return;
+      const next = { ...preferences, [key]: !preferences[key] };
+      setSaving(key);
+      try {
+        const data = await readApiResponse<{ preferences: NotificationPreferences }>(
+          await fetch("/api/me/notification-preferences", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(next),
+          }),
+        );
+        setPreferences(data.preferences);
+      } catch (err: any) {
+        toast.error(err.message);
+      } finally {
+        setSaving(null);
+      }
+    },
+    [preferences],
+  );
+
+  if (loading) {
+    return (
+      <div>
+        <div className="mb-6">
+          <div className="red-line">
+            <span className="section-title" style={{ fontSize: "1.75rem" }}>
+              NOTIFICAÇÕES
+            </span>
+          </div>
+        </div>
+        <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+          Carregando...
+        </p>
+      </div>
+    );
+  }
+
+  if (!preferences) return null;
+
+  return (
+    <div>
+      <div className="mb-6">
+        <div className="red-line">
+          <span className="section-title" style={{ fontSize: "1.75rem" }}>
+            NOTIFICAÇÕES
+          </span>
+        </div>
+      </div>
+
+      <div className="space-y-6">
+        {SECTIONS.map((section) => (
+          <div key={section.title}>
+            <p
+              className="block text-xs font-700 uppercase tracking-widest mb-3 font-condensed"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              {section.title}
+            </p>
+            <div style={{ border: "1px solid var(--border)" }}>
+              {section.keys.map((item, idx) => (
+                <div
+                  key={item.key}
+                  className="flex items-center justify-between px-4 py-3.5"
+                  style={{
+                    borderBottom:
+                      idx < section.keys.length - 1 ? "1px solid var(--border)" : "none",
+                  }}
+                >
+                  <div className="flex-1 min-w-0 mr-4">
+                    <p
+                      className="font-condensed font-700 text-sm uppercase tracking-wider"
+                      style={{ color: "var(--text)" }}
+                    >
+                      {item.label}
+                    </p>
+                    <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+                      {item.desc}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleToggle(item.key)}
+                    disabled={saving === item.key}
+                    className="flex-shrink-0 w-10 h-10 flex items-center justify-center text-sm font-700 transition-all active:scale-90 disabled:opacity-50"
+                    style={{
+                      backgroundColor: preferences[item.key]
+                        ? "var(--red)"
+                        : "var(--bg-card)",
+                      color: preferences[item.key] ? "#fff" : "var(--text-muted)",
+                      border: preferences[item.key]
+                        ? "1px solid var(--red)"
+                        : "1px solid var(--border)",
+                    }}
+                  >
+                    {saving === item.key
+                      ? "..."
+                      : preferences[item.key]
+                        ? "\u2713"
+                        : "\u2715"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

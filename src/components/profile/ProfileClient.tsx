@@ -11,6 +11,7 @@ import { readApiResponse } from "@/lib/api";
 import type { Profile } from "@/types";
 import type { MeResponse } from "@/types/api";
 import { createAuthClient } from "@/lib/supabase/client";
+import NotificationPreferences from "@/components/notifications/NotificationPreferences";
 
 export default function ProfileClient({
   profile: initialProfile,
@@ -337,6 +338,10 @@ export default function ProfileClient({
             </button>
           </form>
         )}
+
+        <div className="mt-12">
+          <NotificationPreferences />
+        </div>
       </main>
     </div>
   );

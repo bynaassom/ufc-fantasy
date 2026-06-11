@@ -1,10 +1,13 @@
 import DivisionSelector from "@/components/ranking/DivisionSelector";
 import EventRankingSelector from "@/components/ranking/EventRankingSelector";
+import Pagination from "@/components/ui/Pagination";
 import Navbar from "@/components/layout/Navbar";
 import Link from "next/link";
 import type { CompetitiveDivision } from "@/lib/ufc-weight";
 import type { RankingSelectableEvent } from "@/lib/ranking-events";
 import { getRankingPageData } from "@/server/services/app";
+
+const ITEMS_PER_PAGE = 20;
 
 type RankingRow = {
   rank: number;
@@ -21,7 +24,7 @@ export const dynamic = "force-dynamic";
 export default async function RankingPage({
   searchParams,
 }: {
-  searchParams: { tab?: string; division?: string; event?: string };
+  searchParams: { tab?: string; division?: string; event?: string; page?: string };
 }) {
   const tab =
     searchParams.tab === "evento"
@@ -29,6 +32,7 @@ export default async function RankingPage({
       : searchParams.tab === "categoria"
         ? "categoria"
         : "geral";
+  const currentPage = Math.max(1, Number(searchParams.page) || 1);
   const {
     profile,
     currentEvent,
@@ -45,6 +49,21 @@ export default async function RankingPage({
   const eventOptions = rankingEvents as RankingSelectableEvent[];
   const selectedEvent = selectedRankingEvent as RankingSelectableEvent | null;
   const categoryHref = `/ranking?tab=categoria&division=${selectedDivision}`;
+
+  const totalPages = Math.max(1, Math.ceil(ranking.length / ITEMS_PER_PAGE));
+  const paginatedRanking = ranking.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE,
+  );
+
+  function rankingPageHref(page: number) {
+    const params = new URLSearchParams();
+    params.set("tab", tab);
+    if (tab === "categoria") params.set("division", selectedDivision);
+    if (tab === "evento" && selectedEvent) params.set("event", selectedEvent.slug);
+    if (page > 1) params.set("page", String(page));
+    return `/ranking?${params.toString()}`;
+  }
 
   return (
     <div
@@ -259,7 +278,7 @@ export default async function RankingPage({
         )}
 
         {/* Tabela */}
-        {ranking.length > 0 && (
+        {paginatedRanking.length > 0 && (
           <>
             <div
               className="grid grid-cols-12 px-4 py-2"
@@ -297,7 +316,7 @@ export default async function RankingPage({
             <div
               style={{ border: "1px solid var(--border)", borderTop: "none" }}
             >
-              {ranking.map((entry, index) => {
+              {paginatedRanking.map((entry, index) => {
                 const isMe = entry.userId === profile.id;
                 const medalColors = ["#FFD700", "#C0C0C0", "#CD7F32"];
                 return (
@@ -309,7 +328,7 @@ export default async function RankingPage({
                         ? "rgba(232,0,26,0.04)"
                         : "transparent",
                       borderBottom:
-                        index < ranking.length - 1
+                        index < paginatedRanking.length - 1
                           ? "1px solid var(--border-light)"
                           : "none",
                       borderLeft: isMe
@@ -398,6 +417,14 @@ export default async function RankingPage({
               })}
             </div>
           </>
+        )}
+
+        {paginatedRanking.length > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            buildHref={rankingPageHref}
+          />
         )}
       </main>
     </div>

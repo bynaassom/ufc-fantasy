@@ -10,6 +10,7 @@ import {
 import { getHomePageData } from "@/server/services/app";
 import type { Event as FantasyEvent } from "@/types";
 import HomeWithTour from "@/components/onboarding/HomeWithTour";
+import ActivityFeed from "@/components/feed/ActivityFeed";
 
 export const revalidate = 60; // revalida a cada 60s
 
@@ -210,6 +211,12 @@ export default async function HomePage() {
             </p>
           </div>
         )}
+
+        <ActivityFeed
+          currentEvent={currentEvent}
+          upcomingEvents={upcomingEvents}
+          completedEvents={completedEvents}
+        />
 
         {/* Upcoming */}
         {upcomingEvents.length > 0 && (
