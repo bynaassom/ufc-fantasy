@@ -1,5 +1,5 @@
 import { PageSkeleton } from "@/components/ui/LoadingSkeleton";
 
-export default function RankingLoading() {
+export default function LigaDetailLoading() {
   return <PageSkeleton lines={10} />;
 }

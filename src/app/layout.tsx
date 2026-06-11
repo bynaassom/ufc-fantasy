@@ -49,6 +49,19 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR" suppressHydrationWarning>
+      <head>
+        {/* Preconnect para Google Fonts — reduz tempo de handshake */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@400;500;600;700&display=swap"
+        />
+      </head>
       <body className="font-sans">
         <ThemeProvider>
           <ErrorBoundary>{children}</ErrorBoundary>
