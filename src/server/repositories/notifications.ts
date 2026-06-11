@@ -114,3 +114,13 @@ export async function markNotificationAsRead(
   if (error) throw error;
   return data;
 }
+
+export async function markAllNotificationsAsRead(client: DbClient, userId: string) {
+  const { error } = await client
+    .from("notifications")
+    .update({ read_at: new Date().toISOString() })
+    .eq("user_id", userId)
+    .is("read_at", null);
+
+  if (error) throw error;
+}

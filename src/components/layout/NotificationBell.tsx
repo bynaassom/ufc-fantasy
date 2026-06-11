@@ -47,6 +47,7 @@ export default function NotificationBell({
     () => cachedNotifications?.unreadCount || 0,
   );
   const [hasLoadedOnce, setHasLoadedOnce] = useState(Boolean(cachedNotifications));
+  const [clearing, setClearing] = useState(false);
 
   async function loadNotifications(force = false) {
     const cached = !force ? readNotificationsCache() : null;
@@ -93,6 +94,26 @@ export default function NotificationBell({
     const timeoutId = globalThis.setTimeout(callback, 1200);
     return () => globalThis.clearTimeout(timeoutId);
   }, []);
+
+  async function handleClearAll() {
+    setClearing(true);
+    try {
+      await readApiResponse(
+        await fetch("/api/me/notifications", { method: "POST" }),
+      );
+      const cleared = notifications.map((n) => ({
+        ...n,
+        read_at: n.read_at || new Date().toISOString(),
+      }));
+      setNotifications(cleared);
+      setUnreadCount(0);
+      writeNotificationsCache({ notifications: cleared, unreadCount: 0 });
+    } catch {
+      // silent
+    } finally {
+      setClearing(false);
+    }
+  }
 
   async function handleNotificationClick(notification: Notification) {
     if (notification.read_at) return;
@@ -225,14 +246,26 @@ export default function NotificationBell({
                 {unreadCount} não lida(s)
               </p>
             </div>
-            <Link
-              href="/desafios"
-              onClick={() => setOpen(false)}
-              className="text-xs font-condensed font-700 uppercase tracking-widest"
-              style={{ color: "var(--red)" }}
-            >
-              Ver desafios
-            </Link>
+            <div className="flex items-center gap-3">
+              {unreadCount > 0 && (
+                <button
+                  onClick={handleClearAll}
+                  disabled={clearing}
+                  className="text-xs font-condensed font-700 uppercase tracking-widest transition-all active:scale-95"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  {clearing ? "..." : "Limpar"}
+                </button>
+              )}
+              <Link
+                href="/desafios"
+                onClick={() => setOpen(false)}
+                className="text-xs font-condensed font-700 uppercase tracking-widest"
+                style={{ color: "var(--red)" }}
+              >
+                Ver desafios
+              </Link>
+            </div>
           </div>
 
           {loading ? (

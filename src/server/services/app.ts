@@ -81,6 +81,7 @@ import {
   createNotification,
   listActiveNotificationRecipients,
   listNotificationsForUser,
+  markAllNotificationsAsRead,
   markNotificationAsRead,
 } from "@/server/repositories/notifications";
 import {
@@ -1337,6 +1338,12 @@ export async function markMyNotificationRead(notificationId: string) {
   );
 
   return { notification };
+}
+
+export async function clearMyNotifications() {
+  const { user } = await requireActiveUser();
+  const adminSupabase = await getAdminSupabase();
+  await markAllNotificationsAsRead(adminSupabase, user.id);
 }
 
 export async function getAdminEventFights(eventId: string) {
