@@ -273,6 +273,7 @@ export default function FightCard({
                 style={{
                   width: "clamp(80px, 18vw, 130px)",
                   height: "clamp(80px, 18vw, 130px)",
+                  borderRadius: "50%",
                   border: photoBorder,
                   boxShadow: photoGlow,
                   transition: "all 0.2s",
