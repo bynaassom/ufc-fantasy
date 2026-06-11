@@ -142,12 +142,14 @@ body::before {
    ============================================================ */
 .font-condensed {
     font-family:
+        var(--font-saira-condensed),
         "Saira Condensed",
         sans-serif;
 }
 
 .section-title {
     font-family:
+        var(--font-saira-condensed),
         "Saira Condensed",
         sans-serif;
     font-weight: 900;

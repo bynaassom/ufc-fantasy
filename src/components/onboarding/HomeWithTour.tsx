@@ -1,8 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
-import OnboardingTour from "./OnboardingTour";
+
+const OnboardingTour = dynamic(() => import("./OnboardingTour"), {
+  ssr: false,
+});
 
 export default function HomeWithTour({
   show,

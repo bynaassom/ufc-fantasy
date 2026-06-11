@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
+import dynamic from "next/dynamic";
 import Navbar from "@/components/layout/Navbar";
 import EventPicksClient from "@/components/event/EventPicksClient";
-import LiveFeed from "@/components/event/LiveFeed";
 import {
   formatEventDate,
   isPicksLocked,
@@ -10,6 +10,10 @@ import {
   timeUntilPicksOpen,
 } from "@/lib/utils";
 import { getEventPageData } from "@/server/services/app";
+
+const LiveFeed = dynamic(() => import("@/components/event/LiveFeed"), {
+  ssr: false,
+});
 
 interface EventPageProps {
   params: { slug: string };

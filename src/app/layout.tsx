@@ -1,8 +1,16 @@
 import type { Metadata, Viewport } from "next";
+import { Saira_Condensed } from "next/font/google";
 import { Toaster } from "react-hot-toast";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { ThemeProvider } from "@/components/ui/ThemeProvider";
 import "./globals.css";
+
+const sairaCondensed = Saira_Condensed({
+  weight: ["400", "500", "600", "700"],
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-saira-condensed",
+});
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -48,20 +56,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="pt-BR" suppressHydrationWarning>
-      <head>
-        {/* Preconnect para Google Fonts — reduz tempo de handshake */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossOrigin="anonymous"
-        />
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@400;500;600;700&display=swap"
-        />
-      </head>
+    <html lang="pt-BR" suppressHydrationWarning className={sairaCondensed.variable}>
       <body className="font-sans">
         <ThemeProvider>
           <ErrorBoundary>{children}</ErrorBoundary>
