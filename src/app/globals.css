@@ -222,9 +222,6 @@ body::before {
    FIGHTER CARD INTERACTIONS
    ============================================================ */
 .fighter-select-btn {
-    cursor: pointer;
-    transition: all 0.15s ease;
-    border: 2px solid transparent;
 }
 .fighter-select-btn:hover {
     border-color: rgba(232, 0, 26, 0.4);
