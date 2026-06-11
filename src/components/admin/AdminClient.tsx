@@ -15,37 +15,7 @@ import toast from "react-hot-toast";
 import FighterSearchInput from "./FighterSearchInput";
 
 // ─── Types ───────────────────────────────────────────────────
-type MainTab = "eventos" | "lutas" | "resultados" | "operacoes" | "usuarios";
-type SubTab =
-  | "evento-pendencias"
-  | "evento-manual"
-  | "evento-importar"
-  | "evento-editar"
-  | "lutas-nova"
-  | "lutas-odds"
-  | "lutas-links"
-  | "res-auto"
-  | "res-manual"
-  | "ops-lote"
-  | "ops-fighters"
-  | "ops-fotos"
-  | "ops-auditoria"
-  | "usuarios";
-
-interface FighterData {
-  name: string;
-  headshot_url: string;
-  country: string;
-}
-interface FightForm {
-  fighter_a: FighterData;
-  fighter_b: FighterData;
-  weight_class: string;
-  is_title_fight: boolean;
-  total_rounds: number;
-  card_type: string;
-  fight_order: number;
-}
+import type { EventEditForm, MainTab, SubTab, FightForm } from "./types";
 
 const WEIGHT_CLASSES = [
   "Heavyweight",
@@ -99,7 +69,7 @@ function formatAdminDateTime(value?: string | null) {
   }).format(new Date(value));
 }
 
-function toEventEditForm(data: any) {
+function toEventEditForm(data: any): EventEditForm {
   return {
     name: data?.name || "",
     location: data?.location || "",
@@ -1685,9 +1655,15 @@ function EventoEditar({
   loadFights,
 }: any) {
   const [eventData, setEventData] = useState<any>(null);
-  const [editForm, setEditForm] = useState<any>(null);
+    const [editForm, setEditForm] = useState<EventEditForm | null>(null);
   const [fights, setFights] = useState<any[]>([]);
-  const [editFight, setEditFight] = useState<any>(null);
+    const [editFight, setEditFight] = useState<{
+      id: string;
+      weight_class: string;
+      card_type: string;
+      is_title_fight: boolean;
+      total_rounds: number;
+    } | null>(null);
   const [saving, setSaving] = useState(false);
   const [diff, setDiff] = useState<any>(null);
   const [diffLoading, setDiffLoading] = useState(false);
@@ -1842,17 +1818,21 @@ function EventoEditar({
           },
           { label: "URL Sherdog", key: "sherdog_event_url", type: "text" },
           { label: "URL Tapology", key: "tapology_event_url", type: "text" },
-        ].map(({ label, key, type, options }) => (
+          ].map(({ label, key, type, options }) => {
+          const k = key as keyof EventEditForm;
+          const updater = (val: string) => setEditForm((prev) => {
+            if (!prev) return null;
+            return { ...prev, [k]: val };
+          });
+          return (
           <div key={key}>
             <label className={lbl} style={{ color: "var(--text-secondary)" }}>
               {label}
             </label>
             {type === "select" ? (
               <select
-                value={editForm[key]}
-                onChange={(e) =>
-                  setEditForm((f: any) => ({ ...f, [key]: e.target.value }))
-                }
+                value={editForm[k]}
+                onChange={(e) => updater(e.target.value)}
                 style={sel}
                 onFocus={focus}
                 onBlur={blur}
@@ -1866,17 +1846,15 @@ function EventoEditar({
             ) : (
               <input
                 type={type}
-                value={editForm[key]}
-                onChange={(e) =>
-                  setEditForm((f: any) => ({ ...f, [key]: e.target.value }))
-                }
+                value={editForm[k]}
+                onChange={(e) => updater(e.target.value)}
                 style={inp}
                 onFocus={focus}
                 onBlur={blur}
               />
             )}
           </div>
-        ))}
+        )})}
         {/* Banner position control */}
         {editForm.banner_image_url && (
           <div>
@@ -1910,10 +1888,9 @@ function EventoEditar({
                       : "var(--text)",
                 }}
                 onClick={() =>
-                  setEditForm((f: any) => ({
-                    ...f,
-                    banner_object_position: "center top",
-                  }))
+                  setEditForm((prev) =>
+                    prev ? { ...prev, banner_object_position: "center top" } : null,
+                  )
                 }
               >
                 ↑ Topo
@@ -1932,10 +1909,9 @@ function EventoEditar({
                       : "var(--text)",
                 }}
                 onClick={() =>
-                  setEditForm((f: any) => ({
-                    ...f,
-                    banner_object_position: "center",
-                  }))
+                  setEditForm((prev) =>
+                    prev ? { ...prev, banner_object_position: "center" } : null,
+                  )
                 }
               >
                 Centro
@@ -1954,10 +1930,9 @@ function EventoEditar({
                       : "var(--text)",
                 }}
                 onClick={() =>
-                  setEditForm((f: any) => ({
-                    ...f,
-                    banner_object_position: "center bottom",
-                  }))
+                  setEditForm((prev) =>
+                    prev ? { ...prev, banner_object_position: "center bottom" } : null,
+                  )
                 }
               >
                 ↓ Base
@@ -1971,12 +1946,13 @@ function EventoEditar({
                   color: "var(--text)",
                 }}
                 onClick={() =>
-                  setEditForm((f: any) => {
-                    const current = f.banner_object_position || "center";
+                  setEditForm((prev) => {
+                    if (!prev) return null;
+                    const current = prev.banner_object_position || "center";
                     const match = current.match(/^center\s+(\d+)%/);
                     const pct = match ? parseInt(match[1]) : 50;
                     return {
-                      ...f,
+                      ...prev,
                       banner_object_position: `center ${Math.max(0, pct - 10)}%`,
                     };
                   })
@@ -1992,12 +1968,13 @@ function EventoEditar({
                   color: "var(--text)",
                 }}
                 onClick={() =>
-                  setEditForm((f: any) => {
-                    const current = f.banner_object_position || "center";
+                  setEditForm((prev) => {
+                    if (!prev) return null;
+                    const current = prev.banner_object_position || "center";
                     const match = current.match(/^center\s+(\d+)%/);
                     const pct = match ? parseInt(match[1]) : 50;
                     return {
-                      ...f,
+                      ...prev,
                       banner_object_position: `center ${Math.min(100, pct + 10)}%`,
                     };
                   })
@@ -2059,7 +2036,7 @@ function EventoEditar({
                       Categoria
                     </label>
                     <select
-                      value={editFight.weight_class}
+                      value={editFight!.weight_class}
                       onChange={(e) =>
                         setEditFight((f: any) => ({
                           ...f,
@@ -2085,7 +2062,7 @@ function EventoEditar({
                       Card
                     </label>
                     <select
-                      value={editFight.card_type}
+                      value={editFight!.card_type}
                       onChange={(e) =>
                         setEditFight((f: any) => ({
                           ...f,
@@ -2113,7 +2090,7 @@ function EventoEditar({
                       Rounds
                     </label>
                     <select
-                      value={editFight.total_rounds}
+                      value={editFight!.total_rounds}
                       onChange={(e) =>
                         setEditFight((f: any) => ({
                           ...f,
@@ -2132,7 +2109,7 @@ function EventoEditar({
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={editFight.is_title_fight}
+                        checked={editFight!.is_title_fight}
                         onChange={(e) =>
                           setEditFight((f: any) => ({
                             ...f,
