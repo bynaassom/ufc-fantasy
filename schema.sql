@@ -576,7 +576,7 @@ CREATE POLICY "groups_delete_admin" ON groups FOR DELETE USING (
 );
 
 CREATE POLICY "group_members_select_own" ON group_members FOR SELECT USING (
-  EXISTS (SELECT 1 FROM group_members gm WHERE gm.group_id = group_members.group_id AND gm.user_id = auth.uid())
+  auth.uid() = user_id
 );
 
 CREATE POLICY "group_members_insert_join" ON group_members FOR INSERT WITH CHECK (
@@ -584,8 +584,7 @@ CREATE POLICY "group_members_insert_join" ON group_members FOR INSERT WITH CHECK
 );
 
 CREATE POLICY "group_members_delete_own" ON group_members FOR DELETE USING (
-  auth.uid() = user_id OR
-  EXISTS (SELECT 1 FROM group_members WHERE group_members.group_id = group_members.group_id AND group_members.user_id = auth.uid() AND group_members.role = 'admin')
+  auth.uid() = user_id
 );
 
 CREATE INDEX idx_groups_invite_code ON groups(invite_code);
