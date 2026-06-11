@@ -1,4 +1,4 @@
-CREATE TABLE groups (
+CREATE TABLE IF NOT EXISTS groups (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   name TEXT NOT NULL,
   description TEXT,
@@ -9,7 +9,7 @@ CREATE TABLE groups (
   CONSTRAINT invite_code_length CHECK (char_length(invite_code) = 8)
 );
 
-CREATE TABLE group_members (
+CREATE TABLE IF NOT EXISTS group_members (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
