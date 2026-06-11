@@ -51,6 +51,7 @@ export default function FightCard({
   const [selectedRound, setSelectedRound] = useState<number | null>(
     existingPick?.picked_round || null,
   );
+  const [hoveredFighterId, setHoveredFighterId] = useState<string | null>(null);
 
   const weightLabel = WEIGHT_CLASS_PT[fight.weight_class] || fight.weight_class;
   const rounds = Array.from({ length: fight.total_rounds }, (_, i) => i + 1);
@@ -176,6 +177,10 @@ export default function FightCard({
           const isSelected = !completed && selectedWinnerId === fighter.id;
           const isDefeated =
             !completed && !!selectedWinnerId && selectedWinnerId !== fighter.id;
+          const isHovered = hoveredFighterId === fighter.id && !locked && !completed;
+
+          // Corner gradient opacity: selecionado > hover > nada
+          const cornerOpacity = isSelected ? 1 : isHovered ? 0.35 : 0;
 
           // Cor do nome
           let nameColor = "var(--text)";
@@ -187,31 +192,27 @@ export default function FightCard({
             nameColor = "var(--red)";
           }
 
-          // Borda da foto
-          let photoBorder = `2px solid ${isSelected ? "var(--red)" : "var(--border)"}`;
+          // Borda da foto — sem vermelho, apenas resultados
+          let photoBorder = `2px solid var(--border)`;
           if (completed && isWinner && isMyPick)
             photoBorder = "2px solid #22c55e";
-          else if (completed && isWinner)
-            photoBorder = "2px solid var(--border)";
 
-          const photoGlow = isSelected
-            ? "0 0 16px rgba(232,0,26,0.35)"
-            : completed && isWinner && isMyPick
-              ? "0 0 16px rgba(34,197,94,0.35)"
-              : "none";
+          const photoGlow = completed && isWinner && isMyPick
+            ? "0 0 16px rgba(34,197,94,0.35)"
+            : "none";
 
           return (
             <button
               key={fighter.id}
               onClick={() => selectFighter(fighter.id)}
               disabled={locked}
-              className="fighter-select-btn flex flex-col items-center py-6 px-4 relative"
+              onMouseEnter={() => setHoveredFighterId(fighter.id)}
+              onMouseLeave={() => setHoveredFighterId(null)}
+              className="fighter-select-btn flex flex-col items-center py-6 px-4 relative overflow-hidden"
               style={{
-                backgroundColor: isSelected
-                  ? "rgba(232,0,26,0.06)"
-                  : completed && isWinner && isMyPick
-                    ? "rgba(34,197,94,0.04)"
-                    : "transparent",
+                backgroundColor: completed && isWinner && isMyPick
+                  ? "rgba(34,197,94,0.04)"
+                  : "transparent",
                 filter:
                   isDefeated || (completed && isLoser)
                     ? "grayscale(1) brightness(0.4)"
@@ -221,6 +222,18 @@ export default function FightCard({
                 transition: "filter 0.3s",
               }}
             >
+              {/* Corner gradient dinâmico */}
+              <div
+                className="absolute top-0 pointer-events-none z-10"
+                style={{
+                  width: "clamp(60px, 15vw, 110px)",
+                  height: "clamp(60px, 15vw, 110px)",
+                  [idx === 0 ? "left" : "right"]: 0,
+                  background: `linear-gradient(${idx === 0 ? "135deg" : "225deg"}, var(--red) 0%, transparent 70%)`,
+                  opacity: cornerOpacity,
+                  transition: "opacity 0.25s ease",
+                }}
+              />
               {/* Headshot */}
               <div
                 className="relative mb-4 overflow-hidden"
