@@ -61,17 +61,29 @@ export default function PublicProfileClient({
   }
 
   const statCards = [
+    { label: "Desafios feitos", value: stats.challenges_total },
+    { label: "Desafios vencidos", value: stats.challenges_won },
+    { label: "Eventos", value: stats.events_played },
+    { label: "Total de picks", value: stats.total_picks },
+  ];
+
+  const perfCards = [
+    { label: "Acerto vencedor", value: `${stats.pick_accuracy}%` },
+    { label: "Acerto método", value: `${stats.method_accuracy}%` },
+    { label: "Acerto round", value: `${stats.round_accuracy}%` },
+    { label: "Média pts/evento", value: stats.avg_points_per_event },
+  ];
+
+  const streakCards = [
     {
-      label: "Desafios feitos",
-      value: stats.challenges_total,
+      label: "Streak atual",
+      value: `${stats.current_streak}`,
+      highlight: stats.current_streak >= 3,
     },
     {
-      label: "Desafios vencidos",
-      value: stats.challenges_won,
-    },
-    {
-      label: "Acerto nas escolhas",
-      value: `${stats.pick_accuracy}%`,
+      label: "Melhor streak",
+      value: `${stats.best_streak}`,
+      highlight: stats.best_streak >= 5,
     },
     {
       label: "Posição média",
@@ -142,7 +154,8 @@ export default function PublicProfileClient({
           </div>
         </div>
 
-        <section className="grid md:grid-cols-4 gap-4 mb-8">
+        {/* Volume stats */}
+        <section className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           {statCards.map((stat) => (
             <div
               key={stat.label}
@@ -162,6 +175,74 @@ export default function PublicProfileClient({
               <p
                 className="font-condensed font-900 text-3xl mt-2"
                 style={{ color: "var(--text)" }}
+              >
+                {stat.value}
+              </p>
+            </div>
+          ))}
+        </section>
+
+        {/* Accuracy stats */}
+        <p
+          className="font-condensed font-700 text-xs uppercase tracking-widest mb-3"
+          style={{ color: "var(--text-secondary)" }}
+        >
+          Precisão
+        </p>
+        <section className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+          {perfCards.map((stat) => (
+            <div
+              key={stat.label}
+              className="p-4"
+              style={{
+                backgroundColor: "var(--bg-card)",
+                border: "1px solid var(--border)",
+                borderLeft: "3px solid var(--green)",
+              }}
+            >
+              <p
+                className="font-condensed font-700 text-xs uppercase tracking-widest"
+                style={{ color: "var(--text-muted)" }}
+              >
+                {stat.label}
+              </p>
+              <p
+                className="font-condensed font-900 text-3xl mt-2"
+                style={{ color: "var(--text)" }}
+              >
+                {stat.value}
+              </p>
+            </div>
+          ))}
+        </section>
+
+        {/* Streak stats */}
+        <p
+          className="font-condensed font-700 text-xs uppercase tracking-widest mb-3"
+          style={{ color: "var(--text-secondary)" }}
+        >
+          Sequências
+        </p>
+        <section className="grid grid-cols-3 gap-3 mb-8">
+          {streakCards.map((stat) => (
+            <div
+              key={stat.label}
+              className="p-4"
+              style={{
+                backgroundColor: "var(--bg-card)",
+                border: "1px solid var(--border)",
+                borderLeft: `3px solid ${stat.highlight ? "var(--green)" : "var(--border)"}`,
+              }}
+            >
+              <p
+                className="font-condensed font-700 text-xs uppercase tracking-widest"
+                style={{ color: "var(--text-muted)" }}
+              >
+                {stat.label}
+              </p>
+              <p
+                className="font-condensed font-900 text-3xl mt-2"
+                style={{ color: stat.highlight ? "var(--green)" : "var(--text)" }}
               >
                 {stat.value}
               </p>

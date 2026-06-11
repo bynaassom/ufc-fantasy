@@ -9,6 +9,7 @@ import {
 } from "@/lib/utils";
 import { getHomePageData } from "@/server/services/app";
 import type { Event as FantasyEvent } from "@/types";
+import HomeWithTour from "@/components/onboarding/HomeWithTour";
 
 export const revalidate = 60; // revalida a cada 60s
 
@@ -17,13 +18,14 @@ export default async function HomePage() {
     await getHomePageData();
 
   return (
-    <div
-      className="min-h-screen pb-20 md:pb-0"
-      style={{ backgroundColor: "var(--bg)" }}
-    >
-      <Navbar profile={profile} />
+    <HomeWithTour show={!profile.onboarding_completed}>
+      <div
+        className="min-h-screen pb-20 md:pb-0"
+        style={{ backgroundColor: "var(--bg)" }}
+      >
+        <Navbar profile={profile} />
 
-      <main className="max-w-4xl mx-auto px-4 py-8">
+        <main className="max-w-4xl mx-auto px-4 py-8">
         {/* Welcome */}
         <div
           className="mb-8 pb-6"
@@ -330,6 +332,6 @@ export default async function HomePage() {
           </section>
         )}
       </main>
-    </div>
+    </div></HomeWithTour>
   );
 }

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 import EventPicksClient from "@/components/event/EventPicksClient";
+import LiveFeed from "@/components/event/LiveFeed";
 import {
   formatEventDate,
   isPicksLocked,
@@ -31,6 +32,7 @@ export default async function EventPage({ params }: EventPageProps) {
       style={{ backgroundColor: "var(--bg)" }}
     >
       <Navbar profile={profile} />
+      <LiveFeed eventSlug={params.slug} />
       <main className="max-w-2xl mx-auto px-4 py-8">
         {/* Event header */}
         <div className="mb-8">

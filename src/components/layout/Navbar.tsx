@@ -42,6 +42,7 @@ export default function Navbar({ profile }: NavbarProps) {
   const navLinks = [
     { href: "/home", label: "INÍCIO" },
     { href: "/desafios", label: "DESAFIOS" },
+    { href: "/ligas", label: "LIGAS" },
     { href: "/ranking", label: "RANKING" },
     { href: "/historico", label: "HISTÓRICO" },
     ...(profile.role === "admin" ? [{ href: "/admin", label: "ADMIN" }] : []),
@@ -306,6 +307,24 @@ export default function Navbar({ profile }: NavbarProps) {
                   strokeWidth="1.5"
                 >
                   <path d="M3 12h6l3-7 3 14 3-7h3" />
+                </svg>
+              ),
+            },
+            {
+              href: "/ligas",
+              label: "LIGAS",
+              icon: (
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                >
+                  <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                  <path d="M2 17l10 5 10-5" />
+                  <path d="M2 12l10 5 10-5" />
                 </svg>
               ),
             },

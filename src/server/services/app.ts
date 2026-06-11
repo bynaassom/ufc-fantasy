@@ -5,6 +5,7 @@ import type {
   Event,
   EventWithFights,
   FightWithFighters,
+  GroupWithMembers,
   Notification as AppNotification,
   Profile,
   PublicProfileStats,
@@ -84,6 +85,17 @@ import {
   markAllNotificationsAsRead,
   markNotificationAsRead,
 } from "@/server/repositories/notifications";
+import {
+  createGroup,
+  addGroupMember,
+  removeGroupMember,
+  findGroupById,
+  findGroupByInviteCode,
+  listGroupsForUser,
+  listGroupMembers,
+  getGroupMember,
+  listMemberScoresByEvent,
+} from "@/server/repositories/groups";
 import {
   createNotificationsForUsers,
   notifyActiveUsers,
@@ -598,6 +610,41 @@ export async function getEventPageData(slug: string) {
   return { profile, user, event, existingPicks };
 }
 
+export async function getEventLiveData(slug: string) {
+  const { supabase, user } = await requirePageUserProfile();
+  const event = await getCachedEventBySlug(slug);
+  if (!event) {
+    return { status: "completed" as const, fights: [], picks: [] };
+  }
+
+  const confirmedFights = (event as EventWithFights).fights.filter(
+    (f) => f.result_confirmed,
+  );
+  const existingPicks = await listPicksForUserEvent(supabase, user.id, event.id);
+
+  const fights = confirmedFights.map((f) => ({
+    id: f.id,
+    fight_order: f.fight_order,
+    fighter_a: f.fighter_a,
+    fighter_b: f.fighter_b,
+    winner_id: f.winner_id,
+    result_method: f.result_method,
+    result_round: f.result_round,
+  }));
+
+  const picks = existingPicks.map((p) => ({
+    fight_id: p.fight_id,
+    winner_id: p.picked_winner_id,
+    method: p.picked_method,
+    round: p.picked_round,
+    points_winner: p.points_winner,
+    points_method: p.points_method,
+    points_round: p.points_round,
+  }));
+
+  return { status: event.status, fights, picks };
+}
+
 export async function getRankingPageData(
   tab: "geral" | "evento" | "categoria",
   divisionParam?: string,
@@ -770,6 +817,12 @@ export async function updateMyProfile(payload: {
   }
 }
 
+export async function completeMyOnboarding() {
+  const { supabase, user } = await requireActiveUser();
+  const profile = await updateProfile(supabase, user.id, { onboarding_completed: true });
+  return { profile };
+}
+
 function assertValidEventPicks(
   event: any,
   picks: Array<{
@@ -878,18 +931,22 @@ async function getPublicProfileStats(
     listChallengesForProfile(client, profileId),
     client
       .from("event_scores")
-      .select("rank_position")
-      .eq("user_id", profileId)
-      .not("rank_position", "is", null),
+      .select("rank_position, total_points, event_id")
+      .eq("user_id", profileId),
     client
       .from("picks")
       .select(
         `
-        points_winner,
-        fight:fights(result_confirmed)
+        picked_winner_id, picked_method, picked_round,
+        points_winner, points_method, points_round,
+        created_at,
+        fight:fights!inner(
+          result_confirmed, winner_id, result_method, result_round
+        )
       `,
       )
-      .eq("user_id", profileId),
+      .eq("user_id", profileId)
+      .order("created_at", { ascending: true }),
   ]);
 
   if (eventScoresResult.error) throw eventScoresResult.error;
@@ -904,18 +961,46 @@ async function getPublicProfileStats(
       challenge.status === "completed" && challenge.winner_user_id === profileId,
   ).length;
 
-  const scoredPicks = ((rawPicksResult.data || []) as any[]).filter(
-    (pick) => pick.fight?.result_confirmed,
+  const allPicks = (rawPicksResult.data || []) as any[];
+  const resolvedPicks = allPicks.filter((p) => p.fight?.result_confirmed);
+  const totalResolvedPicks = resolvedPicks.length;
+  const correctWinnerPicks = resolvedPicks.reduce(
+    (sum, p) => sum + (p.points_winner || 0),
+    0,
   );
-  const totalResolvedPicks = scoredPicks.length;
-  const correctWinnerPicks = scoredPicks.reduce(
-    (sum, pick) => sum + (pick.points_winner || 0),
+
+  const correctMethodPicks = resolvedPicks.reduce(
+    (sum, p) => sum + (p.points_method || 0),
+    0,
+  );
+  const correctRoundPicks = resolvedPicks.reduce(
+    (sum, p) => sum + (p.points_round || 0),
     0,
   );
 
   const rankValues = ((eventScoresResult.data || []) as any[])
     .map((entry) => Number(entry.rank_position))
     .filter((value) => Number.isFinite(value));
+
+  const eventsWithPoints = ((eventScoresResult.data || []) as any[]).filter(
+    (e: any) => Number.isFinite(Number(e.total_points)) && Number(e.total_points) > 0,
+  );
+  const totalPointsFromEvents = eventsWithPoints.reduce(
+    (sum: number, e: any) => sum + Number(e.total_points),
+    0,
+  );
+
+  // Streak: walk resolved picks in chronological order (ascending)
+  let currentStreak = 0;
+  let bestStreak = 0;
+  for (const p of resolvedPicks) {
+    if (p.points_winner && Number(p.points_winner) > 0) {
+      currentStreak++;
+      if (currentStreak > bestStreak) bestStreak = currentStreak;
+    } else {
+      currentStreak = 0;
+    }
+  }
 
   return {
     challenges_total: challengesPlayed,
@@ -930,6 +1015,19 @@ async function getPublicProfileStats(
           ).toFixed(1),
         )
       : null,
+    total_picks: allPicks.length,
+    events_played: eventsWithPoints.length,
+    avg_points_per_event: eventsWithPoints.length
+      ? Math.round(totalPointsFromEvents / eventsWithPoints.length)
+      : 0,
+    method_accuracy: correctWinnerPicks
+      ? Math.round((correctMethodPicks / correctWinnerPicks) * 100)
+      : 0,
+    round_accuracy: correctMethodPicks
+      ? Math.round((correctRoundPicks / correctMethodPicks) * 100)
+      : 0,
+    current_streak: currentStreak,
+    best_streak: bestStreak,
   };
 }
 
@@ -1686,4 +1784,100 @@ export async function toggleAdminUserBan(userId: string, currentBan: boolean) {
   const adminSupabase = await getAdminSupabase();
   const profile = await updateProfileBan(adminSupabase, userId, !currentBan);
   return { profile, isBanned: !currentBan };
+}
+
+// ── Groups / Leagues ────────────────────────────────────────
+
+function generateInviteCode(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+  for (let i = 0; i < 8; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return code;
+}
+
+export async function createGroupWithMember(name: string, description: string | null) {
+  const { user, profile } = await requireActiveUser();
+  if (profile.is_banned) {
+    throw new ApiRouteError(403, "BANNED", "Usuário banido não pode criar grupos.");
+  }
+  const adminSupabase = await getAdminSupabase();
+  const inviteCode = generateInviteCode();
+  const group = await createGroup(adminSupabase, {
+    name,
+    description,
+    invite_code: inviteCode,
+    created_by: user.id,
+  });
+  await addGroupMember(adminSupabase, {
+    group_id: group.id,
+    user_id: user.id,
+    role: "admin",
+  });
+  return group;
+}
+
+export async function joinGroupByCode(code: string) {
+  const { user, profile } = await requireActiveUser();
+  if (profile.is_banned) {
+    throw new ApiRouteError(403, "BANNED", "Usuário banido não pode entrar em grupos.");
+  }
+  const adminSupabase = await getAdminSupabase();
+  const group = await findGroupByInviteCode(adminSupabase, code);
+  if (!group) {
+    throw new ApiRouteError(404, "GROUP_NOT_FOUND", "Código de convite inválido.");
+  }
+  const existing = await getGroupMember(adminSupabase, group.id, user.id);
+  if (existing) {
+    throw new ApiRouteError(409, "ALREADY_MEMBER", "Você já está neste grupo.");
+  }
+  await addGroupMember(adminSupabase, {
+    group_id: group.id,
+    user_id: user.id,
+    role: "member",
+  });
+  return group;
+}
+
+export async function leaveGroup(groupId: string) {
+  const { user } = await requireActiveUser();
+  const adminSupabase = await getAdminSupabase();
+  const members = await listGroupMembers(adminSupabase, groupId);
+  const admins = members.filter((m: any) => m.role === "admin");
+  if (admins.length === 1 && admins[0].user_id === user.id && members.length > 1) {
+    throw new ApiRouteError(400, "LAST_ADMIN", "Transfira a administração antes de sair.");
+  }
+  await removeGroupMember(adminSupabase, groupId, user.id);
+}
+
+export async function getMyGroups(client?: any, uid?: string) {
+  if (client && uid) {
+    return listGroupsForUser(client, uid);
+  }
+  const { supabase, user } = await requirePageUserProfile();
+  return listGroupsForUser(supabase, user.id);
+}
+
+export async function getGroupDetail(groupId: string): Promise<GroupWithMembers | null> {
+  const adminSupabase = await getAdminSupabase();
+  const group = await findGroupById(adminSupabase, groupId);
+  if (!group) return null;
+  const members = await listGroupMembers(adminSupabase, groupId);
+  const userIds = members.map((m: any) => m.user_id);
+  const scores = await listMemberScoresByEvent(adminSupabase, userIds);
+  const scoreMap = Object.fromEntries(
+    scores.map((s) => [s.user_id, s.total_points]),
+  );
+  const enrichedMembers = members.map((m: any) => ({
+    ...m,
+    profile: m.profile || null,
+    total_points: scoreMap[m.user_id] || 0,
+  }));
+  enrichedMembers.sort((a: any, b: any) => b.total_points - a.total_points);
+  return {
+    ...group,
+    members: enrichedMembers,
+    member_count: enrichedMembers.length,
+  } as GroupWithMembers;
 }

@@ -7,6 +7,7 @@ type ProfileUpdatePayload = Partial<{
   nickname: string;
   division: CompetitiveDivision;
   division_confirmed: boolean;
+  onboarding_completed: boolean;
 }>;
 
 export async function findProfileById(

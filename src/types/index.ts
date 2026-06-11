@@ -38,6 +38,7 @@ export interface Profile {
   total_points: number;
   division: CompetitiveDivision;
   division_confirmed: boolean;
+  onboarding_completed: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -190,6 +191,13 @@ export interface PublicProfileStats {
   challenges_won: number;
   pick_accuracy: number;
   average_rank: number | null;
+  total_picks: number;
+  events_played: number;
+  avg_points_per_event: number;
+  method_accuracy: number;
+  round_accuracy: number;
+  current_streak: number;
+  best_streak: number;
 }
 
 export interface FightWithFighters extends Fight {
@@ -221,4 +229,27 @@ export interface UserPicks {
     round: number;
     confirmed: boolean;
   };
+}
+
+export interface Group {
+  id: string;
+  name: string;
+  description: string | null;
+  invite_code: string;
+  created_by: string;
+  created_at: string;
+}
+
+export interface GroupMember {
+  id: string;
+  group_id: string;
+  user_id: string;
+  role: "admin" | "member";
+  joined_at: string;
+  profile?: Profile;
+}
+
+export interface GroupWithMembers extends Group {
+  members: GroupMember[];
+  member_count: number;
 }
