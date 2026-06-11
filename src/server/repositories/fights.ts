@@ -1,4 +1,6 @@
-export async function listEventFights(client: any, eventId: string) {
+import type { DbClient } from "@/types/database";
+
+export async function listEventFights(client: DbClient, eventId: string) {
   const { data, error } = await client
     .from("fights")
     .select(
@@ -25,7 +27,7 @@ export async function listPendingFights(client: any) {
 }
 
 export async function updateFight(
-  client: any,
+  client: DbClient,
   fightId: string,
   payload: Record<string, unknown>,
 ) {
@@ -82,7 +84,7 @@ export async function createFighter(client: any, payload: Record<string, unknown
 }
 
 export async function updateFighter(
-  client: any,
+  client: DbClient,
   fighterId: string,
   payload: Record<string, unknown>,
 ) {

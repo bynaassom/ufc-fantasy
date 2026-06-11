@@ -7,6 +7,7 @@ export const adminEventSchema = z.object({
   picks_lock_at: z.string().optional().default(""),
   picks_open_at: z.string().optional().default(""),
   banner_image_url: z.string().optional().default(""),
+  banner_object_position: z.string().optional().default("center"),
   ufc_event_id: z.string().optional().default(""),
   ufc_stats_url: z.string().optional().default(""),
   espn_fightcenter_url: z.string().optional().default(""),

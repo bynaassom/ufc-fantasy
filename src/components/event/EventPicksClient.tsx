@@ -284,7 +284,7 @@ export default function EventPicksClient({
 
       {/* Confirm button */}
       {!locked && Object.keys(pendingPicks).length > 0 && (
-        <div className="sticky bottom-20 md:bottom-6 mt-6">
+        <div className="sticky mt-6" style={{ bottom: "calc(3.5rem + env(safe-area-inset-bottom) + 0.75rem)" }}>
           <button
             onClick={handleConfirm}
             disabled={saving}

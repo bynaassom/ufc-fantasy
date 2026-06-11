@@ -124,7 +124,7 @@ export default function NotificationBell({
   const rootClassName = isMobile ? "relative flex flex-1 min-w-0 justify-center" : "relative";
   const buttonClassName = isMobile
     ? "relative flex w-full min-w-0 flex-col items-center gap-0.5 px-1 py-2"
-    : "relative flex items-center justify-center w-10 h-10 transition-opacity hover:opacity-80";
+    : "relative min-tap transition-opacity hover:opacity-80";
   const buttonStyle = isMobile
     ? {
         color: unreadCount > 0 ? "var(--red)" : "var(--text-muted)",
@@ -253,14 +253,14 @@ export default function NotificationBell({
                     setOpen(false);
                     void handleNotificationClick(notification);
                   }}
-                  className="block px-4 py-3 transition-colors hover:bg-white/5"
+                  className="block px-4 py-3 hover-bg-elevated"
                   style={{
                     borderBottom:
                       index < notifications.length - 1
                         ? "1px solid var(--border)"
                         : "none",
                     opacity: notification.read_at ? 0.7 : 1,
-                  }}
+                  } as React.CSSProperties}
                 >
                   <div className="flex items-start gap-3">
                     <span

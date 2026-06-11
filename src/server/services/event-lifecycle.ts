@@ -1,9 +1,10 @@
+import type { DbClient } from "@/types/database";
 import {
   getNextPicksOpenAt,
   shouldCompleteEvent,
 } from "@/lib/event-lifecycle";
 
-export async function promoteDueEventsToLive(client: any, now = new Date()) {
+export async function promoteDueEventsToLive(client: DbClient, now = new Date()) {
   const { data: existingLive, error: liveError } = await client
     .from("events")
     .select("id")
@@ -39,7 +40,7 @@ export async function promoteDueEventsToLive(client: any, now = new Date()) {
 }
 
 export async function completeEventIfAllResultsConfirmed(
-  client: any,
+  client: DbClient,
   eventId: string,
   completedAt = new Date(),
 ) {
@@ -95,7 +96,7 @@ export async function completeEventIfAllResultsConfirmed(
   };
 }
 
-export async function dispatchEventLifecycle(client: any, now = new Date()) {
+export async function dispatchEventLifecycle(client: DbClient, now = new Date()) {
   const promoted = await promoteDueEventsToLive(client, now);
   const { data: liveEvents, error } = await client
     .from("events")

@@ -13,7 +13,7 @@ export async function requirePageUserProfile() {
     redirect("/login");
   }
 
-  const profile = (await findProfileById(supabase, user.id)) as Profile | null;
+  const profile: Profile | null = await findProfileById(supabase, user.id);
   if (!profile || profile.is_banned) {
     redirect("/login");
   }

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { revalidateTag } from "next/cache";
+import type { DbClient } from "@/types/database";
 import {
   buildVerifiedCardPlan,
   getDueCardVerificationWindow,
@@ -44,7 +45,7 @@ async function scrapeOfficialCard(event: VerificationEvent) {
 }
 
 async function runEventVerification(
-  adminSupabase: any,
+  adminSupabase: DbClient,
   event: VerificationEvent,
   window: "t72" | "t18",
 ) {
@@ -157,7 +158,7 @@ async function runEventVerification(
   };
 }
 
-export async function dispatchDueCardVerifications(adminSupabase: any, now = new Date()) {
+export async function dispatchDueCardVerifications(adminSupabase: DbClient, now = new Date()) {
   const horizon = new Date(now.getTime() + 73 * 60 * 60 * 1000).toISOString();
   const { data: events, error: eventsError } = await adminSupabase
     .from("events")

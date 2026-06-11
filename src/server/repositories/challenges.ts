@@ -1,5 +1,7 @@
+import type { DbClient } from "@/types/database";
+
 export async function createChallenge(
-  client: any,
+  client: DbClient,
   payload: Record<string, unknown>,
 ) {
   const { data, error } = await client
@@ -13,7 +15,7 @@ export async function createChallenge(
 }
 
 export async function updateChallenge(
-  client: any,
+  client: DbClient,
   challengeId: string,
   payload: Record<string, unknown>,
 ) {
@@ -76,7 +78,7 @@ export async function listChallengesForProfile(client: any, profileId: string) {
 }
 
 export async function findActiveChallengeBetweenUsers(
-  client: any,
+  client: DbClient,
   eventId: string,
   leftUserId: string,
   rightUserId: string,

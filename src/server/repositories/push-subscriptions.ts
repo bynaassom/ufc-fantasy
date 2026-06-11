@@ -1,3 +1,5 @@
+import type { DbClient } from "@/types/database";
+
 const PUSH_SUBSCRIPTION_FIELDS = `
   id,
   user_id,
@@ -10,7 +12,7 @@ const PUSH_SUBSCRIPTION_FIELDS = `
 `;
 
 export async function upsertPushSubscription(
-  client: any,
+  client: DbClient,
   payload: {
     user_id: string;
     endpoint: string;
@@ -30,7 +32,7 @@ export async function upsertPushSubscription(
 }
 
 export async function deletePushSubscriptionForUser(
-  client: any,
+  client: DbClient,
   userId: string,
   endpoint: string,
 ) {
@@ -44,7 +46,7 @@ export async function deletePushSubscriptionForUser(
 }
 
 export async function deletePushSubscriptionByEndpoint(
-  client: any,
+  client: DbClient,
   endpoint: string,
 ) {
   const { error } = await client
@@ -56,7 +58,7 @@ export async function deletePushSubscriptionByEndpoint(
 }
 
 export async function listPushSubscriptionsForUsers(
-  client: any,
+  client: DbClient,
   userIds: string[],
 ) {
   if (!userIds.length) return [];

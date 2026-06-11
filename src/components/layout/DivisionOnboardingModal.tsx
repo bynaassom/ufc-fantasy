@@ -67,7 +67,7 @@ export default function DivisionOnboardingModal({
   return (
     <div
       className="fixed inset-0 z-[90] flex items-center justify-center p-4"
-      style={{ backgroundColor: "rgba(0, 0, 0, 0.82)" }}
+      style={{ backgroundColor: "color-mix(in srgb, var(--bg) 82%, transparent)" }}
     >
       <form
         onSubmit={handleConfirm}
@@ -76,7 +76,7 @@ export default function DivisionOnboardingModal({
           backgroundColor: "var(--bg-card)",
           border: "1px solid var(--border)",
           borderTop: "3px solid var(--red)",
-          boxShadow: "0 24px 80px rgba(0, 0, 0, 0.45)",
+          boxShadow: "0 24px 80px color-mix(in srgb, var(--bg) 45%, transparent)",
         }}
       >
         <p

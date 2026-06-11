@@ -1,13 +1,13 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Toaster } from "react-hot-toast";
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
+import { ThemeProvider } from "@/components/ui/ThemeProvider";
 import "./globals.css";
-
-import type { Viewport } from "next";
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  viewportFit: "cover", // iPhone notch/home bar
+  viewportFit: "cover",
 };
 
 export const metadata: Metadata = {
@@ -48,9 +48,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="pt-BR" className="dark" suppressHydrationWarning>
+    <html lang="pt-BR" suppressHydrationWarning>
       <body className="font-sans">
-        {children}
+        <ThemeProvider>
+          <ErrorBoundary>{children}</ErrorBoundary>
+        </ThemeProvider>
         <Toaster
           position="top-center"
           toastOptions={{
@@ -61,7 +63,7 @@ export default function RootLayout({
               fontFamily: "'Saira Condensed', sans-serif",
             },
             success: {
-              iconTheme: { primary: "#EF4444", secondary: "white" },
+              iconTheme: { primary: "var(--red)", secondary: "white" },
             },
           }}
         />

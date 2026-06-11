@@ -1,8 +1,53 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { applySecurityHeaders } from "@/lib/security";
+import {
+  checkRateLimit,
+  getRateLimitKey,
+  getRateLimitConfig,
+  applyRateLimitHeaders,
+} from "@/lib/rate-limiter";
+import { normalizeSafeRedirectPath } from "@/lib/security";
+
+const PROTECTED_ROUTES = new Set([
+  "/home",
+  "/ranking",
+  "/admin",
+  "/profile",
+  "/desafios",
+]);
+
+const PROTECTED_PREFIXES = ["/event/", "/jogador/"];
+
+const AUTH_ROUTES = new Set(["/login", "/register"]);
+
+function matchProtectedRoute(pathname: string): boolean {
+  if (PROTECTED_ROUTES.has(pathname)) return true;
+  return PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+}
+
+function matchAuthRoute(pathname: string): boolean {
+  return AUTH_ROUTES.has(pathname);
+}
 
 export async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+
+  if (pathname.startsWith("/api/")) {
+    const key = getRateLimitKey(request);
+    const config = getRateLimitConfig(pathname);
+    const result = checkRateLimit(key, config);
+    const response = result.allowed
+      ? NextResponse.next({ request })
+      : NextResponse.json(
+          { ok: false, error: { code: "RATE_LIMITED", message: "Muitas requisições. Tente novamente em instantes." } },
+          { status: 429 },
+        );
+    applySecurityHeaders(response.headers);
+    applyRateLimitHeaders(response.headers, result);
+    return response;
+  }
+
   let supabaseResponse = NextResponse.next({ request });
   applySecurityHeaders(supabaseResponse.headers);
 
@@ -41,43 +86,34 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const pathname = request.nextUrl.pathname;
-
-  // Protected routes
-  const protectedRoutes = [
-    "/home",
-    "/event",
-    "/ranking",
-    "/admin",
-    "/profile",
-    "/desafios",
-    "/jogador",
-  ];
-  const authRoutes = ["/login", "/register"];
-
-  const isProtected = protectedRoutes.some((r) => pathname.startsWith(r));
-  const isAuthRoute = authRoutes.some((r) => pathname.startsWith(r));
-
   if (pathname === "/" && user) {
     const response = NextResponse.redirect(new URL("/home", request.url));
     applySecurityHeaders(response.headers);
     return response;
   }
 
-  if (isProtected && !user) {
-    const response = NextResponse.redirect(new URL("/login", request.url));
+  if (matchProtectedRoute(pathname) && !user) {
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("next", normalizeSafeRedirectPath(pathname));
+    const response = NextResponse.redirect(loginUrl);
     applySecurityHeaders(response.headers);
     return response;
   }
 
-  if (isAuthRoute && user) {
+  if (matchAuthRoute(pathname) && user) {
     const response = NextResponse.redirect(new URL("/home", request.url));
     applySecurityHeaders(response.headers);
     return response;
   }
 
   // Admin protection
-  if (pathname.startsWith("/admin") && user) {
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) {
+    if (!user) {
+      const response = NextResponse.redirect(new URL("/login", request.url));
+      applySecurityHeaders(response.headers);
+      return response;
+    }
+
     const { data: profile } = await supabase
       .from("profiles")
       .select("role, is_banned")

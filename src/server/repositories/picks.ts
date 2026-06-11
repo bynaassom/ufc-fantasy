@@ -1,3 +1,5 @@
+import type { DbClient } from "@/types/database";
+
 const PICK_FIELDS = `
   id,
   user_id,
@@ -17,7 +19,7 @@ const PICK_FIELDS = `
 `;
 
 export async function listPicksForUserEvent(
-  client: any,
+  client: DbClient,
   userId: string,
   eventId: string,
 ) {
@@ -42,7 +44,7 @@ export async function listPicksForUser(client: any, userId: string) {
 }
 
 export async function upsertUserPicks(
-  client: any,
+  client: DbClient,
   payload: Record<string, unknown>[],
 ) {
   const { data, error } = await client
@@ -55,7 +57,7 @@ export async function upsertUserPicks(
 }
 
 export async function listPicksForUsersEvent(
-  client: any,
+  client: DbClient,
   userIds: string[],
   eventId: string,
 ) {

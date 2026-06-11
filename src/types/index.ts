@@ -57,6 +57,7 @@ export interface Event {
   event_date: string;
   location?: string;
   banner_image_url?: string;
+  banner_object_position?: string;
   ufc_event_id?: string | null;
   status: EventStatus;
   picks_lock_at: string;

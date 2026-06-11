@@ -1,20 +1,30 @@
 {
   "name": "UFC Fantasy",
   "short_name": "UFC Fantasy",
+  "description": "Faça seus picks, acerte os resultados e suba no ranking com seus amigos.",
   "start_url": "/home",
   "display": "standalone",
-  "background_color": "#050505",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "background_color": "#f5f5f0",
   "theme_color": "#e8001a",
+  "scope": "/",
+  "categories": ["entertainment", "sports", "games"],
+  "lang": "pt-BR",
+  "orientation": "portrait-primary",
+  "prefer_related_applications": false,
+  "screenshots": [],
   "icons": [
     {
       "src": "/PNG/logo-dark.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "/PNG/logo-dark@5x.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }

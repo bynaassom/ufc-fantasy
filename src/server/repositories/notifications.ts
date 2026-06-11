@@ -1,3 +1,5 @@
+import type { DbClient } from "@/types/database";
+
 const NOTIFICATION_FIELDS = `
   id,
   user_id,
@@ -14,7 +16,7 @@ const NOTIFICATION_FIELDS = `
 `;
 
 export async function createNotification(
-  client: any,
+  client: DbClient,
   payload: Record<string, unknown>,
 ) {
   const { data, error } = await client
@@ -28,7 +30,7 @@ export async function createNotification(
 }
 
 export async function createNotificationOnce(
-  client: any,
+  client: DbClient,
   payload: Record<string, unknown>,
 ) {
   const { data, error } = await client
@@ -56,7 +58,7 @@ export async function listActiveNotificationRecipients(client: any) {
 }
 
 export async function listConfirmedPickUsersForEvent(
-  client: any,
+  client: DbClient,
   eventId: string,
 ) {
   const { data, error } = await client
@@ -70,7 +72,7 @@ export async function listConfirmedPickUsersForEvent(
 }
 
 export async function listNotificationsForUser(
-  client: any,
+  client: DbClient,
   userId: string,
   limit = 8,
 ) {
@@ -97,7 +99,7 @@ export async function countUnreadNotifications(client: any, userId: string) {
 }
 
 export async function markNotificationAsRead(
-  client: any,
+  client: DbClient,
   notificationId: string,
   userId: string,
 ) {

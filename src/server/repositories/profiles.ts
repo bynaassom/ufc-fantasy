@@ -1,5 +1,7 @@
 import { PROFILE_SELECT_FIELDS } from "@/lib/security";
 import type { CompetitiveDivision } from "@/lib/ufc-weight";
+import type { Profile } from "@/types";
+import type { DbClient } from "@/types/database";
 
 type ProfileUpdatePayload = Partial<{
   nickname: string;
@@ -8,7 +10,7 @@ type ProfileUpdatePayload = Partial<{
 }>;
 
 export async function findProfileById(
-  client: any,
+  client: DbClient,
   userId: string,
   fields = PROFILE_SELECT_FIELDS,
 ) {
@@ -19,7 +21,7 @@ export async function findProfileById(
     .single();
 
   if (error) throw error;
-  return data;
+  return data as unknown as Profile | null;
 }
 
 export async function listRecentProfiles(client: any, limit = 100) {
@@ -34,7 +36,7 @@ export async function listRecentProfiles(client: any, limit = 100) {
 }
 
 export async function updateProfileNickname(
-  client: any,
+  client: DbClient,
   userId: string,
   nickname: string,
 ) {
@@ -42,7 +44,7 @@ export async function updateProfileNickname(
 }
 
 export async function updateProfile(
-  client: any,
+  client: DbClient,
   userId: string,
   payload: ProfileUpdatePayload,
 ) {
@@ -70,7 +72,7 @@ export async function updateProfileRole(client: any, userId: string, role: strin
 }
 
 export async function updateProfileBan(
-  client: any,
+  client: DbClient,
   userId: string,
   isBanned: boolean,
 ) {
@@ -121,7 +123,7 @@ export async function listPublicProfiles(client: any, limit = 100) {
 }
 
 export async function listPublicProfilesByDivision(
-  client: any,
+  client: DbClient,
   division: CompetitiveDivision,
   limit = 100,
 ) {

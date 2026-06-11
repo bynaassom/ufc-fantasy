@@ -107,6 +107,7 @@ function toEventEditForm(data: any) {
     picks_lock_at: data?.picks_lock_at ? data.picks_lock_at.slice(0, 16) : "",
     picks_open_at: data?.picks_open_at ? data.picks_open_at.slice(0, 16) : "",
     banner_image_url: data?.banner_image_url || "",
+    banner_object_position: data?.banner_object_position || "center",
     ufc_event_id: data?.ufc_event_id || "",
     ufc_stats_url: data?.ufc_stats_url || "",
     espn_fightcenter_url: data?.espn_fightcenter_url || "",
@@ -1876,6 +1877,138 @@ function EventoEditar({
             )}
           </div>
         ))}
+        {/* Banner position control */}
+        {editForm.banner_image_url && (
+          <div>
+            <label className={lbl} style={{ color: "var(--text-secondary)" }}>
+              POSIÇÃO DO BANNER
+            </label>
+            <div
+              className="relative w-full h-32 rounded overflow-hidden mb-2"
+              style={{ backgroundColor: "var(--bg-card)" }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={editForm.banner_image_url}
+                alt="Preview"
+                className="w-full h-full object-cover"
+                style={{ objectPosition: editForm.banner_object_position || "center" }}
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="px-3 py-1.5 text-xs font-condensed font-700 uppercase tracking-wider rounded transition-all active:scale-95"
+                style={{
+                  backgroundColor:
+                    editForm.banner_object_position === "center top"
+                      ? "var(--red)"
+                      : "var(--bg-elevated)",
+                  color:
+                    editForm.banner_object_position === "center top"
+                      ? "#fff"
+                      : "var(--text)",
+                }}
+                onClick={() =>
+                  setEditForm((f: any) => ({
+                    ...f,
+                    banner_object_position: "center top",
+                  }))
+                }
+              >
+                ↑ Topo
+              </button>
+              <button
+                type="button"
+                className="px-3 py-1.5 text-xs font-condensed font-700 uppercase tracking-wider rounded transition-all active:scale-95"
+                style={{
+                  backgroundColor:
+                    editForm.banner_object_position === "center"
+                      ? "var(--red)"
+                      : "var(--bg-elevated)",
+                  color:
+                    editForm.banner_object_position === "center"
+                      ? "#fff"
+                      : "var(--text)",
+                }}
+                onClick={() =>
+                  setEditForm((f: any) => ({
+                    ...f,
+                    banner_object_position: "center",
+                  }))
+                }
+              >
+                Centro
+              </button>
+              <button
+                type="button"
+                className="px-3 py-1.5 text-xs font-condensed font-700 uppercase tracking-wider rounded transition-all active:scale-95"
+                style={{
+                  backgroundColor:
+                    editForm.banner_object_position === "center bottom"
+                      ? "var(--red)"
+                      : "var(--bg-elevated)",
+                  color:
+                    editForm.banner_object_position === "center bottom"
+                      ? "#fff"
+                      : "var(--text)",
+                }}
+                onClick={() =>
+                  setEditForm((f: any) => ({
+                    ...f,
+                    banner_object_position: "center bottom",
+                  }))
+                }
+              >
+                ↓ Base
+              </button>
+              <div className="flex-1" />
+              <button
+                type="button"
+                className="px-2 py-1.5 text-xs font-condensed font-700 tracking-wider rounded transition-all active:scale-95"
+                style={{
+                  backgroundColor: "var(--bg-elevated)",
+                  color: "var(--text)",
+                }}
+                onClick={() =>
+                  setEditForm((f: any) => {
+                    const current = f.banner_object_position || "center";
+                    const match = current.match(/^center\s+(\d+)%/);
+                    const pct = match ? parseInt(match[1]) : 50;
+                    return {
+                      ...f,
+                      banner_object_position: `center ${Math.max(0, pct - 10)}%`,
+                    };
+                  })
+                }
+              >
+                -10%
+              </button>
+              <button
+                type="button"
+                className="px-2 py-1.5 text-xs font-condensed font-700 tracking-wider rounded transition-all active:scale-95"
+                style={{
+                  backgroundColor: "var(--bg-elevated)",
+                  color: "var(--text)",
+                }}
+                onClick={() =>
+                  setEditForm((f: any) => {
+                    const current = f.banner_object_position || "center";
+                    const match = current.match(/^center\s+(\d+)%/);
+                    const pct = match ? parseInt(match[1]) : 50;
+                    return {
+                      ...f,
+                      banner_object_position: `center ${Math.min(100, pct + 10)}%`,
+                    };
+                  })
+                }
+              >
+                +10%
+              </button>
+            </div>
+          </div>
+        )}
+
         <button
           type="submit"
           disabled={saving}

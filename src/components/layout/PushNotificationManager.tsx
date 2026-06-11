@@ -150,17 +150,21 @@ export default function PushNotificationManager({
   }, []);
 
   useEffect(() => {
-    const shouldOpen = shouldShowPushNotificationPrompt({
-      publicKey,
-      subscribed,
-      permission,
-      dismissedUntil,
-      now: Date.now(),
-      pushSupported,
-      showUnsupportedPrompt: variant === "mobile",
-    });
+    const timer = setTimeout(() => {
+      const shouldOpen = shouldShowPushNotificationPrompt({
+        publicKey,
+        subscribed,
+        permission,
+        dismissedUntil,
+        now: Date.now(),
+        pushSupported,
+        showUnsupportedPrompt: false, // never auto-show full prompt on mobile
+      });
 
-    setPromptOpen(shouldOpen);
+      setPromptOpen(shouldOpen);
+    }, 8000); // wait 8s before showing prompt
+
+    return () => clearTimeout(timer);
   }, [dismissedUntil, permission, publicKey, pushSupported, subscribed, variant]);
 
   async function handleEnablePush() {
@@ -228,14 +232,15 @@ export default function PushNotificationManager({
 
   const overlayClassName =
     variant === "mobile"
-      ? "md:hidden fixed inset-0 z-[80] flex items-end justify-center bg-black/55 px-4 pb-6 pt-20"
-      : "hidden md:flex fixed inset-0 z-[80] items-center justify-center bg-black/55 px-4";
+      ? "md:hidden fixed inset-0 z-[80] flex items-end justify-center px-4 pb-6 pt-20"
+      : "hidden md:flex fixed inset-0 z-[80] items-center justify-center px-4";
+  const overlayBg = "color-mix(in srgb, var(--bg) 82%, transparent)";
 
   return (
     <>
       {button}
       {promptOpen && (
-        <div className={overlayClassName}>
+        <div className={overlayClassName} style={{ backgroundColor: overlayBg }}>
           <div
             className="w-full max-w-sm overflow-hidden"
             style={{

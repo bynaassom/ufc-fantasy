@@ -1,4 +1,5 @@
 import webpush from "web-push";
+import type { DbClient } from "@/types/database";
 import {
   buildNotificationContent,
   buildNotificationDedupeKey,
@@ -65,27 +66,27 @@ type PushSendResult = {
 
 export type NotificationServiceDeps = {
   createNotificationOnce: (
-    client: any,
+    client: DbClient,
     payload: Record<string, unknown>,
   ) => Promise<NotificationPayload | null>;
   listPushSubscriptionsForUsers: (
-    client: any,
+    client: DbClient,
     userIds: string[],
   ) => Promise<PushSubscriptionRow[]>;
   deletePushSubscriptionByEndpoint: (
-    client: any,
+    client: DbClient,
     endpoint: string,
   ) => Promise<void>;
   sendPush: (
     subscription: PushSubscriptionRow,
     payload: PushSendPayload,
   ) => Promise<PushSendResult>;
-  getCurrentEvent: (client: any) => Promise<NotificationEvent | null>;
+  getCurrentEvent: (client: DbClient) => Promise<NotificationEvent | null>;
   listActiveRecipients: (
-    client: any,
+    client: DbClient,
   ) => Promise<Array<{ id: string; is_banned?: boolean | null }>>;
   listConfirmedPickUsersForEvent: (
-    client: any,
+    client: DbClient,
     eventId: string,
   ) => Promise<Array<{ user_id: string; event_id: string; is_confirmed?: boolean | null }>>;
 };
@@ -181,7 +182,7 @@ function eventTargetPath(event: Pick<NotificationEvent, "slug">) {
 }
 
 export async function createNotificationsForUsers(
-  client: any,
+  client: DbClient,
   input: {
     userIds: string[];
     type: UfcNotificationType;
@@ -281,7 +282,7 @@ export async function createNotificationsForUsers(
 }
 
 export async function dispatchDuePickNotifications(
-  client: any,
+  client: DbClient,
   options: { now?: Date } = {},
   deps: NotificationServiceDeps = defaultDeps,
 ) {
@@ -351,7 +352,7 @@ export async function dispatchDuePickNotifications(
 }
 
 export async function notifyActiveUsers(
-  client: any,
+  client: DbClient,
   input: {
     type: UfcNotificationType;
     event: NotificationEvent;
@@ -374,7 +375,7 @@ export async function notifyActiveUsers(
 }
 
 export async function notifyBulkCardChanges(
-  client: any,
+  client: DbClient,
   input: {
     event: NotificationEvent;
     changeCount: number;

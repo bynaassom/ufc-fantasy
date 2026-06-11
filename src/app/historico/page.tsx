@@ -52,7 +52,7 @@ export default async function HistoricoPage() {
                 <Link
                   key={event.id}
                   href={`/historico/${event.slug}`}
-                  className="flex items-center justify-between px-5 py-4 transition-colors hover:bg-white/5"
+                  className="flex items-center justify-between px-5 py-4 transition-colors"
                   style={{
                     borderBottom:
                       i < historyEvents.length - 1

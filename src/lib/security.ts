@@ -57,4 +57,20 @@ export function applySecurityHeaders(headers: Headers) {
     "Permissions-Policy",
     "camera=(), microphone=(), geolocation=(), browsing-topics=()",
   );
+  headers.set(
+    "Content-Security-Policy",
+    [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "font-src 'self' https://fonts.gstatic.com data:",
+      "img-src 'self' data: blob: https:",
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.beta.ufc.com https://*.ufc.com.br https://*.ufc.com https://api.the-odds-api.com https://ufcstats.com https://www.ufcstats.com",
+      "frame-src 'none'",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "manifest-src 'self'",
+    ].join("; "),
+  );
 }

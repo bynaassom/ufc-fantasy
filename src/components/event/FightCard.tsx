@@ -328,7 +328,6 @@ export default function FightCard({
         {/* VS ilha */}
         <div
           className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 flex flex-col items-center justify-center gap-1.5"
-          style={{ pointerEvents: "none" }}
         >
           <div
             style={{
@@ -340,6 +339,7 @@ export default function FightCard({
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              pointerEvents: "none",
             }}
           >
             <span
@@ -359,12 +359,11 @@ export default function FightCard({
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
-              className="font-condensed font-700 uppercase flex items-center gap-0.5 transition-opacity hover:opacity-70"
+              className="font-condensed font-700 uppercase flex items-center gap-0.5 transition-opacity hover:opacity-70 min-tap"
               style={{
                 fontSize: "8px",
                 letterSpacing: "0.06em",
                 color: "var(--text-muted)",
-                pointerEvents: "all",
                 whiteSpace: "nowrap",
               }}
             >
@@ -394,77 +393,71 @@ export default function FightCard({
         nameB={fight.fighter_b.name}
       />
 
-      {/* Method + Round (apenas antes do resultado, com pick selecionado) */}
+      {/* Method + Round combinado (mobile-friendly) */}
       {!completed && selectedWinnerId && !locked && (
-        <>
-          <div
-            className="px-4 py-4 slide-down"
-            style={{ borderTop: "1px solid var(--border)" }}
+        <div
+          className="px-4 py-3 slide-down"
+          style={{ borderTop: "1px solid var(--border)" }}
+        >
+          <p
+            className="font-condensed font-700 text-xs uppercase tracking-widest mb-2"
+            style={{ color: "var(--text-secondary)" }}
           >
-            <p
-              className="font-condensed font-700 text-xs uppercase tracking-widest mb-3"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              Método de vitória
-            </p>
-            <div className="grid grid-cols-3 gap-2">
-              {METHODS.map((m) => (
+            Método e round
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {METHODS.map((m) => (
+              <button
+                key={m.value}
+                onClick={() => selectMethod(m.value)}
+                className="font-condensed font-900 text-xs uppercase tracking-widest transition-all hover:opacity-80"
+                style={{
+                  padding: selectedMethod === m.value ? "8px 14px" : "8px 14px",
+                  backgroundColor:
+                    selectedMethod === m.value
+                      ? "var(--red)"
+                      : "var(--bg-elevated)",
+                  color:
+                    selectedMethod === m.value
+                      ? "white"
+                      : "var(--text-secondary)",
+                  border: `1px solid ${selectedMethod === m.value ? "var(--red)" : "var(--border)"}`,
+                }}
+              >
+                {m.label}
+              </button>
+            ))}
+            {selectedMethod && selectedMethod !== "decision" && (
+              <span
+                className="inline-flex items-center px-2"
+                style={{ color: "var(--text-muted)" }}
+              >
+                —
+              </span>
+            )}
+            {selectedMethod && selectedMethod !== "decision" && (
+              rounds.map((r) => (
                 <button
-                  key={m.value}
-                  onClick={() => selectMethod(m.value)}
-                  className="py-3 font-condensed font-900 text-xs uppercase tracking-widest transition-all hover:opacity-80"
+                  key={r}
+                  onClick={() => selectRound(r)}
+                  className="font-condensed font-900 text-sm uppercase transition-all hover:opacity-80"
                   style={{
+                    padding: "8px 12px",
                     backgroundColor:
-                      selectedMethod === m.value
+                      selectedRound === r
                         ? "var(--red)"
                         : "var(--bg-elevated)",
                     color:
-                      selectedMethod === m.value
-                        ? "white"
-                        : "var(--text-secondary)",
-                    border: `1px solid ${selectedMethod === m.value ? "var(--red)" : "var(--border)"}`,
+                      selectedRound === r ? "white" : "var(--text-secondary)",
+                    border: `1px solid ${selectedRound === r ? "var(--red)" : "var(--border)"}`,
                   }}
                 >
-                  {m.label}
+                  R{r}
                 </button>
-              ))}
-            </div>
+              ))
+            )}
           </div>
-
-          {selectedMethod && selectedMethod !== "decision" && (
-            <div
-              className="px-4 py-4 slide-down"
-              style={{ borderTop: "1px solid var(--border)" }}
-            >
-              <p
-                className="font-condensed font-700 text-xs uppercase tracking-widest mb-3"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                Round
-              </p>
-              <div className="flex gap-2 flex-wrap">
-                {rounds.map((r) => (
-                  <button
-                    key={r}
-                    onClick={() => selectRound(r)}
-                    className="w-12 h-12 font-condensed font-900 text-sm uppercase transition-all hover:opacity-80"
-                    style={{
-                      backgroundColor:
-                        selectedRound === r
-                          ? "var(--red)"
-                          : "var(--bg-elevated)",
-                      color:
-                        selectedRound === r ? "white" : "var(--text-secondary)",
-                      border: `1px solid ${selectedRound === r ? "var(--red)" : "var(--border)"}`,
-                    }}
-                  >
-                    R{r}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </>
+        </div>
       )}
 
       {/* Pick summary — antes do resultado, pick completo */}

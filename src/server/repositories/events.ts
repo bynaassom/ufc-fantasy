@@ -1,4 +1,5 @@
 import { getPublicEventCutoffIso } from "@/lib/event-sequence";
+import type { DbClient } from "@/types/database";
 
 const EVENT_PUBLIC_FIELDS = `
   id,
@@ -7,6 +8,7 @@ const EVENT_PUBLIC_FIELDS = `
   event_date,
   location,
   banner_image_url,
+  banner_object_position,
   ufc_event_id,
   status,
   picks_lock_at,
@@ -47,7 +49,7 @@ const EVENT_WITH_FIGHTS_FIELDS = `
   )
 `;
 
-export async function getCurrentPublicEvent(client: any) {
+export async function getCurrentPublicEvent(client: DbClient) {
   const { data, error } = await client
     .from("events")
     .select(EVENT_PUBLIC_FIELDS)
@@ -61,7 +63,7 @@ export async function getCurrentPublicEvent(client: any) {
   return data;
 }
 
-export async function listRecentEvents(client: any, limit = 20) {
+export async function listRecentEvents(client: DbClient, limit = 20) {
   const { data, error } = await client
     .from("events")
     .select(EVENT_PUBLIC_FIELDS)
@@ -72,7 +74,7 @@ export async function listRecentEvents(client: any, limit = 20) {
   return data || [];
 }
 
-export async function listAdminEvents(client: any) {
+export async function listAdminEvents(client: DbClient) {
   const { data, error } = await client
     .from("events")
     .select(EVENT_PUBLIC_FIELDS)
@@ -82,7 +84,7 @@ export async function listAdminEvents(client: any) {
   return data || [];
 }
 
-export async function listUpcomingEvents(client: any, limit = 10) {
+export async function listUpcomingEvents(client: DbClient, limit = 10) {
   const { data, error } = await client
     .from("events")
     .select(EVENT_PUBLIC_FIELDS)
@@ -144,7 +146,7 @@ export async function findEventBySlugForPickValidation(client: any, slug: string
 export async function listCompletedEvents(client: any) {
   const { data, error } = await client
     .from("events")
-    .select("id, name, slug, event_date, location, banner_image_url")
+    .select("id, name, slug, event_date, location, banner_image_url, banner_object_position")
     .eq("status", "completed")
     .order("event_date", { ascending: false });
 
@@ -189,7 +191,7 @@ export async function createEvent(client: any, payload: Record<string, unknown>)
 }
 
 export async function updateEvent(
-  client: any,
+  client: DbClient,
   eventId: string,
   payload: Record<string, unknown>,
 ) {

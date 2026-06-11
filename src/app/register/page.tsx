@@ -150,6 +150,7 @@ export default function RegisterPage() {
               <input
                 minLength={3}
                 maxLength={20}
+                autoComplete="nickname"
                 value={form.nickname}
                 onChange={(e) => setForm({ ...form, nickname: e.target.value })}
                 placeholder="SeuNick123"
@@ -176,6 +177,7 @@ export default function RegisterPage() {
                 </label>
                 <input
                   required
+                  autoComplete="given-name"
                   value={form.first_name}
                   onChange={(e) =>
                     setForm({ ...form, first_name: e.target.value })
@@ -195,6 +197,7 @@ export default function RegisterPage() {
                 </label>
                 <input
                   required
+                  autoComplete="family-name"
                   value={form.last_name}
                   onChange={(e) =>
                     setForm({ ...form, last_name: e.target.value })
@@ -251,6 +254,7 @@ export default function RegisterPage() {
               <input
                 type="email"
                 required
+                autoComplete="email"
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 placeholder="seu@email.com"
@@ -271,6 +275,7 @@ export default function RegisterPage() {
                 type="password"
                 required
                 minLength={8}
+                autoComplete="new-password"
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
                 placeholder="Mínimo 8 caracteres"
@@ -290,6 +295,7 @@ export default function RegisterPage() {
               <input
                 type="password"
                 required
+                autoComplete="new-password"
                 value={form.confirm_password}
                 onChange={(e) =>
                   setForm({ ...form, confirm_password: e.target.value })

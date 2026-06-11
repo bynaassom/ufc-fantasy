@@ -10,6 +10,7 @@ import { getDisplayName, getDisplaySubtitle } from "@/lib/utils";
 import DivisionOnboardingModal from "./DivisionOnboardingModal";
 import NotificationBell from "./NotificationBell";
 import PushNotificationManager from "./PushNotificationManager";
+import ThemeToggle from "@/components/ui/ThemeToggle";
 
 interface NavbarProps {
   profile: Profile;
@@ -46,7 +47,10 @@ export default function Navbar({ profile }: NavbarProps) {
     ...(profile.role === "admin" ? [{ href: "/admin", label: "ADMIN" }] : []),
   ];
 
-  const isActive = (href: string) => pathname.startsWith(href);
+  const isActive = (href: string) => {
+    if (href === "/home") return pathname === href;
+    return pathname.startsWith(href + "/") || pathname === href;
+  };
   const logo = (
     <Image
       src="/logo-dark.svg"
@@ -104,6 +108,7 @@ export default function Navbar({ profile }: NavbarProps) {
           </div>
 
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             {profile && (
               <NotificationBell />
             )}
@@ -363,7 +368,7 @@ export default function Navbar({ profile }: NavbarProps) {
             <Link
               key={link.href}
               href={link.href}
-              className="flex flex-1 min-w-0 flex-col items-center gap-0.5 px-1 py-2"
+              className="flex flex-1 min-w-0 min-tap flex-col items-center gap-0.5 px-1 py-1"
               style={{
                 color: isActive(link.href) ? "var(--red)" : "var(--text-muted)",
                 touchAction: "manipulation",
@@ -380,34 +385,6 @@ export default function Navbar({ profile }: NavbarProps) {
             </Link>
           ))}
           <NotificationBell variant="mobile" />
-          <button
-            onClick={handleLogout}
-            className="flex flex-1 min-w-0 flex-col items-center gap-0.5 px-1 py-2"
-            style={{
-              color: "var(--text-muted)",
-              touchAction: "manipulation",
-              WebkitTapHighlightColor: "transparent",
-            }}
-          >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-            >
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-              <polyline points="16 17 21 12 16 7" />
-              <line x1="21" y1="12" x2="9" y2="12" />
-            </svg>
-            <span
-              className="font-condensed font-700 uppercase tracking-widest"
-              style={{ fontSize: "9px" }}
-            >
-              SAIR
-            </span>
-          </button>
         </div>
       </nav>
     </>

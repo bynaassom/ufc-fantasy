@@ -82,12 +82,16 @@ export default async function HomePage() {
                       alt={currentEvent.name}
                       fill
                       className="object-cover transition-transform duration-500 group-hover:scale-105"
+                      style={{
+                        objectPosition:
+                          currentEvent.banner_object_position || "center",
+                      }}
                     />
                     <div
                       className="absolute inset-0"
                       style={{
                         background:
-                          "linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.3) 60%, transparent 100%)",
+                          "linear-gradient(to top, color-mix(in srgb, var(--bg) 90%, transparent) 0%, color-mix(in srgb, var(--bg) 30%, transparent) 60%, transparent 100%)",
                       }}
                     />
                   </>
@@ -281,7 +285,7 @@ export default async function HomePage() {
                 <Link
                   key={event.id}
                   href={`/historico/${event.slug}`}
-                  className="flex items-center justify-between px-5 py-4 transition-colors hover:bg-white/5"
+                  className="flex items-center justify-between px-5 py-4 hover-bg-elevated"
                   style={{
                     borderBottom:
                       i < completedEvents.length - 1

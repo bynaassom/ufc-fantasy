@@ -61,6 +61,7 @@ CREATE TABLE events (
   event_date TIMESTAMPTZ NOT NULL,
   location TEXT,
   banner_image_url TEXT,
+  banner_object_position TEXT NOT NULL DEFAULT 'center',
   ufc_event_id TEXT UNIQUE,
   status event_status NOT NULL DEFAULT 'upcoming',
   picks_lock_at TIMESTAMPTZ GENERATED ALWAYS AS (event_date - INTERVAL '30 minutes') STORED,
