@@ -121,7 +121,7 @@ export default async function HistoricoEventoPage({
             <div className="flex items-center gap-3 mb-4">
               <div className="h-px flex-1" style={{ backgroundColor: "var(--border)" }} />
               <h2
-                className="text-sm font-black uppercase tracking-widest px-3 py-1 rounded"
+                className="text-sm font-black uppercase tracking-widest px-3 py-1"
                 style={{ backgroundColor: "var(--red)", color: "white" }}
               >
                 Card Principal
@@ -146,7 +146,7 @@ export default async function HistoricoEventoPage({
             <div className="flex items-center gap-3 mb-4">
               <div className="h-px flex-1" style={{ backgroundColor: "var(--border)" }} />
               <h2
-                className="text-sm font-black uppercase tracking-widest px-3 py-1 rounded"
+                className="text-sm font-black uppercase tracking-widest px-3 py-1"
                 style={{
                   backgroundColor: "var(--bg-card)",
                   color: "var(--text)",

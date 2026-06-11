@@ -182,7 +182,7 @@ export default function LiveFeed({ eventSlug }: { eventSlug: string }) {
             return (
               <div
                 key={entry.id}
-                className="flex items-start gap-3 p-3 rounded-lg animate-in fade-in slide-in-from-top-2 duration-300"
+                className="flex items-start gap-3 p-3 animate-in fade-in slide-in-from-top-2 duration-300"
                 style={{
                   backgroundColor: "var(--bg)",
                   border: "1px solid var(--border)",

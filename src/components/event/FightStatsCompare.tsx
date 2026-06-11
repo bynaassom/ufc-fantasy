@@ -63,7 +63,7 @@ function StatBar({
       </div>
       <div
         className="flex h-1.5 overflow-hidden"
-        style={{ backgroundColor: "var(--border)", borderRadius: "2px" }}
+        style={{ backgroundColor: "var(--border)" }}
       >
         <div
           style={{

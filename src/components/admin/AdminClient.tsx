@@ -1862,7 +1862,7 @@ function EventoEditar({
               POSIÇÃO DO BANNER
             </label>
             <div
-              className="relative w-full h-32 rounded overflow-hidden mb-2"
+              className="relative w-full h-32 overflow-hidden mb-2"
               style={{ backgroundColor: "var(--bg-card)" }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1876,7 +1876,7 @@ function EventoEditar({
             <div className="flex gap-2">
               <button
                 type="button"
-                className="px-3 py-1.5 text-xs font-condensed font-700 uppercase tracking-wider rounded transition-all active:scale-95"
+                className="px-3 py-1.5 text-xs font-condensed font-700 uppercase tracking-wider transition-all active:scale-95"
                 style={{
                   backgroundColor:
                     editForm.banner_object_position === "center top"
@@ -1897,7 +1897,7 @@ function EventoEditar({
               </button>
               <button
                 type="button"
-                className="px-3 py-1.5 text-xs font-condensed font-700 uppercase tracking-wider rounded transition-all active:scale-95"
+                className="px-3 py-1.5 text-xs font-condensed font-700 uppercase tracking-wider transition-all active:scale-95"
                 style={{
                   backgroundColor:
                     editForm.banner_object_position === "center"
@@ -1918,7 +1918,7 @@ function EventoEditar({
               </button>
               <button
                 type="button"
-                className="px-3 py-1.5 text-xs font-condensed font-700 uppercase tracking-wider rounded transition-all active:scale-95"
+                className="px-3 py-1.5 text-xs font-condensed font-700 uppercase tracking-wider transition-all active:scale-95"
                 style={{
                   backgroundColor:
                     editForm.banner_object_position === "center bottom"
@@ -1940,7 +1940,7 @@ function EventoEditar({
               <div className="flex-1" />
               <button
                 type="button"
-                className="px-2 py-1.5 text-xs font-condensed font-700 tracking-wider rounded transition-all active:scale-95"
+                className="px-2 py-1.5 text-xs font-condensed font-700 tracking-wider transition-all active:scale-95"
                 style={{
                   backgroundColor: "var(--bg-elevated)",
                   color: "var(--text)",
@@ -1962,7 +1962,7 @@ function EventoEditar({
               </button>
               <button
                 type="button"
-                className="px-2 py-1.5 text-xs font-condensed font-700 tracking-wider rounded transition-all active:scale-95"
+                className="px-2 py-1.5 text-xs font-condensed font-700 tracking-wider transition-all active:scale-95"
                 style={{
                   backgroundColor: "var(--bg-elevated)",
                   color: "var(--text)",

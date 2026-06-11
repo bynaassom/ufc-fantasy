@@ -69,7 +69,7 @@ function VerifyEmailContent() {
 
         {email && (
           <p
-            className="text-base font-bold mb-6 px-4 py-2 rounded-lg inline-block"
+            className="text-base font-bold mb-6 px-4 py-2 inline-block"
             style={{
               backgroundColor: "var(--bg-card)",
               color: "var(--red)",
@@ -81,7 +81,7 @@ function VerifyEmailContent() {
         )}
 
         <div
-          className="p-5 rounded-xl mb-6 text-left space-y-3"
+          className="p-5 mb-6 text-left space-y-3"
           style={{
             backgroundColor: "var(--bg-card)",
             border: "1px solid var(--border)",
@@ -120,7 +120,7 @@ function VerifyEmailContent() {
             <button
               onClick={handleResend}
               disabled={resending || !email}
-              className="px-6 py-2.5 rounded-lg text-sm font-bold transition-all hover:opacity-80 disabled:opacity-50"
+              className="px-6 py-2.5 text-sm font-bold transition-all hover:opacity-80 disabled:opacity-50"
               style={{ border: "2px solid var(--red)", color: "var(--red)" }}
             >
               {resending ? "Reenviando..." : "Reenviar email"}
@@ -128,7 +128,7 @@ function VerifyEmailContent() {
           </div>
         ) : (
           <div
-            className="mb-6 p-3 rounded-lg"
+            className="mb-6 p-3"
             style={{
               backgroundColor: "rgba(239,68,68,0.08)",
               border: "1px solid var(--red)",

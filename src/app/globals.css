@@ -200,7 +200,6 @@ body::before {
     width: 3px;
     height: 1.1rem;
     background-color: var(--red);
-    border-radius: 1px;
     flex-shrink: 0;
 }
 
@@ -215,7 +214,6 @@ body::before {
 }
 ::-webkit-scrollbar-thumb {
     background: var(--red);
-    border-radius: 2px;
 }
 
 /* ============================================================

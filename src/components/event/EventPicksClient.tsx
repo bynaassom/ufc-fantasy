@@ -173,7 +173,7 @@ export default function EventPicksClient({
       {/* Progress indicator */}
       {!locked && (
         <div
-          className="mb-6 p-4 rounded-xl flex items-center justify-between"
+          className="mb-6 p-4 flex items-center justify-between"
           style={{
             backgroundColor: "var(--bg-card)",
             border: "1px solid var(--border)",
@@ -198,7 +198,7 @@ export default function EventPicksClient({
           </div>
           {pendingPickEntries.length > 0 && (
             <span
-              className="text-xs font-semibold px-2 py-1 rounded"
+              className="text-xs font-semibold px-2 py-1"
               style={{
                 backgroundColor: "rgba(239,68,68,0.1)",
                 color: "var(--red)",
@@ -219,7 +219,7 @@ export default function EventPicksClient({
               style={{ backgroundColor: "var(--border)" }}
             />
             <h2
-              className="text-sm font-black uppercase tracking-widest px-3 py-1 rounded"
+              className="text-sm font-black uppercase tracking-widest px-3 py-1"
               style={{ backgroundColor: "var(--red)", color: "white" }}
             >
               Card Principal
@@ -253,7 +253,7 @@ export default function EventPicksClient({
               style={{ backgroundColor: "var(--border)" }}
             />
             <h2
-              className="text-sm font-black uppercase tracking-widest px-3 py-1 rounded"
+              className="text-sm font-black uppercase tracking-widest px-3 py-1"
               style={{
                 backgroundColor: "var(--bg-card)",
                 color: "var(--text)",
@@ -288,7 +288,7 @@ export default function EventPicksClient({
           <button
             onClick={handleConfirm}
             disabled={saving}
-            className="w-full py-4 rounded-xl font-black text-white text-base tracking-wide transition-all hover:opacity-90 active:scale-98 disabled:opacity-60 shadow-lg"
+            className="w-full py-4 font-black text-white text-base tracking-wide transition-all hover:opacity-90 active:scale-98 disabled:opacity-60 shadow-lg"
             style={{
               backgroundColor: "var(--red)",
               boxShadow: "0 4px 24px rgba(239,68,68,0.4)",
@@ -304,7 +304,7 @@ export default function EventPicksClient({
       {/* Locked / not open message */}
       {locked && !picksOpen && (
         <div
-          className="mt-6 p-5 rounded-xl text-center"
+          className="mt-6 p-5 text-center"
           style={{
             backgroundColor: "var(--bg-card)",
             border: "1px solid var(--red)",
@@ -337,7 +337,7 @@ export default function EventPicksClient({
       )}
       {locked && picksOpen && (
         <div
-          className="mt-6 p-5 rounded-xl text-center"
+          className="mt-6 p-5 text-center"
           style={{
             backgroundColor: "var(--bg-card)",
             border: "1px solid var(--border)",

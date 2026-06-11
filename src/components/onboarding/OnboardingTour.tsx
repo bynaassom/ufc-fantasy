@@ -67,7 +67,7 @@ export default function OnboardingTour({
       style={{ backgroundColor: "rgba(0,0,0,0.7)" }}
     >
       <div
-        className="w-full max-w-sm p-6 rounded-lg animate-in fade-in slide-in-from-bottom-4 duration-300"
+        className="w-full max-w-sm p-6 animate-in fade-in slide-in-from-bottom-4 duration-300"
         style={{
           backgroundColor: "var(--bg-card)",
           border: "1px solid var(--border)",

@@ -43,7 +43,7 @@ export default async function EventPage({ params }: EventPageProps) {
           <div className="flex items-center gap-2 mb-3">
             {event.status === "live" && (
               <span
-                className="flex items-center gap-1.5 text-xs font-bold px-2 py-1 rounded"
+                className="flex items-center gap-1.5 text-xs font-bold px-2 py-1"
                 style={{ backgroundColor: "var(--red)", color: "white" }}
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
@@ -52,7 +52,7 @@ export default async function EventPage({ params }: EventPageProps) {
             )}
             {!open && (
               <span
-                className="text-xs font-bold px-2 py-1 rounded"
+                className="text-xs font-bold px-2 py-1"
                 style={{
                   backgroundColor: "var(--bg-card)",
                   color: "var(--red)",
@@ -64,7 +64,7 @@ export default async function EventPage({ params }: EventPageProps) {
             )}
             {open && locked && event.status !== "live" && (
               <span
-                className="text-xs font-bold px-2 py-1 rounded"
+                className="text-xs font-bold px-2 py-1"
                 style={{
                   backgroundColor: "var(--bg-card)",
                   color: "var(--text-secondary)",
