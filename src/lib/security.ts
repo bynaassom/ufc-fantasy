@@ -1,5 +1,5 @@
 export const PROFILE_SELECT_FIELDS =
-  "id, nickname, first_name, last_name, role, is_banned, ban_reason, total_points, division, division_confirmed, created_at, updated_at";
+  "id, nickname, first_name, last_name, role, is_banned, ban_reason, total_points, division, division_confirmed, onboarding_completed, created_at, updated_at";
 
 const HOST_PROTOCOL_RULES: Record<string, string[]> = {
   "ufc.com": ["https:"],
