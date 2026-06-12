@@ -76,6 +76,7 @@ export default function EventPicksClient({
   }, [event.fights]);
 
   const pendingPickEntries = Object.entries(pendingPicks);
+  const pendingCount = pendingPickEntries.length;
 
   function handlePickChange(
     fightId: string,
@@ -97,7 +98,7 @@ export default function EventPicksClient({
 
   async function handleConfirm() {
     if (locked) return;
-    if (pendingPickEntries.length === 0) {
+    if (pendingCount === 0) {
       toast.error("Nenhum pick novo para salvar.");
       return;
     }
@@ -169,7 +170,14 @@ export default function EventPicksClient({
   }
 
   return (
-    <div>
+    <div
+      style={{
+        paddingBottom:
+          !locked && pendingCount > 0
+            ? "calc(7.75rem + env(safe-area-inset-bottom))"
+            : undefined,
+      }}
+    >
       {/* Progress indicator */}
       {!locked && (
         <div
@@ -196,7 +204,7 @@ export default function EventPicksClient({
               />
             </div>
           </div>
-          {pendingPickEntries.length > 0 && (
+          {pendingCount > 0 && (
             <span
               className="text-xs font-semibold px-2 py-1"
               style={{
@@ -204,7 +212,7 @@ export default function EventPicksClient({
                 color: "var(--red)",
               }}
             >
-              {pendingPickEntries.length} não salvo(s)
+              {pendingCount} não salvo(s)
             </span>
           )}
         </div>
@@ -283,21 +291,48 @@ export default function EventPicksClient({
       )}
 
       {/* Confirm button */}
-      {!locked && Object.keys(pendingPicks).length > 0 && (
-        <div className="sticky mt-6" style={{ bottom: "calc(3.5rem + env(safe-area-inset-bottom) + 0.75rem)" }}>
-          <button
-            onClick={handleConfirm}
-            disabled={saving}
-            className="w-full py-4 font-black text-white text-base tracking-wide transition-all hover:opacity-90 active:scale-98 disabled:opacity-60 shadow-lg"
-            style={{
-              backgroundColor: "var(--red)",
-              boxShadow: "0 4px 24px rgba(239,68,68,0.4)",
-            }}
-          >
-            {saving
-              ? "Salvando..."
-              : `CONFIRMAR ${Object.keys(pendingPicks).length} PICK(S)`}
-          </button>
+      {!locked && pendingCount > 0 && (
+        <div
+          className="fixed left-0 right-0 z-50 pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-[env(safe-area-inset-bottom)]"
+          style={{
+            bottom: 0,
+            backgroundColor: "var(--bg)",
+            borderTop: "1px solid var(--border)",
+            boxShadow: "0 -16px 40px rgba(0,0,0,0.28)",
+          }}
+        >
+          <div className="max-w-4xl mx-auto px-4 py-3">
+            <div className="flex items-center justify-between gap-4 mb-2">
+              <div className="min-w-0">
+                <p
+                  className="font-condensed font-900 text-xs uppercase tracking-widest"
+                  style={{ color: "var(--red)" }}
+                >
+                  Picks pendentes
+                </p>
+                <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>
+                  {pendingCount} alteração{pendingCount === 1 ? "" : "ões"} aguardando confirmação
+                </p>
+              </div>
+              <span
+                className="font-condensed font-900 text-xs uppercase tracking-widest px-2 py-1 flex-shrink-0"
+                style={{
+                  color: "var(--text-secondary)",
+                  border: "1px solid var(--border)",
+                }}
+              >
+                {pickedFights}/{totalFights}
+              </span>
+            </div>
+            <button
+              onClick={handleConfirm}
+              disabled={saving}
+              className="w-full py-4 font-condensed font-900 text-white text-sm uppercase tracking-widest transition-all hover:opacity-90 active:scale-98 disabled:opacity-60"
+              style={{ backgroundColor: "var(--red)" }}
+            >
+              {saving ? "SALVANDO..." : `CONFIRMAR ${pendingCount} PICK(S)`}
+            </button>
+          </div>
         </div>
       )}
 
