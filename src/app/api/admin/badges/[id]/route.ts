@@ -8,12 +8,17 @@ import { CACHE_TAGS } from "@/server/cache-tags";
 import { updateAdminBadge, deleteAdminBadge, getAdminBadge } from "@/server/services/badges";
 import { adminBadgePatchSchema } from "@/server/validators/admin";
 
-type Params = { params: { id: string } };
+type Params = { params: { id: string } | Promise<{ id: string }> };
+
+async function getBadgeId(params: Params["params"]) {
+  const resolved = await params;
+  return resolved.id;
+}
 
 export async function GET(_: NextRequest, { params }: Params) {
   try {
     const { adminSupabase } = await requireAdmin();
-    const badge = await getAdminBadge(adminSupabase, params.id);
+    const badge = await getAdminBadge(adminSupabase, await getBadgeId(params));
     if (!badge) return apiErrorFromUnknown(new Error("Badge não encontrado"));
     return apiSuccess({ badge });
   } catch (error) {
@@ -25,6 +30,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   try {
     assertSameOriginForMutation(request);
     const { adminSupabase } = await requireAdmin();
+    const badgeId = await getBadgeId(params);
     const body = await parseJsonBody(request, adminBadgePatchSchema);
 
     const updates: any = { ...body };
@@ -35,7 +41,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
         .replace(/^_|_$/g, "");
     }
 
-    const badge = await updateAdminBadge(adminSupabase, params.id, updates);
+    const badge = await updateAdminBadge(adminSupabase, badgeId, updates);
 
     revalidateTag(CACHE_TAGS.badges);
     revalidatePath("/admin");
@@ -51,7 +57,7 @@ export async function DELETE(request: NextRequest, { params }: Params) {
   try {
     assertSameOriginForMutation(request);
     const { adminSupabase } = await requireAdmin();
-    await deleteAdminBadge(adminSupabase, params.id);
+    await deleteAdminBadge(adminSupabase, await getBadgeId(params));
 
     revalidateTag(CACHE_TAGS.badges);
     revalidatePath("/admin");
