@@ -3,6 +3,7 @@ export type UfcNotificationType =
   | "challenge_accepted"
   | "challenge_declined"
   | "challenge_result"
+  | "badge_earned"
   | "picks_opened"
   | "picks_closing_tomorrow"
   | "picks_closing_today"
@@ -228,6 +229,13 @@ export function getDuePickReminderTypes({
   if (dayDiff === 1) return ["picks_closing_tomorrow"];
 
   return [];
+}
+
+export function buildBadgeNotificationContent(badgeName: string) {
+  return {
+    title: "Nova Conquista!",
+    message: `Você desbloqueou o badge "${badgeName}"`,
+  };
 }
 
 export function buildNotificationContent({

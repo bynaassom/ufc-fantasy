@@ -1,5 +1,7 @@
 import { listBadges, listUserBadges, awardBadge, createBadge, updateBadge, deleteBadge, getBadgeById } from "@/server/repositories/badges";
+import { createNotificationOnce } from "@/server/repositories/notifications";
 import { getPublicProfileStats } from "@/server/services/app";
+import { buildBadgeNotificationContent } from "@/lib/notifications";
 import type { Badge, BadgeWithStatus, PublicProfileStats } from "@/types";
 
 type BadgeCriteria = {
@@ -88,6 +90,17 @@ export async function evaluateAndGetBadges(
       if (result) {
         existingBadgeIds.add(badge.id);
         existingBySlug.set(badge.slug, result);
+
+        const content = buildBadgeNotificationContent(badge.name);
+        await createNotificationOnce(client, {
+          user_id: userId,
+          type: "badge_earned",
+          title: content.title,
+          message: content.message,
+          target_path: "/profile",
+          dedupe_key: `badge_earned:${badge.id}`,
+        });
+
         newlyAwarded.push(badge.slug);
       }
     }
