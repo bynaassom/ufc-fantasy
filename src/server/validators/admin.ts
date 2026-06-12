@@ -80,3 +80,13 @@ export const adminRoleToggleSchema = z.object({
 export const adminBanToggleSchema = z.object({
   currentBan: z.boolean(),
 });
+
+export const adminBadgeSchema = z.object({
+  name: z.string().min(1, "Nome é obrigatório"),
+  slug: z.string().min(1).regex(/^[a-z0-9_]+$/, "slug deve conter apenas letras minúsculas, números e underscore").optional(),
+  description: z.string().min(1, "Descrição é obrigatória"),
+  category: z.enum(["volume", "accuracy", "streak", "challenge", "special"]),
+  icon_name: z.string().min(1, "Ícone é obrigatório"),
+  tier: z.number().int().min(1).optional().default(1),
+  sort_order: z.number().int().min(0).optional().default(0),
+});

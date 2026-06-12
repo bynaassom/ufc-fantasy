@@ -1,6 +1,6 @@
-import { listBadges, listUserBadges, awardBadge } from "@/server/repositories/badges";
+import { listBadges, listUserBadges, awardBadge, createBadge, updateBadge, deleteBadge, getBadgeById } from "@/server/repositories/badges";
 import { getPublicProfileStats } from "@/server/services/app";
-import type { BadgeWithStatus, PublicProfileStats } from "@/types";
+import type { Badge, BadgeWithStatus, PublicProfileStats } from "@/types";
 
 type BadgeCriteria = {
   slug: string;
@@ -101,4 +101,51 @@ export async function evaluateAndGetBadges(
       unlocked_at: userBadge?.unlocked_at || undefined,
     };
   });
+}
+
+// Admin CRUD
+
+export async function createAdminBadge(
+  client: any,
+  data: {
+    name: string;
+    slug: string;
+    description: string;
+    category: string;
+    icon_name: string;
+    tier: number;
+    sort_order: number;
+  },
+): Promise<Badge> {
+  return createBadge(client, data);
+}
+
+export async function updateAdminBadge(
+  client: any,
+  id: string,
+  updates: Partial<{
+    name: string;
+    slug: string;
+    description: string;
+    category: string;
+    icon_name: string;
+    tier: number;
+    sort_order: number;
+  }>,
+): Promise<Badge> {
+  return updateBadge(client, id, updates);
+}
+
+export async function deleteAdminBadge(
+  client: any,
+  id: string,
+): Promise<void> {
+  await deleteBadge(client, id);
+}
+
+export async function getAdminBadge(
+  client: any,
+  id: string,
+): Promise<Badge | null> {
+  return getBadgeById(client, id);
 }

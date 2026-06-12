@@ -10,6 +10,17 @@ export async function listBadges(client: any): Promise<Badge[]> {
   return (data || []) as Badge[];
 }
 
+export async function getBadgeById(client: any, id: string): Promise<Badge | null> {
+  const { data, error } = await client
+    .from("badges")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data as Badge | null;
+}
+
 export async function listUserBadges(
   client: any,
   userId: string,
@@ -39,4 +50,62 @@ export async function awardBadge(
     throw error;
   }
   return data as UserBadge | null;
+}
+
+export async function createBadge(
+  client: any,
+  badge: {
+    name: string;
+    slug: string;
+    description: string;
+    category: string;
+    icon_name: string;
+    tier: number;
+    sort_order: number;
+  },
+): Promise<Badge> {
+  const { data, error } = await client
+    .from("badges")
+    .insert(badge)
+    .select("*")
+    .single();
+
+  if (error) throw error;
+  return data as Badge;
+}
+
+export async function updateBadge(
+  client: any,
+  id: string,
+  updates: Partial<{
+    name: string;
+    slug: string;
+    description: string;
+    category: string;
+    icon_name: string;
+    tier: number;
+    sort_order: number;
+  }>,
+): Promise<Badge> {
+  const { data, error } = await client
+    .from("badges")
+    .update(updates)
+    .eq("id", id)
+    .select("*")
+    .single();
+
+  if (error) throw error;
+  return data as Badge;
+}
+
+export async function deleteBadge(
+  client: any,
+  id: string,
+): Promise<void> {
+  const { error } = await client
+    .from("badges")
+    .delete()
+    .eq("id", id);
+
+  if (error) throw error;
 }
