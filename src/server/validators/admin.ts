@@ -87,6 +87,16 @@ export const adminBadgeSchema = z.object({
   description: z.string().min(1, "Descrição é obrigatória"),
   category: z.enum(["volume", "accuracy", "streak", "challenge", "special"]),
   icon_name: z.string().min(1, "Ícone é obrigatório"),
-  tier: z.number().int().min(1).optional().default(1),
-  sort_order: z.number().int().min(0).optional().default(0),
+  tier: z.number().int().min(1),
+  sort_order: z.number().int().min(0),
+});
+
+export const adminBadgePatchSchema = z.object({
+  name: z.string().min(1).optional(),
+  slug: z.string().min(1).regex(/^[a-z0-9_]+$/).optional(),
+  description: z.string().min(1).optional(),
+  category: z.enum(["volume", "accuracy", "streak", "challenge", "special"]).optional(),
+  icon_name: z.string().min(1).optional(),
+  tier: z.number().int().min(1).optional(),
+  sort_order: z.number().int().min(0).optional(),
 });

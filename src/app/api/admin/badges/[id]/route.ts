@@ -6,7 +6,7 @@ import { apiErrorFromUnknown, apiSuccess, assertSameOriginForMutation, parseJson
 import { requireAdmin } from "@/server/auth/guards";
 import { CACHE_TAGS } from "@/server/cache-tags";
 import { updateAdminBadge, deleteAdminBadge, getAdminBadge } from "@/server/services/badges";
-import { adminBadgeSchema } from "@/server/validators/admin";
+import { adminBadgePatchSchema } from "@/server/validators/admin";
 
 type Params = { params: { id: string } };
 
@@ -25,7 +25,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   try {
     assertSameOriginForMutation(request);
     const { adminSupabase } = await requireAdmin();
-    const body = await parseJsonBody(request, adminBadgeSchema.partial());
+    const body = await parseJsonBody(request, adminBadgePatchSchema);
 
     const updates: any = { ...body };
     if (body.name && !body.slug) {
