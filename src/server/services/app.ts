@@ -1029,7 +1029,7 @@ export async function saveMyEventPicks(
   return { savedCount: payload.length };
 }
 
-async function getPublicProfileStats(
+export async function getPublicProfileStats(
   client: any,
   profileId: string,
 ): Promise<PublicProfileStats> {

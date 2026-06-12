@@ -12,7 +12,9 @@ export default async function ProfilePage({
       ? "password"
       : searchParams.tab === "division"
         ? "division"
-        : "nickname";
+        : searchParams.tab === "badges"
+          ? "badges"
+          : "nickname";
 
   return <ProfileClient profile={profile} initialTab={tab} />;
 }

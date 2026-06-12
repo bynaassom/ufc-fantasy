@@ -265,3 +265,29 @@ export interface GroupWithMembers extends Group {
   members: GroupMember[];
   member_count: number;
 }
+
+export type BadgeCategory = "volume" | "accuracy" | "streak" | "challenge" | "special";
+
+export interface Badge {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  category: BadgeCategory;
+  icon_name: string;
+  tier: number;
+  sort_order: number;
+}
+
+export interface UserBadge {
+  id: string;
+  user_id: string;
+  badge_id: string;
+  unlocked_at: string;
+  badge?: Badge;
+}
+
+export interface BadgeWithStatus extends Badge {
+  unlocked: boolean;
+  unlocked_at?: string;
+}

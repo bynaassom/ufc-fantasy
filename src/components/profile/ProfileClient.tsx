@@ -12,17 +12,18 @@ import type { Profile } from "@/types";
 import type { MeResponse } from "@/types/api";
 import { createAuthClient } from "@/lib/supabase/client";
 import NotificationPreferences from "@/components/notifications/NotificationPreferences";
+import BadgeGrid from "@/components/badges/BadgeGrid";
 
 export default function ProfileClient({
   profile: initialProfile,
   initialTab,
 }: {
   profile: Profile;
-  initialTab: "nickname" | "division" | "password";
+  initialTab: "nickname" | "division" | "password" | "badges";
 }) {
   const [profile, setProfile] = useState(initialProfile);
   const [loading, setLoading] = useState(false);
-  const [tab, setTab] = useState<"nickname" | "division" | "password">(initialTab);
+  const [tab, setTab] = useState<"nickname" | "division" | "password" | "badges">(initialTab);
   const [nickname, setNickname] = useState(initialProfile.nickname);
   const [division, setDivision] = useState(initialProfile.division);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -187,19 +188,21 @@ export default function ProfileClient({
           </div>
         </div>
 
-        <div className="flex gap-0 mb-6" style={{ borderBottom: "1px solid var(--border)" }}>
-          {(["nickname", "division", "password"] as const).map((item) => (
+        <div className="flex gap-0 mb-6 overflow-x-auto" style={{ borderBottom: "1px solid var(--border)" }}>
+          {(["nickname", "division", "password", "badges"] as const).map((item) => (
             <button
               key={item}
               onClick={() => setTab(item)}
-              className="relative font-condensed font-700 text-xs uppercase tracking-widest px-6 py-2.5 transition-all"
+              className="relative font-condensed font-700 text-xs uppercase tracking-widest px-4 md:px-6 py-2.5 transition-all whitespace-nowrap"
               style={{ color: tab === item ? "var(--red)" : "var(--text-muted)" }}
             >
               {item === "nickname"
                 ? "Nickname"
                 : item === "division"
                   ? "Categoria"
-                  : "Senha"}
+                  : item === "password"
+                    ? "Senha"
+                    : "Conquistas"}
               {tab === item && (
                 <span
                   className="absolute bottom-0 left-0 right-0 h-0.5"
@@ -339,9 +342,20 @@ export default function ProfileClient({
           </form>
         )}
 
-        <div className="mt-12">
-          <NotificationPreferences />
-        </div>
+        {tab === "badges" && (
+          <div>
+            <div className="red-line mb-6">
+              <span className="section-title">CONQUISTAS</span>
+            </div>
+            <BadgeGrid />
+          </div>
+        )}
+
+        {tab !== "badges" && (
+          <div className="mt-12">
+            <NotificationPreferences />
+          </div>
+        )}
       </main>
     </div>
   );
