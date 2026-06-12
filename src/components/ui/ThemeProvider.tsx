@@ -48,17 +48,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const toggle = () => setThemeState((prev) => (prev === "dark" ? "light" : "dark"));
   const setTheme = (t: Theme) => setThemeState(t);
 
-  if (!mounted) {
-    return (
-      <div style={{ visibility: "hidden" }}>
-        {children}
-      </div>
-    );
-  }
-
   return (
     <ThemeContext.Provider value={{ theme, toggle, setTheme }}>
-      {children}
+      {mounted ? children : <div style={{ visibility: "hidden" }}>{children}</div>}
     </ThemeContext.Provider>
   );
 }

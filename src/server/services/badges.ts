@@ -145,7 +145,7 @@ export async function updateAdminBadge(
     tier: number;
     sort_order: number;
   }>,
-): Promise<Badge> {
+): Promise<Badge | null> {
   return updateBadge(client, id, updates);
 }
 

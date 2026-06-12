@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest } from "next/server";
 import { revalidatePath, revalidateTag } from "next/cache";
-import { apiErrorFromUnknown, apiSuccess, assertSameOriginForMutation, parseJsonBody } from "@/server/api";
+import { ApiRouteError, apiErrorFromUnknown, apiSuccess, assertSameOriginForMutation, parseJsonBody } from "@/server/api";
 import { requireAdmin } from "@/server/auth/guards";
 import { CACHE_TAGS } from "@/server/cache-tags";
 import { updateAdminBadge, deleteAdminBadge, getAdminBadge } from "@/server/services/badges";
@@ -19,7 +19,7 @@ export async function GET(_: NextRequest, { params }: Params) {
   try {
     const { adminSupabase } = await requireAdmin();
     const badge = await getAdminBadge(adminSupabase, await getBadgeId(params));
-    if (!badge) return apiErrorFromUnknown(new Error("Badge não encontrado"));
+    if (!badge) throw new ApiRouteError(404, "BADGE_NOT_FOUND", "Badge não encontrado.");
     return apiSuccess({ badge });
   } catch (error) {
     return apiErrorFromUnknown(error);
@@ -42,6 +42,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     }
 
     const badge = await updateAdminBadge(adminSupabase, badgeId, updates);
+    if (!badge) throw new ApiRouteError(404, "BADGE_NOT_FOUND", "Badge não encontrado.");
 
     revalidateTag(CACHE_TAGS.badges);
     revalidatePath("/admin");

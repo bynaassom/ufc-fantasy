@@ -86,16 +86,16 @@ export async function updateBadge(
     tier: number;
     sort_order: number;
   }>,
-): Promise<Badge> {
+): Promise<Badge | null> {
   const { data, error } = await client
     .from("badges")
     .update(updates)
     .eq("id", id)
     .select("*")
-    .single();
+    .maybeSingle();
 
   if (error) throw error;
-  return data as Badge;
+  return data as Badge | null;
 }
 
 export async function deleteBadge(
