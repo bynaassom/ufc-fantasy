@@ -64,7 +64,7 @@ export default async function LandingPage() {
               className="absolute inset-0 z-10"
               style={{
                 background:
-                  "linear-gradient(to right, color-mix(in srgb, var(--bg) 85%, transparent) 10%, color-mix(in srgb, var(--bg) 20%, transparent) 100%)",
+                  "linear-gradient(to right, var(--bg-overlay-85) 10%, var(--bg-overlay-20) 100%)",
               }}
             />
           </div>

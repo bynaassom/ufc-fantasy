@@ -21,32 +21,39 @@ CREATE TABLE IF NOT EXISTS group_members (
 ALTER TABLE groups ENABLE ROW LEVEL SECURITY;
 ALTER TABLE group_members ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "groups_select_own" ON groups;
 CREATE POLICY "groups_select_own" ON groups FOR SELECT USING (
   EXISTS (SELECT 1 FROM group_members WHERE group_members.group_id = groups.id AND group_members.user_id = auth.uid())
 );
 
+DROP POLICY IF EXISTS "groups_insert_own" ON groups;
 CREATE POLICY "groups_insert_own" ON groups FOR INSERT WITH CHECK (auth.uid() = created_by);
 
+DROP POLICY IF EXISTS "groups_update_admin" ON groups;
 CREATE POLICY "groups_update_admin" ON groups FOR UPDATE USING (
   EXISTS (SELECT 1 FROM group_members WHERE group_members.group_id = groups.id AND group_members.user_id = auth.uid() AND group_members.role = 'admin')
 );
 
+DROP POLICY IF EXISTS "groups_delete_admin" ON groups;
 CREATE POLICY "groups_delete_admin" ON groups FOR DELETE USING (
   EXISTS (SELECT 1 FROM group_members WHERE group_members.group_id = groups.id AND group_members.user_id = auth.uid() AND group_members.role = 'admin')
 );
 
+DROP POLICY IF EXISTS "group_members_select_own" ON group_members;
 CREATE POLICY "group_members_select_own" ON group_members FOR SELECT USING (
   auth.uid() = user_id
 );
 
+DROP POLICY IF EXISTS "group_members_insert_join" ON group_members;
 CREATE POLICY "group_members_insert_join" ON group_members FOR INSERT WITH CHECK (
   auth.uid() = user_id
 );
 
+DROP POLICY IF EXISTS "group_members_delete_own" ON group_members;
 CREATE POLICY "group_members_delete_own" ON group_members FOR DELETE USING (
   auth.uid() = user_id
 );
 
-CREATE INDEX idx_groups_invite_code ON groups(invite_code);
-CREATE INDEX idx_group_members_group_id ON group_members(group_id);
-CREATE INDEX idx_group_members_user_id ON group_members(user_id);
+CREATE INDEX IF NOT EXISTS idx_groups_invite_code ON groups(invite_code);
+CREATE INDEX IF NOT EXISTS idx_group_members_group_id ON group_members(group_id);
+CREATE INDEX IF NOT EXISTS idx_group_members_user_id ON group_members(user_id);

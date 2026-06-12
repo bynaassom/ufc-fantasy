@@ -22,6 +22,7 @@ export default async function ChallengeDetailPage({ params }: Props) {
       challenge={data.challenge as any}
       comparisons={data.comparisons}
       picksVisible={data.picksVisible}
+      nextEvent={data.nextEvent as any}
     />
   );
 }

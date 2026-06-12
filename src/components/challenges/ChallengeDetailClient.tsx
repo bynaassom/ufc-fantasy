@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import toast from "react-hot-toast";
 import Navbar from "@/components/layout/Navbar";
 import { getMethodLabel } from "@/lib/utils";
@@ -17,6 +18,7 @@ import type { ChallengeResponse } from "@/types/api";
 
 type ChallengeView = Challenge & {
   event: {
+    id: string;
     name: string;
     slug: string;
     picks_lock_at: string;
@@ -57,13 +59,8 @@ function getWinnerName(fight: FightWithFighters, winnerId: string) {
 
 function renderPickSummary(pick: Pick | null | undefined, fight: FightWithFighters) {
   if (!pick) {
-    return {
-      primary: "Sem pick",
-      secondary: "Nenhuma escolha registrada",
-      points: 0,
-    };
+    return { primary: "Sem pick", secondary: "Nenhuma escolha registrada", points: 0 };
   }
-
   return {
     primary: getWinnerName(fight, pick.picked_winner_id),
     secondary: `${getMethodLabel(pick.picked_method)} · R${pick.picked_round}`,
@@ -80,14 +77,11 @@ function FightComparisonRow({
   challengerName: string;
   challengedName: string;
 }) {
-  const challengerPick = renderPickSummary(
-    comparison.challengerPick || null,
-    comparison.fight,
-  );
-  const challengedPick = renderPickSummary(
-    comparison.challengedPick || null,
-    comparison.fight,
-  );
+  const challengerPick = renderPickSummary(comparison.challengerPick || null, comparison.fight);
+  const challengedPick = renderPickSummary(comparison.challengedPick || null, comparison.fight);
+
+  const challengerWon = challengerPick.points > challengedPick.points;
+  const challengedWon = challengedPick.points > challengerPick.points;
 
   return (
     <div
@@ -124,12 +118,19 @@ function FightComparisonRow({
           className="p-4"
           style={{
             backgroundColor: "var(--bg-elevated)",
-            border: "1px solid var(--border)",
+            border: `1px solid ${challengerWon ? "#22c55e" : "var(--border)"}`,
           }}
         >
-          <p className="text-xs uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
-            {challengerName}
-          </p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
+              {challengerName}
+            </p>
+            {challengerWon && (
+              <span className="text-[10px] font-condensed font-900 uppercase tracking-widest text-white px-1.5 py-0.5" style={{ backgroundColor: "#22c55e" }}>
+                +1
+              </span>
+            )}
+          </div>
           <p
             className="font-condensed font-900 text-lg uppercase tracking-wide mt-2"
             style={{ color: "var(--text)" }}
@@ -140,7 +141,7 @@ function FightComparisonRow({
             {challengerPick.secondary}
           </p>
           <p className="text-xs mt-3" style={{ color: "var(--red)" }}>
-            {challengerPick.points} ponto(s) nesta luta
+            {challengerPick.points} pts
           </p>
         </div>
 
@@ -157,12 +158,19 @@ function FightComparisonRow({
           className="p-4"
           style={{
             backgroundColor: "var(--bg-elevated)",
-            border: "1px solid var(--border)",
+            border: `1px solid ${challengedWon ? "#22c55e" : "var(--border)"}`,
           }}
         >
-          <p className="text-xs uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
-            {challengedName}
-          </p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
+              {challengedName}
+            </p>
+            {challengedWon && (
+              <span className="text-[10px] font-condensed font-900 uppercase tracking-widest text-white px-1.5 py-0.5" style={{ backgroundColor: "#22c55e" }}>
+                +1
+              </span>
+            )}
+          </div>
           <p
             className="font-condensed font-900 text-lg uppercase tracking-wide mt-2"
             style={{ color: "var(--text)" }}
@@ -173,7 +181,7 @@ function FightComparisonRow({
             {challengedPick.secondary}
           </p>
           <p className="text-xs mt-3" style={{ color: "var(--red)" }}>
-            {challengedPick.points} ponto(s) nesta luta
+            {challengedPick.points} pts
           </p>
         </div>
       </div>
@@ -187,17 +195,62 @@ export default function ChallengeDetailClient({
   challenge,
   comparisons,
   picksVisible,
+  nextEvent,
 }: {
   profile: Profile;
   userId: string;
   challenge: ChallengeView;
   comparisons: ChallengeFightComparison[];
   picksVisible: boolean;
+  nextEvent: { id: string; name: string; slug: string; picks_lock_at: string } | null;
 }) {
   const router = useRouter();
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
-  const isIncomingPending =
-    challenge.challenged_id === userId && challenge.status === "pending";
+  const [rematching, setRematching] = useState(false);
+  const isIncomingPending = challenge.challenged_id === userId && challenge.status === "pending";
+  const isDone = challenge.status === "completed" || challenge.status === "declined" || challenge.status === "expired";
+  const isCompleted = challenge.status === "completed";
+  const isUserChallenger = challenge.challenger_id === userId;
+  const isUserWinner = challenge.winner_user_id === userId;
+  const opponentId = isUserChallenger ? challenge.challenged_id : challenge.challenger_id;
+
+  const { fightRecords, challengerFightWins, challengedFightWins } = useMemo(() => {
+    if (!picksVisible) {
+      return { fightRecords: [], challengerFightWins: 0, challengedFightWins: 0 };
+    }
+    let cWins = 0;
+    let dWins = 0;
+    const records = comparisons.map((c) => {
+      const cPts = (c.challengerPick as Pick | null)?.total_points || 0;
+      const dPts = (c.challengedPick as Pick | null)?.total_points || 0;
+      const cWon = cPts > dPts;
+      const dWon = dPts > cPts;
+      if (cWon) cWins++;
+      if (dWon) dWins++;
+      return { fight: c.fight, challengerPts: cPts, challengedPts: dPts, challengerWon: cWon, challengedWon: dWon };
+    });
+    return { fightRecords: records, challengerFightWins: cWins, challengedFightWins: dWins };
+  }, [comparisons, picksVisible]);
+
+  async function handleRematch() {
+    if (!nextEvent) return;
+    setRematching(true);
+    try {
+      await readApiResponse<ChallengeResponse>(
+        await fetch("/api/challenges", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ challengedId: opponentId, eventId: nextEvent.id }),
+        }),
+      );
+      toast.success("Rematch enviado!");
+      router.push("/desafios");
+    } catch (error: any) {
+      toast.error(error.message || "Não foi possível criar o rematch.");
+    } finally {
+      setRematching(false);
+    }
+  }
 
   async function handleRespond(action: "accept" | "decline") {
     setLoadingAction(action);
@@ -209,10 +262,7 @@ export default function ChallengeDetailClient({
           body: JSON.stringify({ action }),
         }),
       );
-
-      toast.success(
-        action === "accept" ? "Desafio aceito!" : "Desafio recusado.",
-      );
+      toast.success(action === "accept" ? "Desafio aceito!" : "Desafio recusado.");
       router.refresh();
     } catch (error: any) {
       toast.error(error.message || "Não foi possível responder ao desafio.");
@@ -221,58 +271,81 @@ export default function ChallengeDetailClient({
     }
   }
 
+  const challengerName = challenge.challenger?.nickname || "Desafiante";
+  const challengedName = challenge.challenged?.nickname || "Desafiado";
+  const isLeading = challenge.leader_user_id
+    ? isUserChallenger
+      ? challenge.leader_user_id === challenge.challenger_id
+      : challenge.leader_user_id === challenge.challenged_id
+    : null;
+
   return (
     <div className="min-h-screen pb-24 md:pb-10" style={{ backgroundColor: "var(--bg)" }}>
       <Navbar profile={profile} />
 
       <main className="max-w-5xl mx-auto px-4 py-8">
+        {/* Header */}
         <div className="mb-8 pb-6" style={{ borderBottom: "1px solid var(--border)" }}>
-          <p
-            className="font-condensed font-700 text-xs uppercase tracking-widest"
-            style={{ color: "var(--text-secondary)" }}
-          >
+          <p className="font-condensed font-700 text-xs uppercase tracking-widest" style={{ color: "var(--text-secondary)" }}>
             {challenge.event.name}
           </p>
-          <div className="grid md:grid-cols-[1fr_auto_1fr] gap-4 items-center mt-3">
-            <div>
-              <p
-                className="font-condensed font-900 text-3xl uppercase tracking-wide"
-                style={{ color: "var(--text)" }}
-              >
-                {challenge.challenger?.nickname || "Desafiante"}
+
+          {/* Scoreboard */}
+          <div className="grid grid-cols-3 gap-3 mt-4 items-stretch">
+            <div className="p-4 flex flex-col justify-center" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}>
+              <p className="font-condensed font-700 text-xs uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
+                {challengerName}
               </p>
-              <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
-                {challenge.challenger_points} ponto(s)
+              <p className="font-condensed font-900 text-3xl mt-1" style={{ color: "var(--text)" }}>
+                {challenge.challenger_points}
               </p>
+              {picksVisible && (
+                <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
+                  {challengerFightWins} luta(s)
+                </p>
+              )}
             </div>
-            <div className="text-center">
-              <p
-                className="font-condensed font-900 text-4xl uppercase"
-                style={{ color: "var(--red)" }}
-              >
+
+            <div className="flex flex-col items-center justify-center gap-2">
+              <p className="font-condensed font-900 text-3xl uppercase" style={{ color: "var(--red)" }}>
                 VS
               </p>
               <span
-                className="inline-block mt-2 px-2 py-1 text-xs font-condensed font-900 uppercase tracking-widest"
-                style={{
-                  backgroundColor: "var(--bg-elevated)",
-                  color: "var(--text)",
-                  border: "1px solid var(--border)",
-                }}
+                className="inline-block px-2 py-1 text-xs font-condensed font-900 uppercase tracking-widest"
+                style={{ backgroundColor: "var(--bg-elevated)", color: "var(--text)", border: "1px solid var(--border)" }}
               >
                 {getStatusLabel(challenge.status)}
               </span>
+              {isCompleted && challenge.leader_user_id && (
+                <span
+                  className="inline-block px-2 py-1 text-xs font-condensed font-900 uppercase tracking-widest text-white"
+                  style={{ backgroundColor: isUserWinner ? "#22c55e" : "var(--red)" }}
+                >
+                  {isUserWinner ? "VOCÊ VENCEU" : "DERROTA"}
+                </span>
+              )}
+              {!isDone && challenge.status !== "pending" && challenge.leader_user_id && (
+                <span
+                  className="inline-block px-2 py-1 text-xs font-condensed font-900 uppercase tracking-widest text-white"
+                  style={{ backgroundColor: isLeading ? "#22c55e" : "var(--text-muted)" }}
+                >
+                  {isLeading ? "VENCENDO" : "PERDENDO"}
+                </span>
+              )}
             </div>
-            <div className="md:text-right">
-              <p
-                className="font-condensed font-900 text-3xl uppercase tracking-wide"
-                style={{ color: "var(--text)" }}
-              >
-                {challenge.challenged?.nickname || "Desafiado"}
+
+            <div className="p-4 flex flex-col justify-center md:text-right" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}>
+              <p className="font-condensed font-700 text-xs uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
+                {challengedName}
               </p>
-              <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
-                {challenge.challenged_points} ponto(s)
+              <p className="font-condensed font-900 text-3xl mt-1" style={{ color: "var(--text)" }}>
+                {challenge.challenged_points}
               </p>
+              {picksVisible && (
+                <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
+                  {challengedFightWins} luta(s)
+                </p>
+              )}
             </div>
           </div>
 
@@ -290,30 +363,34 @@ export default function ChallengeDetailClient({
                 onClick={() => handleRespond("decline")}
                 disabled={loadingAction === "decline"}
                 className="px-5 py-3 font-condensed font-900 text-sm uppercase tracking-widest"
-                style={{
-                  backgroundColor: "var(--bg-card)",
-                  color: "var(--text)",
-                  border: "1px solid var(--border)",
-                }}
+                style={{ backgroundColor: "var(--bg-card)", color: "var(--text)", border: "1px solid var(--border)" }}
               >
                 {loadingAction === "decline" ? "Recusando..." : "Recusar"}
               </button>
             </div>
           )}
+
+          {isDone && nextEvent && (
+            <div className="mt-6">
+              <button
+                onClick={handleRematch}
+                disabled={rematching}
+                className="px-5 py-3 font-condensed font-900 text-sm uppercase tracking-widest text-white disabled:opacity-60"
+                style={{ backgroundColor: "var(--red)" }}
+              >
+                {rematching ? "Enviando..." : `Rematch para ${nextEvent.name}`}
+              </button>
+              <p className="text-xs mt-2" style={{ color: "var(--text-secondary)" }}>
+                Desafie {challenge.challenger?.nickname || challenge.challenged?.nickname || "seu oponente"} novamente
+              </p>
+            </div>
+          )}
         </div>
 
+        {/* Fight comparisons */}
         {!picksVisible ? (
-          <div
-            className="p-6 text-center"
-            style={{
-              backgroundColor: "var(--bg-card)",
-              border: "1px solid var(--border)",
-            }}
-          >
-            <p
-              className="font-condensed font-900 text-sm uppercase tracking-wide"
-              style={{ color: "var(--text)" }}
-            >
+          <div className="p-6 text-center" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}>
+            <p className="font-condensed font-900 text-sm uppercase tracking-wide" style={{ color: "var(--text)" }}>
               Picks lado a lado liberam após o fechamento
             </p>
             <p className="text-sm mt-2" style={{ color: "var(--text-secondary)" }}>
@@ -323,16 +400,62 @@ export default function ChallengeDetailClient({
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {comparisons.map((comparison) => (
-              <FightComparisonRow
-                key={comparison.fight.id}
-                comparison={comparison}
-                challengerName={challenge.challenger?.nickname || "Desafiante"}
-                challengedName={challenge.challenged?.nickname || "Desafiado"}
-              />
-            ))}
-          </div>
+          <>
+            <div className="space-y-4">
+              {comparisons.map((comparison, idx) => (
+                <div key={comparison.fight.id}>
+                  <FightComparisonRow
+                    comparison={comparison}
+                    challengerName={challengerName}
+                    challengedName={challengedName}
+                  />
+                  {/* Running score */}
+                  <div className="flex items-center justify-end gap-2 mt-1 mb-4 px-1">
+                    <span className="text-[10px] font-condensed font-700 uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
+                      Placar parcial: {challengerName} {fightRecords[idx]?.challengerWon ? "+1" : ""}
+                    </span>
+                    <span className="text-xs font-condensed font-900" style={{ color: "var(--text)" }}>
+                      {fightRecords.slice(0, idx + 1).filter((r) => r.challengerWon).length} x {fightRecords.slice(0, idx + 1).filter((r) => r.challengedWon).length}
+                    </span>
+                    <span className="text-[10px] font-condensed font-700 uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
+                      {challengedName} {fightRecords[idx]?.challengedWon ? "+1" : ""}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Summary */}
+            <div className="mt-8 p-5" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderLeft: "3px solid var(--red)" }}>
+              <p className="font-condensed font-900 text-sm uppercase tracking-wide" style={{ color: "var(--text)" }}>
+                Sumário do confronto
+              </p>
+              <div className="grid grid-cols-2 gap-4 mt-4">
+                <div className="p-3" style={{ backgroundColor: "var(--bg-elevated)" }}>
+                  <p className="font-condensed font-700 text-xs uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
+                    {challengerName}
+                  </p>
+                  <p className="font-condensed font-900 text-xl mt-1" style={{ color: "var(--text)" }}>
+                    {challenge.challenger_points} pts
+                  </p>
+                  <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
+                    {challengerFightWins} lutas vencidas
+                  </p>
+                </div>
+                <div className="p-3 text-right" style={{ backgroundColor: "var(--bg-elevated)" }}>
+                  <p className="font-condensed font-700 text-xs uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
+                    {challengedName}
+                  </p>
+                  <p className="font-condensed font-900 text-xl mt-1" style={{ color: "var(--text)" }}>
+                    {challenge.challenged_points} pts
+                  </p>
+                  <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
+                    {challengedFightWins} lutas vencidas
+                  </p>
+                </div>
+              </div>
+            </div>
+          </>
         )}
       </main>
     </div>

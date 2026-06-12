@@ -168,3 +168,10 @@ export type AdminFightResultPayload = {
   method: FightMethod;
   round: number;
 };
+
+export type HomeChallenge = {
+  id: string;
+  status: Challenge["status"];
+  event: { id: string; name: string; slug: string } | null;
+  opponent: PublicProfileSummary | null;
+};

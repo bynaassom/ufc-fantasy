@@ -11,11 +11,12 @@ import { getHomePageData } from "@/server/services/app";
 import type { Event as FantasyEvent } from "@/types";
 import HomeWithTour from "@/components/onboarding/HomeWithTour";
 import ActivityFeed from "@/components/feed/ActivityFeed";
+import HomeChallenges from "@/components/challenges/HomeChallenges";
 
 export const revalidate = 60; // revalida a cada 60s
 
 export default async function HomePage() {
-  const { profile, currentEvent, upcomingEvents, completedEvents } =
+  const { profile, userId, currentEvent, upcomingEvents, completedEvents, activeChallenges } =
     await getHomePageData();
 
   return (
@@ -94,7 +95,7 @@ export default async function HomePage() {
                       className="absolute inset-0"
                       style={{
                         background:
-                          "linear-gradient(to top, color-mix(in srgb, var(--bg) 90%, transparent) 0%, color-mix(in srgb, var(--bg) 30%, transparent) 60%, transparent 100%)",
+                          "linear-gradient(to top, var(--bg-overlay-90) 0%, var(--bg-overlay-30) 60%, transparent 100%)",
                       }}
                     />
                   </>
@@ -216,6 +217,11 @@ export default async function HomePage() {
           currentEvent={currentEvent}
           upcomingEvents={upcomingEvents}
           completedEvents={completedEvents}
+        />
+
+        <HomeChallenges
+          challenges={activeChallenges}
+          userId={userId}
         />
 
         {/* Upcoming */}

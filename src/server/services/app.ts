@@ -10,6 +10,7 @@ import type {
   NotificationPreferences,
   Profile,
   PublicProfileStats,
+  PublicProfileSummary,
 } from "@/types";
 import {
   COMPETITIVE_DIVISIONS,
@@ -100,7 +101,12 @@ import {
 import {
   createNotificationsForUsers,
   notifyActiveUsers,
+  sendBrowserPush,
 } from "@/server/services/notifications";
+import {
+  deletePushSubscriptionByEndpoint,
+  listPushSubscriptionsForUsers,
+} from "@/server/repositories/push-subscriptions";
 import { completeEventIfAllResultsConfirmed } from "@/server/services/event-lifecycle";
 import {
   requireAdminPageProfile,
@@ -366,7 +372,7 @@ async function createChallengeNotification(
     targetPath: string;
   },
 ) {
-  return createNotification(client, {
+  const notification = await createNotification(client, {
     user_id: payload.userId,
     type: payload.type,
     title: payload.title,
@@ -374,6 +380,26 @@ async function createChallengeNotification(
     challenge_id: payload.challengeId,
     target_path: payload.targetPath,
   });
+
+  try {
+    const subscriptions = await listPushSubscriptionsForUsers(client, [payload.userId]);
+    for (const sub of subscriptions) {
+      const result = await sendBrowserPush(sub, {
+        title: payload.title,
+        body: payload.message,
+        targetPath: payload.targetPath,
+        tag: `challenge:${payload.challengeId}`,
+        type: payload.type as any,
+      });
+      if (result.removeSubscription) {
+        await deletePushSubscriptionByEndpoint(client, sub.endpoint).catch(() => {});
+      }
+    }
+  } catch (_error) {
+    console.error("Failed to send push for challenge notification:", _error);
+  }
+
+  return notification;
 }
 
 async function resolveChallengeLifecycle(client: any, challenge: ChallengeRow) {
@@ -576,7 +602,7 @@ export async function getLandingPageData() {
 }
 
 export async function getHomePageData() {
-  const { profile } = await requirePageUserProfile();
+  const { profile, user } = await requirePageUserProfile();
   const [cachedCurrentEvent, rawUpcomingEvents, completedEvents] = await Promise.all([
     getCachedCurrentPublicEvent(),
     getCachedUpcomingEvents(10),
@@ -592,11 +618,41 @@ export async function getHomePageData() {
     (event) => event.status === "upcoming" && event.id !== currentEvent?.id,
   );
 
+  const adminSupabase = await getAdminSupabase();
+  const rawChallenges = (await listChallengesForUser(adminSupabase, user.id)) as ChallengeRow[];
+
+  const activeChallengeRows = rawChallenges
+    .filter(
+      (c) =>
+        (c.status === "pending" && c.challenged_id === user.id) ||
+        c.status === "accepted",
+    )
+    .slice(0, 5);
+
+  const profileIds = Array.from(
+    new Set(activeChallengeRows.flatMap((c) => [c.challenger_id, c.challenged_id])),
+  );
+  const profiles = await findPublicProfilesByIds(adminSupabase, profileIds);
+  const profileMap = new Map(
+    profiles.map((p: any) => [String(p.id), p as RankingProfileRow]),
+  );
+
   return {
     profile,
+    userId: user.id,
     currentEvent,
     upcomingEvents,
     completedEvents: completedEvents.slice(0, 3),
+    activeChallenges: activeChallengeRows.map((c) => ({
+      id: c.id,
+      status: c.status,
+      event: c.event
+        ? { id: c.event.id, name: c.event.name, slug: c.event.slug }
+        : null,
+      opponent: (profileMap.get(
+        c.challenger_id === user.id ? c.challenged_id : c.challenger_id,
+      ) as PublicProfileSummary | undefined) || null,
+    })),
   };
 }
 
@@ -1353,6 +1409,7 @@ export async function getChallengeDetailPageData(challengeId: string) {
       challenge: null,
       comparisons: [],
       picksVisible: false,
+      nextEvent: null,
     };
   }
 
@@ -1404,12 +1461,34 @@ export async function getChallengeDetailPageData(challengeId: string) {
       }));
   }
 
+  const isCompletable =
+    challenge.status === "completed" ||
+    challenge.status === "declined" ||
+    challenge.status === "expired";
+
+  let nextEvent: { id: string; name: string; slug: string; picks_lock_at: string } | null = null;
+  if (isCompletable && challenge.event) {
+    const upcomingEvents = await listUpcomingEvents(adminSupabase, 5);
+    const nextUpcoming = upcomingEvents.find(
+      (e: any) => e.id !== challenge.event_id,
+    );
+    if (nextUpcoming) {
+      nextEvent = {
+        id: nextUpcoming.id,
+        name: nextUpcoming.name,
+        slug: nextUpcoming.slug,
+        picks_lock_at: nextUpcoming.picks_lock_at,
+      };
+    }
+  }
+
   return {
     profile,
     userId: user.id,
     challenge,
     comparisons,
     picksVisible,
+    nextEvent,
   };
 }
 

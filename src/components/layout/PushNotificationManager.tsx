@@ -234,7 +234,7 @@ export default function PushNotificationManager({
     variant === "mobile"
       ? "md:hidden fixed inset-0 z-[80] flex items-end justify-center px-4 pb-6 pt-20"
       : "hidden md:flex fixed inset-0 z-[80] items-center justify-center px-4";
-  const overlayBg = "color-mix(in srgb, var(--bg) 82%, transparent)";
+  const overlayBg = "var(--bg-overlay-82)";
 
   return (
     <>

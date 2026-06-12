@@ -23,6 +23,12 @@
     --border-light: #1f1f1f;
     --bg-glow: rgba(34, 34, 34, 0.5);
     --bg-grid: rgba(42, 42, 42, 0.15);
+    --bg-overlay-90: rgba(13, 13, 13, 0.9);
+    --bg-overlay-85: rgba(13, 13, 13, 0.85);
+    --bg-overlay-82: rgba(13, 13, 13, 0.82);
+    --bg-overlay-45: rgba(13, 13, 13, 0.45);
+    --bg-overlay-30: rgba(13, 13, 13, 0.3);
+    --bg-overlay-20: rgba(13, 13, 13, 0.2);
 }
 
 /* ============================================================
@@ -41,6 +47,12 @@
     --border-light: #e0e0d8;
     --bg-glow: rgba(240, 240, 235, 0.6);
     --bg-grid: rgba(180, 180, 160, 0.2);
+    --bg-overlay-90: rgba(245, 245, 240, 0.9);
+    --bg-overlay-85: rgba(245, 245, 240, 0.85);
+    --bg-overlay-82: rgba(245, 245, 240, 0.82);
+    --bg-overlay-45: rgba(245, 245, 240, 0.45);
+    --bg-overlay-30: rgba(245, 245, 240, 0.3);
+    --bg-overlay-20: rgba(245, 245, 240, 0.2);
 }
 
 * {
