@@ -436,6 +436,55 @@ async function resolveChallengeLifecycle(client: any, challenge: ChallengeRow) {
       winner_user_id: winnerUserId,
       completed_at: new Date().toISOString(),
     });
+
+    const profiles = (await findPublicProfilesByIds(client, [
+      challenge.challenger_id,
+      challenge.challenged_id,
+    ])) as RankingProfileRow[];
+    const profileMap = new Map(profiles.map((p) => [String(p.id), p]));
+    const challengerName = profileMap.get(challenge.challenger_id)?.nickname || "Desafiante";
+    const challengedName = profileMap.get(challenge.challenged_id)?.nickname || "Desafiado";
+
+    if (winnerUserId) {
+      const loserUserId = winnerUserId === challenge.challenger_id
+        ? challenge.challenged_id
+        : challenge.challenger_id;
+      const loserName = winnerUserId === challenge.challenger_id ? challengedName : challengerName;
+      await createChallengeNotification(client, {
+        userId: winnerUserId,
+        type: "challenge_result",
+        title: "Você venceu o desafio!",
+        message: `Parabéns! Você venceu o desafio contra ${loserName}.`,
+        challengeId: challenge.id,
+        targetPath: `/desafios/${challenge.id}`,
+      });
+      await createChallengeNotification(client, {
+        userId: loserUserId,
+        type: "challenge_result",
+        title: "Derrota no desafio",
+        message: `Você perdeu o desafio para ${profileMap.get(winnerUserId as string)?.nickname || "seu oponente"}.`,
+        challengeId: challenge.id,
+        targetPath: `/desafios/${challenge.id}`,
+      });
+    } else {
+      await createChallengeNotification(client, {
+        userId: challenge.challenger_id,
+        type: "challenge_result",
+        title: "Desafio empatou!",
+        message: `Seu desafio contra ${challengedName} terminou empatado em ${challengerPoints} x ${challengedPoints}.`,
+        challengeId: challenge.id,
+        targetPath: `/desafios/${challenge.id}`,
+      });
+      await createChallengeNotification(client, {
+        userId: challenge.challenged_id,
+        type: "challenge_result",
+        title: "Desafio empatou!",
+        message: `Seu desafio contra ${challengerName} terminou empatado em ${challengedPoints} x ${challengerPoints}.`,
+        challengeId: challenge.id,
+        targetPath: `/desafios/${challenge.id}`,
+      });
+    }
+
     return {
       ...updated,
       event: challenge.event,

@@ -146,12 +146,16 @@ function FightComparisonRow({
         </div>
 
         <div className="flex items-center justify-center">
-          <span
-            className="font-condensed font-900 text-2xl uppercase"
-            style={{ color: "var(--red)" }}
-          >
-            VS
-          </span>
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            <span className="hidden md:block flex-1 md:flex-none font-condensed font-900 text-2xl uppercase" style={{ color: "var(--red)" }}>
+              VS
+            </span>
+            <span className="md:hidden flex items-center gap-3 w-full px-4">
+              <span className="flex-1 h-px" style={{ backgroundColor: "var(--border)" }} />
+              <span className="font-condensed font-900 text-sm uppercase flex-shrink-0" style={{ color: "var(--red)" }}>VS</span>
+              <span className="flex-1 h-px" style={{ backgroundColor: "var(--border)" }} />
+            </span>
+          </div>
         </div>
 
         <div
@@ -291,34 +295,34 @@ export default function ChallengeDetailClient({
           </p>
 
           {/* Scoreboard */}
-          <div className="grid grid-cols-3 gap-3 mt-4 items-stretch">
-            <div className="p-4 flex flex-col justify-center" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}>
-              <p className="font-condensed font-700 text-xs uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
+          <div className="grid grid-cols-3 gap-2 md:gap-3 mt-4 items-stretch">
+            <div className="p-3 md:p-4 flex flex-col justify-center" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}>
+              <p className="font-condensed font-700 text-[10px] md:text-xs uppercase tracking-widest truncate" style={{ color: "var(--text-muted)" }}>
                 {challengerName}
               </p>
-              <p className="font-condensed font-900 text-3xl mt-1" style={{ color: "var(--text)" }}>
+              <p className="font-condensed font-900 text-2xl md:text-3xl mt-1" style={{ color: "var(--text)" }}>
                 {challenge.challenger_points}
               </p>
               {picksVisible && (
-                <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
+                <p className="text-[10px] md:text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
                   {challengerFightWins} luta(s)
                 </p>
               )}
             </div>
 
-            <div className="flex flex-col items-center justify-center gap-2">
-              <p className="font-condensed font-900 text-3xl uppercase" style={{ color: "var(--red)" }}>
+            <div className="flex flex-col items-center justify-center gap-1 md:gap-2">
+              <p className="font-condensed font-900 text-2xl md:text-3xl uppercase" style={{ color: "var(--red)" }}>
                 VS
               </p>
               <span
-                className="inline-block px-2 py-1 text-xs font-condensed font-900 uppercase tracking-widest"
+                className="inline-block px-1.5 md:px-2 py-0.5 md:py-1 text-[10px] md:text-xs font-condensed font-900 uppercase tracking-widest"
                 style={{ backgroundColor: "var(--bg-elevated)", color: "var(--text)", border: "1px solid var(--border)" }}
               >
                 {getStatusLabel(challenge.status)}
               </span>
               {isCompleted && challenge.leader_user_id && (
                 <span
-                  className="inline-block px-2 py-1 text-xs font-condensed font-900 uppercase tracking-widest text-white"
+                  className="inline-block px-1.5 md:px-2 py-0.5 md:py-1 text-[10px] md:text-xs font-condensed font-900 uppercase tracking-widest text-white"
                   style={{ backgroundColor: isUserWinner ? "#22c55e" : "var(--red)" }}
                 >
                   {isUserWinner ? "VOCÊ VENCEU" : "DERROTA"}
@@ -326,7 +330,7 @@ export default function ChallengeDetailClient({
               )}
               {!isDone && challenge.status !== "pending" && challenge.leader_user_id && (
                 <span
-                  className="inline-block px-2 py-1 text-xs font-condensed font-900 uppercase tracking-widest text-white"
+                  className="inline-block px-1.5 md:px-2 py-0.5 md:py-1 text-[10px] md:text-xs font-condensed font-900 uppercase tracking-widest text-white"
                   style={{ backgroundColor: isLeading ? "#22c55e" : "var(--text-muted)" }}
                 >
                   {isLeading ? "VENCENDO" : "PERDENDO"}
@@ -334,15 +338,15 @@ export default function ChallengeDetailClient({
               )}
             </div>
 
-            <div className="p-4 flex flex-col justify-center md:text-right" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}>
-              <p className="font-condensed font-700 text-xs uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
+            <div className="p-3 md:p-4 flex flex-col justify-center md:text-right" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}>
+              <p className="font-condensed font-700 text-[10px] md:text-xs uppercase tracking-widest truncate" style={{ color: "var(--text-muted)" }}>
                 {challengedName}
               </p>
-              <p className="font-condensed font-900 text-3xl mt-1" style={{ color: "var(--text)" }}>
+              <p className="font-condensed font-900 text-2xl md:text-3xl mt-1" style={{ color: "var(--text)" }}>
                 {challenge.challenged_points}
               </p>
               {picksVisible && (
-                <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
+                <p className="text-[10px] md:text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
                   {challengedFightWins} luta(s)
                 </p>
               )}
@@ -350,11 +354,11 @@ export default function ChallengeDetailClient({
           </div>
 
           {isIncomingPending && (
-            <div className="flex flex-wrap gap-3 mt-6">
+            <div className="flex flex-col sm:flex-row gap-3 mt-6">
               <button
                 onClick={() => handleRespond("accept")}
                 disabled={loadingAction === "accept"}
-                className="px-5 py-3 font-condensed font-900 text-sm uppercase tracking-widest text-white disabled:opacity-60"
+                className="w-full sm:w-auto px-5 py-3 font-condensed font-900 text-sm uppercase tracking-widest text-white disabled:opacity-60"
                 style={{ backgroundColor: "#22c55e" }}
               >
                 {loadingAction === "accept" ? "Aceitando..." : "Aceitar desafio"}
@@ -362,7 +366,7 @@ export default function ChallengeDetailClient({
               <button
                 onClick={() => handleRespond("decline")}
                 disabled={loadingAction === "decline"}
-                className="px-5 py-3 font-condensed font-900 text-sm uppercase tracking-widest"
+                className="w-full sm:w-auto px-5 py-3 font-condensed font-900 text-sm uppercase tracking-widest"
                 style={{ backgroundColor: "var(--bg-card)", color: "var(--text)", border: "1px solid var(--border)" }}
               >
                 {loadingAction === "decline" ? "Recusando..." : "Recusar"}
@@ -375,7 +379,7 @@ export default function ChallengeDetailClient({
               <button
                 onClick={handleRematch}
                 disabled={rematching}
-                className="px-5 py-3 font-condensed font-900 text-sm uppercase tracking-widest text-white disabled:opacity-60"
+                className="w-full sm:w-auto px-5 py-3 font-condensed font-900 text-sm uppercase tracking-widest text-white disabled:opacity-60"
                 style={{ backgroundColor: "var(--red)" }}
               >
                 {rematching ? "Enviando..." : `Rematch para ${nextEvent.name}`}
@@ -410,15 +414,21 @@ export default function ChallengeDetailClient({
                     challengedName={challengedName}
                   />
                   {/* Running score */}
-                  <div className="flex items-center justify-end gap-2 mt-1 mb-4 px-1">
-                    <span className="text-[10px] font-condensed font-700 uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
-                      Placar parcial: {challengerName} {fightRecords[idx]?.challengerWon ? "+1" : ""}
+                  <div className="flex items-center justify-center md:justify-end gap-2 mt-1 mb-4">
+                    <span className="hidden md:inline text-[10px] font-condensed font-700 uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
+                      {challengerName}
                     </span>
+                    {fightRecords[idx]?.challengerWon && (
+                      <span className="text-[10px] font-condensed font-900 text-white px-1 py-0.5" style={{ backgroundColor: "#22c55e" }}>+1</span>
+                    )}
                     <span className="text-xs font-condensed font-900" style={{ color: "var(--text)" }}>
-                      {fightRecords.slice(0, idx + 1).filter((r) => r.challengerWon).length} x {fightRecords.slice(0, idx + 1).filter((r) => r.challengedWon).length}
+                      {fightRecords.slice(0, idx + 1).filter((r) => r.challengerWon).length}:{fightRecords.slice(0, idx + 1).filter((r) => r.challengedWon).length}
                     </span>
-                    <span className="text-[10px] font-condensed font-700 uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
-                      {challengedName} {fightRecords[idx]?.challengedWon ? "+1" : ""}
+                    {fightRecords[idx]?.challengedWon && (
+                      <span className="text-[10px] font-condensed font-900 text-white px-1 py-0.5" style={{ backgroundColor: "#22c55e" }}>+1</span>
+                    )}
+                    <span className="hidden md:inline text-[10px] font-condensed font-700 uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
+                      {challengedName}
                     </span>
                   </div>
                 </div>
