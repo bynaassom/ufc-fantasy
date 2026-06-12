@@ -122,7 +122,7 @@ export default function BadgesTab({ subTab }: { subTab: string }) {
     }));
   }
 
-  if (subTab === "badges-novo") {
+  if (editingId || subTab === "badges-novo") {
     return (
       <div>
         <div className="flex items-center justify-between mb-6">
@@ -130,21 +130,12 @@ export default function BadgesTab({ subTab }: { subTab: string }) {
             {editingId ? "EDITAR BADGE" : "NOVO BADGE"}
           </h3>
           <div className="flex gap-2">
-            {editingId && (
-              <button
-                onClick={resetForm}
-                className="text-xs font-condensed font-700 uppercase tracking-widest px-4 py-2"
-                style={{ color: "var(--text-muted)", border: "1px solid var(--border)" }}
-              >
-                NOVO
-              </button>
-            )}
             <button
-              onClick={() => window.location.reload()}
+              onClick={resetForm}
               className="text-xs font-condensed font-700 uppercase tracking-widest px-4 py-2"
               style={{ color: "var(--text-muted)", border: "1px solid var(--border)" }}
             >
-              CANCELAR
+              {editingId ? "CANCELAR" : "LIMPAR"}
             </button>
           </div>
         </div>
