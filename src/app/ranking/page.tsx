@@ -29,7 +29,7 @@ export default async function RankingPage({
     searchParams.tab === "evento"
       ? "evento"
       : "geral";
-  const currentPage = Math.max(1, Number(searchParams.page) || 1);
+  const requestedPage = Math.max(1, Number(searchParams.page) || 1);
   const {
     profile,
     currentEvent,
@@ -37,13 +37,14 @@ export default async function RankingPage({
     rankingEvents,
     displayRanking,
     myRank,
-  } = await getRankingPageData(tab, undefined, searchParams.event);
+  } = await getRankingPageData(tab, searchParams.event);
   const ranking = displayRanking as RankingRow[];
   const currentMyRank = myRank as RankingRow | null;
   const eventOptions = rankingEvents as RankingSelectableEvent[];
   const selectedEvent = selectedRankingEvent as RankingSelectableEvent | null;
 
   const totalPages = Math.max(1, Math.ceil(ranking.length / ITEMS_PER_PAGE));
+  const currentPage = Math.min(requestedPage, totalPages);
   const paginatedRanking = ranking.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE,

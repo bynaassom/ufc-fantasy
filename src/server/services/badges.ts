@@ -2,6 +2,7 @@ import { listBadges, listUserBadges, awardBadge, createBadge, updateBadge, delet
 import { createNotificationOnce } from "@/server/repositories/notifications";
 import { getPublicProfileStats } from "@/server/services/app";
 import { buildBadgeNotificationContent } from "@/lib/notifications";
+import { mapBadgeDbError } from "@/server/services/badge-admin-utils";
 import type { Badge, BadgeWithStatus, PublicProfileStats } from "@/types";
 
 type BadgeCriteria = {
@@ -66,6 +67,8 @@ export async function evaluateAndGetBadges(
       .eq("user_id", userId),
   ]);
 
+  if (eventScoresResult.error) throw eventScoresResult.error;
+
   const existingBadgeIds = new Set(userBadges.map((ub) => ub.badge_id));
   const existingBySlug = new Map(
     userBadges.filter((ub) => ub.badge).map((ub) => [ub.badge!.slug, ub]),
@@ -97,7 +100,7 @@ export async function evaluateAndGetBadges(
           type: "badge_earned",
           title: content.title,
           message: content.message,
-          target_path: "/profile",
+          target_path: "/profile?tab=badges",
           dedupe_key: `badge_earned:${badge.id}`,
         });
 
@@ -130,7 +133,11 @@ export async function createAdminBadge(
     sort_order: number;
   },
 ): Promise<Badge> {
-  return createBadge(client, data);
+  try {
+    return await createBadge(client, data);
+  } catch (error: any) {
+    mapBadgeDbError(error);
+  }
 }
 
 export async function updateAdminBadge(
@@ -146,14 +153,18 @@ export async function updateAdminBadge(
     sort_order: number;
   }>,
 ): Promise<Badge | null> {
-  return updateBadge(client, id, updates);
+  try {
+    return await updateBadge(client, id, updates);
+  } catch (error: any) {
+    mapBadgeDbError(error);
+  }
 }
 
 export async function deleteAdminBadge(
   client: any,
   id: string,
-): Promise<void> {
-  await deleteBadge(client, id);
+): Promise<boolean> {
+  return deleteBadge(client, id);
 }
 
 export async function getAdminBadge(

@@ -1,12 +1,9 @@
 import { PROFILE_SELECT_FIELDS } from "@/lib/security";
-import type { CompetitiveDivision } from "@/lib/ufc-weight";
 import type { Profile } from "@/types";
 import type { DbClient } from "@/types/database";
 
 type ProfileUpdatePayload = Partial<{
   nickname: string;
-  division: CompetitiveDivision;
-  division_confirmed: boolean;
   onboarding_completed: boolean;
 }>;
 
@@ -115,23 +112,6 @@ export async function listPublicProfiles(client: any, limit = 100) {
   const { data, error } = await client
     .from("ranking_profiles")
     .select("id, nickname, first_name, last_name, total_points")
-    .order("total_points", { ascending: false })
-    .order("nickname", { ascending: true })
-    .limit(limit);
-
-  if (error) throw error;
-  return data || [];
-}
-
-export async function listPublicProfilesByDivision(
-  client: DbClient,
-  division: CompetitiveDivision,
-  limit = 100,
-) {
-  const { data, error } = await client
-    .from("ranking_profiles")
-    .select("id, nickname, first_name, last_name, total_points, division")
-    .eq("division", division)
     .order("total_points", { ascending: false })
     .order("nickname", { ascending: true })
     .limit(limit);

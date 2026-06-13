@@ -5,6 +5,9 @@ const mocks = vi.hoisted(() => ({
   getCurrentPublicEvent: vi.fn(),
   listRecentCompletedEvents: vi.fn(),
   listUpcomingEvents: vi.fn(),
+  listChallengesForUser: vi.fn(),
+  findPublicProfilesByIds: vi.fn(),
+  getAdminSupabase: vi.fn(),
   requirePageUserProfile: vi.fn(),
 }));
 
@@ -20,6 +23,30 @@ vi.mock("@/server/services/page-auth", () => ({
   requireActiveUserProfile: vi.fn(),
   requireAdminPageProfile: vi.fn(),
   requirePageUserProfile: mocks.requirePageUserProfile,
+}));
+
+vi.mock("@/server/supabase", () => ({
+  getAdminSupabase: mocks.getAdminSupabase,
+  getUserSupabase: vi.fn(),
+}));
+
+vi.mock("@/server/repositories/challenges", () => ({
+  createChallenge: vi.fn(),
+  findActiveChallengeBetweenUsers: vi.fn(),
+  findChallengeById: vi.fn(),
+  listChallengesForProfile: vi.fn(),
+  listChallengesForUser: mocks.listChallengesForUser,
+  updateChallenge: vi.fn(),
+}));
+
+vi.mock("@/server/repositories/profiles", () => ({
+  findPublicProfileByNickname: vi.fn(),
+  findPublicProfilesByIds: mocks.findPublicProfilesByIds,
+  listPublicProfiles: vi.fn(),
+  listRecentProfiles: vi.fn(),
+  updateProfile: vi.fn(),
+  updateProfileBan: vi.fn(),
+  updateProfileRole: vi.fn(),
 }));
 
 vi.mock("@/server/repositories/events", () => ({
@@ -62,6 +89,7 @@ describe("getHomePageData", () => {
     vi.setSystemTime(new Date("2026-06-03T12:00:00.000Z"));
 
     mocks.requirePageUserProfile.mockResolvedValue({
+      user: { id: "profile-id" },
       profile: {
         id: "profile-id",
         nickname: "name",
@@ -78,6 +106,9 @@ describe("getHomePageData", () => {
     });
     mocks.listRecentCompletedEvents.mockResolvedValue([]);
     mocks.listUpcomingEvents.mockResolvedValue([]);
+    mocks.listChallengesForUser.mockResolvedValue([]);
+    mocks.findPublicProfilesByIds.mockResolvedValue([]);
+    mocks.getAdminSupabase.mockResolvedValue({ client: "admin" });
   });
 
   afterEach(() => {

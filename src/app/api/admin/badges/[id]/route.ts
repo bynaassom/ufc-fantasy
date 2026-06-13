@@ -6,13 +6,15 @@ import { ApiRouteError, apiErrorFromUnknown, apiSuccess, assertSameOriginForMuta
 import { requireAdmin } from "@/server/auth/guards";
 import { CACHE_TAGS } from "@/server/cache-tags";
 import { updateAdminBadge, deleteAdminBadge, getAdminBadge } from "@/server/services/badges";
+import { assertBadgeSlug, slugifyBadgeName } from "@/server/services/badge-admin-utils";
 import { adminBadgePatchSchema } from "@/server/validators/admin";
+import { z } from "zod";
 
 type Params = { params: { id: string } | Promise<{ id: string }> };
 
 async function getBadgeId(params: Params["params"]) {
   const resolved = await params;
-  return resolved.id;
+  return z.string().uuid().parse(resolved.id);
 }
 
 export async function GET(_: NextRequest, { params }: Params) {
@@ -35,11 +37,9 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
     const updates: any = { ...body };
     if (body.name && !body.slug) {
-      updates.slug = body.name
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "_")
-        .replace(/^_|_$/g, "");
+      updates.slug = slugifyBadgeName(body.name);
     }
+    if (updates.slug) updates.slug = assertBadgeSlug(updates.slug);
 
     const badge = await updateAdminBadge(adminSupabase, badgeId, updates);
     if (!badge) throw new ApiRouteError(404, "BADGE_NOT_FOUND", "Badge não encontrado.");
@@ -58,7 +58,8 @@ export async function DELETE(request: NextRequest, { params }: Params) {
   try {
     assertSameOriginForMutation(request);
     const { adminSupabase } = await requireAdmin();
-    await deleteAdminBadge(adminSupabase, await getBadgeId(params));
+    const deleted = await deleteAdminBadge(adminSupabase, await getBadgeId(params));
+    if (!deleted) throw new ApiRouteError(404, "BADGE_NOT_FOUND", "Badge não encontrado.");
 
     revalidateTag(CACHE_TAGS.badges);
     revalidatePath("/admin");

@@ -41,7 +41,6 @@ vi.mock("@/server/repositories/events", () => ({
 }));
 
 vi.mock("@/server/repositories/profiles", () => ({
-  listPublicProfilesByDivision: vi.fn(),
   listRecentProfiles: mocks.listRecentProfiles,
 }));
 

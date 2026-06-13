@@ -6,6 +6,7 @@ import { apiErrorFromUnknown, apiSuccess, assertSameOriginForMutation, parseJson
 import { requireAdmin } from "@/server/auth/guards";
 import { CACHE_TAGS } from "@/server/cache-tags";
 import { createAdminBadge } from "@/server/services/badges";
+import { assertBadgeSlug, slugifyBadgeName } from "@/server/services/badge-admin-utils";
 import { listBadges } from "@/server/repositories/badges";
 import { adminBadgeSchema } from "@/server/validators/admin";
 
@@ -25,10 +26,7 @@ export async function POST(request: NextRequest) {
     const { adminSupabase } = await requireAdmin();
     const body = await parseJsonBody(request, adminBadgeSchema);
 
-    const slug = body.slug || body.name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "_")
-      .replace(/^_|_$/g, "");
+    const slug = assertBadgeSlug(body.slug || slugifyBadgeName(body.name));
 
     const badge = await createAdminBadge(adminSupabase, {
       name: body.name,
@@ -36,8 +34,8 @@ export async function POST(request: NextRequest) {
       description: body.description,
       category: body.category,
       icon_name: body.icon_name,
-      tier: body.tier ?? 1,
-      sort_order: body.sort_order ?? 0,
+      tier: body.tier,
+      sort_order: body.sort_order,
     });
 
     revalidateTag(CACHE_TAGS.badges);

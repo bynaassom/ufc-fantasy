@@ -41,7 +41,7 @@ DROP POLICY IF EXISTS "user_badges_select_own" ON user_badges;
 CREATE POLICY "user_badges_select_own" ON user_badges FOR SELECT USING (auth.uid() = user_id);
 
 DROP POLICY IF EXISTS "user_badges_insert_own" ON user_badges;
-CREATE POLICY "user_badges_insert_own" ON user_badges FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "user_badges_insert_own" ON user_badges FOR INSERT WITH CHECK (false);
 
 DROP POLICY IF EXISTS "user_badges_delete_own" ON user_badges;
 CREATE POLICY "user_badges_delete_own" ON user_badges FOR DELETE USING (false);

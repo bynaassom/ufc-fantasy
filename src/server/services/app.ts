@@ -726,7 +726,6 @@ export async function getEventLiveData(slug: string) {
 
 export async function getRankingPageData(
   tab: "geral" | "evento",
-  divisionParam?: string,
   eventSlugParam?: string,
 ) {
   const { user, profile } = await requirePageUserProfile();

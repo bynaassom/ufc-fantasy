@@ -20,12 +20,18 @@ const CATEGORY_OPTIONS: { value: BadgeCategory; label: string }[] = [
 ];
 
 function slugify(text: string) {
-  return text.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+  return text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_|_$/g, "");
 }
 
 export default function BadgesTab({ subTab }: { subTab: string }) {
   const [badges, setBadges] = useState<Badge[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -78,7 +84,9 @@ export default function BadgesTab({ subTab }: { subTab: string }) {
       toast.error("Preencha nome e descrição");
       return;
     }
+    if (saving) return;
 
+    setSaving(true);
     try {
       const slug = form.slug || slugify(form.name);
 
@@ -100,6 +108,8 @@ export default function BadgesTab({ subTab }: { subTab: string }) {
       await loadBadges();
     } catch (e: any) {
       toast.error(e.message);
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -111,6 +121,8 @@ export default function BadgesTab({ subTab }: { subTab: string }) {
       await loadBadges();
     } catch (e: any) {
       toast.error(e.message);
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -159,7 +171,7 @@ export default function BadgesTab({ subTab }: { subTab: string }) {
               <input
                 style={{ ...inp, color: "var(--text-muted)" }}
                 value={form.slug}
-                onChange={(e) => setForm((p) => ({ ...p, slug: e.target.value }))}
+                onChange={(e) => setForm((p) => ({ ...p, slug: slugify(e.target.value) }))}
                 onFocus={focus}
                 onBlur={blur}
                 placeholder="lenda_do_ufc"
@@ -241,10 +253,11 @@ export default function BadgesTab({ subTab }: { subTab: string }) {
 
             <button
               onClick={handleSave}
+              disabled={saving}
               className="w-full font-condensed font-700 text-sm uppercase tracking-widest py-3 transition-all active:scale-[0.98]"
-              style={{ backgroundColor: "var(--red)", color: "#fff" }}
+              style={{ backgroundColor: "var(--red)", color: "#fff", opacity: saving ? 0.6 : 1 }}
             >
-              {editingId ? "SALVAR ALTERAÇÕES" : "CRIAR BADGE"}
+              {saving ? "SALVANDO..." : editingId ? "SALVAR ALTERAÇÕES" : "CRIAR BADGE"}
             </button>
           </div>
 

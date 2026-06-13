@@ -19,6 +19,7 @@ export default function EventRankingSelector({
     const params = new URLSearchParams(searchParams.toString());
     params.set("tab", "evento");
     params.set("event", nextSlug);
+    params.delete("page");
 
     startTransition(() => {
       router.push(`${pathname}?${params.toString()}`);

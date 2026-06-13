@@ -5,6 +5,8 @@ import {
   type NotificationServiceDeps,
 } from "@/server/services/notifications";
 
+const testClient = {} as any;
+
 function createDeps(overrides: Partial<NotificationServiceDeps> = {}) {
   const created: any[] = [];
 
@@ -48,7 +50,7 @@ describe("notification service", () => {
     });
 
     const result = await dispatchDuePickNotifications(
-      {},
+      testClient,
       { now: new Date("2026-05-02T21:00:00.000Z") },
       deps,
     );
@@ -86,7 +88,7 @@ describe("notification service", () => {
     });
 
     const result = await dispatchDuePickNotifications(
-      {},
+      testClient,
       { now: new Date("2026-05-02T20:46:00.000Z") },
       deps,
     );
@@ -116,7 +118,7 @@ describe("notification service", () => {
     });
 
     const result = await createNotificationsForUsers(
-      {},
+      testClient,
       {
         userIds: ["user-1"],
         type: "card_updated",
@@ -133,7 +135,7 @@ describe("notification service", () => {
     expect(result.pushRemoved).toBe(1);
     expect(created).toHaveLength(1);
     expect(deps.deletePushSubscriptionByEndpoint).toHaveBeenCalledWith(
-      {},
+      testClient,
       "https://push.example.invalid/stale",
     );
   });
@@ -152,7 +154,7 @@ describe("notification service", () => {
     });
 
     const result = await createNotificationsForUsers(
-      {},
+      testClient,
       {
         userIds: ["user-1"],
         type: "perfect_pick",
@@ -206,7 +208,7 @@ describe("notification service", () => {
     });
 
     const result = await notifyBulkCardChanges(
-      {},
+      testClient,
       {
         event: {
           id: "event-1",
@@ -245,7 +247,7 @@ describe("notification service", () => {
     });
 
     const result = await notifyBulkCardChanges(
-      {},
+      testClient,
       {
         event: {
           id: "event-1",
@@ -274,7 +276,7 @@ describe("notification service", () => {
     });
 
     const result = await notifyBulkCardChanges(
-      {},
+      testClient,
       {
         event: {
           id: "future-event",

@@ -13,9 +13,11 @@ const PLAYER_LEVELS: PlayerLevel[] = [
   { label: "Hall of Famer", minPoints: 1500 },
 ];
 
+const PLAYER_LEVELS_DESC = [...PLAYER_LEVELS].reverse();
+
 export function getPlayerLevel(points?: number | null): PlayerLevel {
   const safePoints = Math.max(0, Number(points || 0));
-  return [...PLAYER_LEVELS].reverse().find((level) => safePoints >= level.minPoints) || PLAYER_LEVELS[0];
+  return PLAYER_LEVELS_DESC.find((level) => safePoints >= level.minPoints) || PLAYER_LEVELS[0];
 }
 
 export function getPlayerLevelProgress(points?: number | null) {

@@ -4,7 +4,8 @@ export async function listBadges(client: any): Promise<Badge[]> {
   const { data, error } = await client
     .from("badges")
     .select("*")
-    .order("sort_order", { ascending: true });
+    .order("sort_order", { ascending: true })
+    .order("name", { ascending: true });
 
   if (error) throw error;
   return (data || []) as Badge[];
@@ -101,11 +102,14 @@ export async function updateBadge(
 export async function deleteBadge(
   client: any,
   id: string,
-): Promise<void> {
-  const { error } = await client
+): Promise<boolean> {
+  const { data, error } = await client
     .from("badges")
     .delete()
-    .eq("id", id);
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
 
   if (error) throw error;
+  return !!data;
 }

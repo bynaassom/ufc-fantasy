@@ -81,22 +81,42 @@ export const adminBanToggleSchema = z.object({
   currentBan: z.boolean(),
 });
 
+const badgeIconSchema = z.enum([
+  "target",
+  "calendar",
+  "flame",
+  "crosshair",
+  "star",
+  "eye",
+  "trending-up",
+  "shield",
+  "trophy",
+  "crown",
+]);
+
+const badgeSlugSchema = z
+  .string()
+  .min(1)
+  .regex(/^[a-z0-9_]+$/, "slug deve conter apenas letras minúsculas, números e underscore");
+
 export const adminBadgeSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
-  slug: z.string().min(1).regex(/^[a-z0-9_]+$/, "slug deve conter apenas letras minúsculas, números e underscore").optional(),
+  slug: badgeSlugSchema.optional(),
   description: z.string().min(1, "Descrição é obrigatória"),
   category: z.enum(["volume", "accuracy", "streak", "challenge", "special"]),
-  icon_name: z.string().min(1, "Ícone é obrigatório"),
-  tier: z.number().int().min(1),
+  icon_name: badgeIconSchema,
+  tier: z.number().int().min(1).max(5),
   sort_order: z.number().int().min(0),
 });
 
 export const adminBadgePatchSchema = z.object({
   name: z.string().min(1).optional(),
-  slug: z.string().min(1).regex(/^[a-z0-9_]+$/).optional(),
+  slug: badgeSlugSchema.optional(),
   description: z.string().min(1).optional(),
   category: z.enum(["volume", "accuracy", "streak", "challenge", "special"]).optional(),
-  icon_name: z.string().min(1).optional(),
-  tier: z.number().int().min(1).optional(),
+  icon_name: badgeIconSchema.optional(),
+  tier: z.number().int().min(1).max(5).optional(),
   sort_order: z.number().int().min(0).optional(),
+}).refine((value) => Object.keys(value).length > 0, {
+  message: "Informe ao menos um campo para atualizar.",
 });
