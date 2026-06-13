@@ -4,10 +4,10 @@ import Link from "next/link";
 import { useState } from "react";
 import toast from "react-hot-toast";
 import { readApiResponse } from "@/lib/api";
-import type { Group } from "@/types";
+import type { EnrichedGroup } from "@/types";
 import CopyInviteButton from "@/components/groups/CopyInviteButton";
 
-export default function GroupsClient({ groups }: { groups: Group[] }) {
+export default function GroupsClient({ groups }: { groups: EnrichedGroup[] }) {
   const [list, setList] = useState(groups);
   const [showCreate, setShowCreate] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
@@ -19,7 +19,7 @@ export default function GroupsClient({ groups }: { groups: Group[] }) {
     setCreating(true);
     const fd = new FormData(e.currentTarget);
     try {
-      const group = await readApiResponse<Group>(
+      const group = await readApiResponse<any>(
         await fetch("/api/groups", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -29,7 +29,13 @@ export default function GroupsClient({ groups }: { groups: Group[] }) {
           }),
         }),
       );
-      setList((prev) => [group, ...prev]);
+      const enriched: EnrichedGroup = {
+        ...group,
+        member_count: 1,
+        champion: null,
+        my_rank: 1,
+      };
+      setList((prev) => [enriched, ...prev]);
       setShowCreate(false);
       toast.success("Liga criada!");
     } catch (err: any) {
@@ -44,14 +50,20 @@ export default function GroupsClient({ groups }: { groups: Group[] }) {
     setJoining(true);
     const fd = new FormData(e.currentTarget);
     try {
-      const group = await readApiResponse<Group>(
+      const group = await readApiResponse<any>(
         await fetch("/api/groups/join", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ code: fd.get("code") }),
         }),
       );
-      setList((prev) => [group, ...prev]);
+      const enriched: EnrichedGroup = {
+        ...group,
+        member_count: 0,
+        champion: null,
+        my_rank: null,
+      };
+      setList((prev) => [enriched, ...prev]);
       setShowJoin(false);
       toast.success("Entrou na liga!");
     } catch (err: any) {
@@ -210,20 +222,46 @@ export default function GroupsClient({ groups }: { groups: Group[] }) {
                 borderLeft: "3px solid var(--red)",
               }}
             >
-              <p
-                className="font-condensed font-900 uppercase tracking-wide"
-                style={{ color: "var(--text)" }}
-              >
-                {g.name}
-              </p>
-              {g.description && (
-                <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-                  {g.description}
-                </p>
-              )}
-              <p className="text-xs mt-2 font-mono" style={{ color: "var(--text-muted)" }}>
-                Código: {g.invite_code}
-              </p>
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <p
+                    className="font-condensed font-900 uppercase tracking-wide truncate"
+                    style={{ color: "var(--text)" }}
+                  >
+                    {g.name}
+                  </p>
+                  {g.description && (
+                    <p className="text-sm mt-1 truncate" style={{ color: "var(--text-secondary)" }}>
+                      {g.description}
+                    </p>
+                  )}
+                </div>
+                <div className="flex-shrink-0 text-right">
+                  <p className="font-condensed font-900 text-lg leading-none" style={{ color: "var(--red)" }}>
+                    {g.member_count}
+                  </p>
+                  <p className="font-condensed font-700 text-[10px] uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
+                    membros
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs" style={{ color: "var(--text-muted)" }}>
+                {g.my_rank && (
+                  <span className="font-condensed font-700 uppercase tracking-widest">
+                    Seu rank: #{g.my_rank}
+                  </span>
+                )}
+                {g.champion && (
+                  <span className="font-condensed font-700 uppercase tracking-widest">
+                    Líder: {g.champion.nickname} · {g.champion.total_points} pts
+                  </span>
+                )}
+                <span className="font-mono">
+                  {g.invite_code}
+                </span>
+              </div>
+
               <div className="mt-2" onClick={(e) => e.preventDefault()}>
                 <CopyInviteButton inviteCode={g.invite_code} />
               </div>

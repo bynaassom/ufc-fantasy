@@ -85,11 +85,13 @@ import {
   markNotificationAsRead,
 } from "@/server/repositories/notifications";
 import {
+  countMembersForGroups,
   createGroup,
   addGroupMember,
   removeGroupMember,
   findGroupById,
   findGroupByInviteCode,
+  listGroupChampions,
   listGroupsForUser,
   listGroupMembers,
   getGroupMember,
@@ -2146,6 +2148,46 @@ export async function getMyGroups(client?: any, uid?: string) {
   }
   const { supabase, user } = await requirePageUserProfile();
   return listGroupsForUser(supabase, user.id);
+}
+
+export async function getEnrichedMyGroups(): Promise<import("@/types").EnrichedGroup[]> {
+  const { supabase, user } = await requirePageUserProfile();
+  const groups = await listGroupsForUser(supabase, user.id);
+  if (!groups.length) return [];
+
+  const groupIds = groups.map((g: any) => g.id);
+  const adminSupabase = await getAdminSupabase();
+  const [memberCounts, currentSeason] = await Promise.all([
+    countMembersForGroups(supabase, groupIds),
+    getCurrentSeason(adminSupabase),
+  ]);
+
+  const champions = currentSeason
+    ? await listGroupChampions(adminSupabase, groupIds, currentSeason.id)
+    : {};
+
+  const enriched: import("@/types").EnrichedGroup[] = await Promise.all(
+    groups.map(async (group: any) => {
+      const memberCount = memberCounts[group.id] || 0;
+      const champion = champions[group.id] || null;
+
+      let myRank: number | null = null;
+      if (currentSeason) {
+        const standings = await listGroupSeasonStandings(adminSupabase, group.id, currentSeason.id);
+        const entry = standings.find((s: any) => s.user_id === user.id);
+        myRank = entry?.rank_position || null;
+      }
+
+      return {
+        ...group,
+        member_count: memberCount,
+        champion,
+        my_rank: myRank,
+      };
+    }),
+  );
+
+  return enriched;
 }
 
 export async function getGroupDetail(groupId: string): Promise<GroupWithMembers | null> {

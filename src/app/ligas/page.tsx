@@ -1,4 +1,4 @@
-import { getMyGroups } from "@/server/services/app";
+import { getEnrichedMyGroups } from "@/server/services/app";
 import { requirePageUserProfile } from "@/server/services/page-auth";
 import Navbar from "@/components/layout/Navbar";
 import GroupsClient from "@/components/groups/GroupsClient";
@@ -6,8 +6,8 @@ import GroupsClient from "@/components/groups/GroupsClient";
 export const dynamic = "force-dynamic";
 
 export default async function GroupsPage() {
-  const { supabase, user, profile } = await requirePageUserProfile();
-  const groups = await getMyGroups(supabase, user.id);
+  const { profile } = await requirePageUserProfile();
+  const groups = await getEnrichedMyGroups();
 
   return (
     <div className="min-h-screen pb-24 md:pb-10" style={{ backgroundColor: "var(--bg)" }}>

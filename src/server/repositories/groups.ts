@@ -92,3 +92,37 @@ export async function getGroupIdsForUser(client: DbClient, userId: string): Prom
   if (error) throw error;
   return (data || []).map((r: any) => r.group_id);
 }
+
+export async function countMembersForGroups(client: DbClient, groupIds: string[]): Promise<Record<string, number>> {
+  if (!groupIds.length) return {};
+  const { data, error } = await client
+    .from("group_members")
+    .select("group_id")
+    .in("group_id", groupIds);
+  if (error) throw error;
+  const counts: Record<string, number> = {};
+  for (const row of data || []) {
+    counts[row.group_id] = (counts[row.group_id] || 0) + 1;
+  }
+  return counts;
+}
+
+export async function listGroupChampions(
+  client: DbClient,
+  groupIds: string[],
+  seasonId: string,
+): Promise<Record<string, { nickname: string; total_points: number } | null>> {
+  if (!groupIds.length) return {};
+  const { data, error } = await client
+    .from("group_season_standings")
+    .select("group_id, nickname, total_points")
+    .in("group_id", groupIds)
+    .eq("season_id", seasonId)
+    .eq("rank_position", 1);
+  if (error) throw error;
+  const champions: Record<string, { nickname: string; total_points: number } | null> = {};
+  for (const row of data || []) {
+    champions[row.group_id] = { nickname: row.nickname, total_points: row.total_points };
+  }
+  return champions;
+}

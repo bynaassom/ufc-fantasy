@@ -294,6 +294,12 @@ export interface GroupWithMembers extends Group {
   member_count: number;
 }
 
+export interface EnrichedGroup extends Group {
+  member_count: number;
+  champion: { nickname: string; total_points: number } | null;
+  my_rank: number | null;
+}
+
 export type BadgeCategory = "volume" | "accuracy" | "streak" | "challenge" | "special";
 
 export interface Badge {
