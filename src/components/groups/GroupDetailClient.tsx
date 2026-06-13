@@ -19,6 +19,9 @@ interface MemberWithScore {
     total_points: number;
   } | null;
   total_points: number;
+  perfect_picks?: number;
+  events_played?: number;
+  rank_position?: number;
 }
 
 export default function GroupDetailClient({
@@ -31,7 +34,7 @@ export default function GroupDetailClient({
   const router = useRouter();
   const [leaving, setLeaving] = useState(false);
   const members = (group.members || []) as unknown as MemberWithScore[];
-  members.sort((a, b) => b.total_points - a.total_points);
+  members.sort((a, b) => (a.rank_position || 9999) - (b.rank_position || 9999));
 
   const isAdmin = members.some(
     (m) => m.user_id === currentUserId && m.role === "admin",
@@ -115,12 +118,12 @@ export default function GroupDetailClient({
         className="font-condensed font-700 text-xs uppercase tracking-widest mb-3"
         style={{ color: "var(--text-secondary)" }}
       >
-        Ranking · {members.length} membro(s)
+        Ranking da temporada · {members.length} membro(s)
       </p>
 
       <div className="space-y-2">
         {members.map((member, idx) => {
-          const rank = idx + 1;
+          const rank = member.rank_position && member.rank_position < 9999 ? member.rank_position : idx + 1;
           const isMe = member.user_id === currentUserId;
           return (
             <div
@@ -166,6 +169,9 @@ export default function GroupDetailClient({
                       admin
                     </span>
                   )}
+                </p>
+                <p className="text-[10px] font-condensed font-700 uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
+                  {member.events_played || 0} eventos · {member.perfect_picks || 0} cravadas
                 </p>
               </Link>
 

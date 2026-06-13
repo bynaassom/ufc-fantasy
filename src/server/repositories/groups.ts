@@ -92,15 +92,3 @@ export async function getGroupIdsForUser(client: DbClient, userId: string): Prom
   if (error) throw error;
   return (data || []).map((r: any) => r.group_id);
 }
-
-export async function listMemberScoresByEvent(
-  client: DbClient,
-  userIds: string[],
-): Promise<{ user_id: string; total_points: number }[]> {
-  const { data, error } = await client
-    .from("profiles")
-    .select("id, total_points")
-    .in("id", userIds);
-  if (error) throw error;
-  return (data || []).map((p: any) => ({ user_id: p.id, total_points: p.total_points }));
-}

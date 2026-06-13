@@ -3,8 +3,26 @@ import Image from "next/image";
 import { getLandingPageData } from "@/server/services/app";
 
 export default async function LandingPage() {
-  const { currentEvent } = await getLandingPageData();
+  const { currentEvent, momentumStats } = await getLandingPageData();
   const bannerUrl = currentEvent?.banner_image_url || null;
+  const stats = [
+    {
+      label: "Jogadores no evento",
+      value: momentumStats.picks.usersWithConfirmedPicks,
+    },
+    {
+      label: "Desafios ativos",
+      value: momentumStats.challenges.totalActive,
+    },
+    {
+      label: "Ligas criadas",
+      value: momentumStats.leagues.totalGroups,
+    },
+    {
+      label: "Cravadas no evento",
+      value: momentumStats.scoring.perfectPicks,
+    },
+  ];
 
   return (
     <main
@@ -119,6 +137,18 @@ export default async function LandingPage() {
                 <path d="M5 12h14M12 5l7 7-7 7" />
               </svg>
             </Link>
+            <div className="mt-8 grid max-w-2xl grid-cols-2 gap-px md:grid-cols-4" style={{ backgroundColor: "var(--border)" }}>
+              {stats.map((item) => (
+                <div key={item.label} className="p-3" style={{ backgroundColor: "var(--bg-card)" }}>
+                  <p className="font-condensed font-900 text-2xl leading-none" style={{ color: "var(--red)" }}>
+                    {item.value}
+                  </p>
+                  <p className="mt-1 font-condensed font-700 text-[10px] uppercase tracking-widest" style={{ color: "var(--text-secondary)" }}>
+                    {item.label}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>

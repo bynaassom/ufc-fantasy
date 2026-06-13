@@ -235,6 +235,33 @@ export interface RankingEntry {
   event_id?: string;
 }
 
+export interface Season {
+  id: string;
+  name: string;
+  starts_at: string;
+  ends_at: string;
+  is_current: boolean;
+  created_at?: string;
+}
+
+export interface SeasonStandingEntry {
+  season_id: string;
+  user_id: string;
+  nickname: string;
+  first_name: string;
+  last_name: string;
+  total_points: number;
+  perfect_picks: number;
+  events_played: number;
+  rank_position: number;
+}
+
+export interface GroupSeasonStandingEntry extends SeasonStandingEntry {
+  group_id: string;
+  role: "admin" | "member";
+  joined_at: string;
+}
+
 export interface UserPicks {
   [fight_id: string]: {
     winner_id: string;

@@ -34,6 +34,7 @@ export default async function HistoricoEventoPage({
   const picksMap = Object.fromEntries(
     (picks || []).map((pick: Pick) => [pick.fight_id, pick]),
   ) as Record<string, Pick | undefined>;
+  const shareHref = `/share/event/${encodeURIComponent(event.slug)}/${encodeURIComponent(profile.nickname)}`;
 
   return (
     <div
@@ -78,41 +79,50 @@ export default async function HistoricoEventoPage({
 
         {score && (
           <div
-            className="mb-8 p-4 flex items-center justify-between"
+            className="mb-8 p-4"
             style={{
               backgroundColor: "var(--bg-card)",
               border: "1px solid var(--border)",
               borderLeft: "3px solid var(--red)",
             }}
           >
-            <div>
-              <p
-                className="font-condensed font-700 text-xs uppercase tracking-widest"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                Sua pontuação
-              </p>
-              <p
-                className="font-condensed font-900 text-3xl leading-none mt-1"
-                style={{ color: "var(--red)" }}
-              >
-                {score.total_points}
-              </p>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p
+                  className="font-condensed font-700 text-xs uppercase tracking-widest"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  Sua pontuação
+                </p>
+                <p
+                  className="font-condensed font-900 text-3xl leading-none mt-1"
+                  style={{ color: "var(--red)" }}
+                >
+                  {score.total_points}
+                </p>
+              </div>
+              <div className="text-right">
+                <p
+                  className="font-condensed font-700 text-xs uppercase tracking-widest"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  Cravadas perfeitas
+                </p>
+                <p
+                  className="font-condensed font-900 text-xl leading-none mt-1"
+                  style={{ color: "var(--text)" }}
+                >
+                  {score.perfect_picks || 0}
+                </p>
+              </div>
             </div>
-            <div className="text-right">
-              <p
-                className="font-condensed font-700 text-xs uppercase tracking-widest"
-                style={{ color: "var(--text-muted)" }}
-              >
-                Cravadas perfeitas
-              </p>
-              <p
-                className="font-condensed font-900 text-xl leading-none mt-1"
-                style={{ color: "var(--text)" }}
-              >
-                {score.perfect_picks || 0}
-              </p>
-            </div>
+            <Link
+              href={shareHref}
+              className="mt-4 block w-full px-4 py-3 text-center font-condensed text-xs font-900 uppercase tracking-widest text-white transition-opacity hover:opacity-90"
+              style={{ backgroundColor: "var(--red)" }}
+            >
+              Compartilhar resultado
+            </Link>
           </div>
         )}
 

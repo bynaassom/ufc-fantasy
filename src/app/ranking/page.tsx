@@ -28,11 +28,14 @@ export default async function RankingPage({
   const tab =
     searchParams.tab === "evento"
       ? "evento"
+      : searchParams.tab === "temporada"
+        ? "temporada"
       : "geral";
   const requestedPage = Math.max(1, Number(searchParams.page) || 1);
   const {
     profile,
     currentEvent,
+    currentSeason,
     selectedRankingEvent,
     rankingEvents,
     displayRanking,
@@ -76,7 +79,7 @@ export default async function RankingPage({
 
         {/* Toggle — estilo igual ao da imagem (Card Principal / Preliminares) */}
         <div
-          className="grid grid-cols-2 mb-6"
+          className="grid grid-cols-3 mb-6"
           style={{ border: "1px solid var(--border)" }}
         >
           <Link
@@ -90,6 +93,18 @@ export default async function RankingPage({
             }}
           >
             GERAL
+          </Link>
+          <Link
+            href="/ranking?tab=temporada"
+            className="flex-1 py-3 text-center font-condensed font-900 text-xs uppercase tracking-widest transition-all"
+            style={{
+              backgroundColor:
+                tab === "temporada" ? "var(--red)" : "var(--bg-card)",
+              color: tab === "temporada" ? "white" : "var(--text-muted)",
+              borderRight: "1px solid var(--border)",
+            }}
+          >
+            TEMPORADA
           </Link>
           <Link
             href={
@@ -132,6 +147,26 @@ export default async function RankingPage({
               events={eventOptions}
               selectedSlug={selectedEvent.slug}
             />
+          </div>
+        )}
+
+        {tab === "temporada" && currentSeason && (
+          <div
+            className="mb-5 p-4"
+            style={{
+              backgroundColor: "var(--bg-card)",
+              border: "1px solid var(--border)",
+            }}
+          >
+            <p
+              className="font-condensed font-900 text-lg uppercase tracking-wide"
+              style={{ color: "var(--text)" }}
+            >
+              {currentSeason.name}
+            </p>
+            <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
+              Ranking da temporada atual baseado nos eventos incluídos.
+            </p>
           </div>
         )}
 
@@ -208,6 +243,20 @@ export default async function RankingPage({
               style={{ color: "var(--text-muted)" }}
             >
               Ainda sem resultados para este evento
+            </p>
+          </div>
+        )}
+
+        {tab === "temporada" && ranking.length === 0 && (
+          <div
+            className="py-12 text-center"
+            style={{ border: "1px solid var(--border)" }}
+          >
+            <p
+              className="font-condensed font-700 uppercase tracking-widest text-sm"
+              style={{ color: "var(--text-muted)" }}
+            >
+              Ainda sem resultados para a temporada
             </p>
           </div>
         )}

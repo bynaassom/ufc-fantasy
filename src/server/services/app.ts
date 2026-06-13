@@ -40,6 +40,10 @@ import {
   listUpcomingEvents,
   updateEvent,
 } from "@/server/repositories/events";
+import {
+  getEventRankForUser,
+  getEventScoreForUserAndEvent as getEventScoreRowForUserAndEvent,
+} from "@/server/repositories/event-scores";
 import { resolvePublicEventSequence } from "@/lib/event-sequence";
 import {
   createFight,
@@ -88,7 +92,6 @@ import {
   listGroupsForUser,
   listGroupMembers,
   getGroupMember,
-  listMemberScoresByEvent,
 } from "@/server/repositories/groups";
 import {
   createNotificationsForUsers,
@@ -99,6 +102,18 @@ import {
   deletePushSubscriptionByEndpoint,
   listPushSubscriptionsForUsers,
 } from "@/server/repositories/push-subscriptions";
+import {
+  getCurrentSeason,
+  listGlobalSeasonStandings,
+  listGroupSeasonStandings,
+} from "@/server/repositories/standings";
+import {
+  countFightsForEvent,
+  getChallengeStatsForEvent,
+  getConfirmedPickStats,
+  getEventScoreStats,
+  getLeagueStats,
+} from "@/server/repositories/stats";
 import { completeEventIfAllResultsConfirmed } from "@/server/services/event-lifecycle";
 import {
   requireAdminPageProfile,
@@ -206,6 +221,30 @@ const getCachedGlobalRanking = unstable_cache(
   },
 );
 
+const getCachedCurrentSeason = unstable_cache(
+  async () => {
+    const supabase = getServiceRoleSupabase();
+    return getCurrentSeason(supabase);
+  },
+  ["current-season"],
+  {
+    revalidate: EVENTS_CACHE_SECONDS,
+    tags: [CACHE_TAGS.events, CACHE_TAGS.ranking],
+  },
+);
+
+const getCachedGlobalSeasonStandings = unstable_cache(
+  async (seasonId: string) => {
+    const supabase = getServiceRoleSupabase();
+    return listGlobalSeasonStandings(supabase, seasonId, 100);
+  },
+  ["global-season-standings"],
+  {
+    revalidate: RANKING_CACHE_SECONDS,
+    tags: [CACHE_TAGS.ranking],
+  },
+);
+
 const getCachedEventRanking = unstable_cache(
   async (eventId: string) => {
     const supabase = getServiceRoleSupabase();
@@ -240,6 +279,56 @@ const getCachedRecentCompletedRankingEvents = unstable_cache(
   {
     revalidate: EVENTS_CACHE_SECONDS,
     tags: [CACHE_TAGS.events],
+  },
+);
+
+const getCachedPublicMomentumStats = unstable_cache(
+  async () => {
+    const supabase = getServiceRoleSupabase();
+    const currentEvent = await getCurrentPublicEvent(supabase);
+    const leagues = await getLeagueStats(supabase);
+
+    if (!currentEvent) {
+      return {
+        currentEvent: null,
+        picks: { usersWithConfirmedPicks: 0, confirmedPickRows: 0, fightsOnCard: 0, completionRate: 0 },
+        challenges: { pending: 0, accepted: 0, completed: 0, totalActive: 0 },
+        leagues,
+        scoring: { scoredUsers: 0, averagePoints: 0, bestScore: 0, perfectPicks: 0 },
+      };
+    }
+
+    const [picks, fightsOnCard, challenges, scoring] = await Promise.all([
+      getConfirmedPickStats(supabase, currentEvent.id),
+      countFightsForEvent(supabase, currentEvent.id),
+      getChallengeStatsForEvent(supabase, currentEvent.id),
+      getEventScoreStats(supabase, currentEvent.id),
+    ]);
+
+    return {
+      currentEvent: {
+        id: currentEvent.id,
+        name: currentEvent.name,
+        slug: currentEvent.slug,
+        status: currentEvent.status,
+      },
+      picks: {
+        ...picks,
+        fightsOnCard,
+        completionRate:
+          picks.usersWithConfirmedPicks && fightsOnCard
+            ? Math.round((picks.confirmedPickRows / (picks.usersWithConfirmedPicks * fightsOnCard)) * 100)
+            : 0,
+      },
+      challenges,
+      leagues,
+      scoring,
+    };
+  },
+  ["public-momentum-stats"],
+  {
+    revalidate: 30,
+    tags: [CACHE_TAGS.stats, CACHE_TAGS.events, CACHE_TAGS.ranking],
   },
 );
 
@@ -619,8 +708,51 @@ async function getRankingProfilesByIds(client: any, userIds: string[]) {
 }
 
 export async function getLandingPageData() {
-  const currentEvent = await getCachedCurrentPublicEvent();
-  return { currentEvent };
+  const [currentEvent, momentumStats] = await Promise.all([
+    getCachedCurrentPublicEvent(),
+    getCachedPublicMomentumStats(),
+  ]);
+  return { currentEvent, momentumStats };
+}
+
+export async function getPublicEventResultShareData(
+  eventSlug: string,
+  nickname: string,
+) {
+  const supabase = getServiceRoleSupabase();
+  const [event, profile] = await Promise.all([
+    findEventBySlugWithFights(supabase, eventSlug) as Promise<EventWithFights | null>,
+    findPublicProfileByNickname(supabase, nickname),
+  ]);
+
+  if (!event || !profile) return null;
+
+  const picksLocked = hasDatePassed(event.picks_lock_at);
+  if (!picksLocked) {
+    return {
+      status: "not_public_yet" as const,
+      event,
+      profile,
+      picks: [],
+      score: null,
+      rank: null,
+    };
+  }
+
+  const [picks, score, rank] = await Promise.all([
+    listPicksForUserEvent(supabase, profile.id, event.id),
+    getEventScoreRowForUserAndEvent(supabase, profile.id, event.id),
+    getEventRankForUser(supabase, profile.id, event.id),
+  ]);
+
+  return {
+    status: "public" as const,
+    event,
+    profile,
+    picks,
+    score,
+    rank,
+  };
 }
 
 export async function getHomePageData() {
@@ -725,13 +857,14 @@ export async function getEventLiveData(slug: string) {
 }
 
 export async function getRankingPageData(
-  tab: "geral" | "evento",
+  tab: "geral" | "evento" | "temporada",
   eventSlugParam?: string,
 ) {
   const { user, profile } = await requirePageUserProfile();
-  const [currentEvent, completedRankingEvents] = await Promise.all([
+  const [currentEvent, completedRankingEvents, currentSeason] = await Promise.all([
     getCachedCurrentPublicEvent(),
     getCachedRecentCompletedRankingEvents(7),
+    getCachedCurrentSeason(),
   ]);
   const { selectableEvents: rankingEvents, selectedEvent } =
     resolveRankingEventSelection({
@@ -762,6 +895,20 @@ export async function getRankingPageData(
       perfect_picks: entry.perfect_picks,
       userId: entry.user_id,
     }));
+  } else if (tab === "temporada") {
+    const seasonRanking = currentSeason
+      ? await getCachedGlobalSeasonStandings(currentSeason.id)
+      : [];
+
+    displayRanking = seasonRanking.map((entry: any) => ({
+      rank: entry.rank_position,
+      nickname: entry.nickname,
+      first_name: entry.first_name,
+      last_name: entry.last_name,
+      points: entry.total_points,
+      perfect_picks: entry.perfect_picks,
+      userId: entry.user_id,
+    }));
   } else {
     const globalRanking = await getCachedGlobalRanking();
 
@@ -785,6 +932,7 @@ export async function getRankingPageData(
     profile,
     currentEvent,
     selectedRankingEvent: selectedEvent,
+    currentSeason,
     rankingEvents,
     displayRanking,
     myRank,
@@ -1938,20 +2086,29 @@ export async function getGroupDetail(groupId: string): Promise<GroupWithMembers 
   const adminSupabase = await getAdminSupabase();
   const group = await findGroupById(adminSupabase, groupId);
   if (!group) return null;
-  const members = await listGroupMembers(adminSupabase, groupId);
-  const userIds = members.map((m: any) => m.user_id);
-  const scores = await listMemberScoresByEvent(adminSupabase, userIds);
-  const scoreMap = Object.fromEntries(
-    scores.map((s) => [s.user_id, s.total_points]),
-  );
-  const enrichedMembers = members.map((m: any) => ({
-    ...m,
-    profile: m.profile || null,
-    total_points: scoreMap[m.user_id] || 0,
-  }));
-  enrichedMembers.sort((a: any, b: any) => b.total_points - a.total_points);
+  const [members, currentSeason] = await Promise.all([
+    listGroupMembers(adminSupabase, groupId),
+    getCurrentSeason(adminSupabase),
+  ]);
+  const standings = currentSeason
+    ? await listGroupSeasonStandings(adminSupabase, groupId, currentSeason.id)
+    : [];
+  const standingMap = new Map(standings.map((s) => [s.user_id, s]));
+  const enrichedMembers = members.map((m: any) => {
+    const standing = standingMap.get(m.user_id);
+    return {
+      ...m,
+      profile: m.profile || null,
+      total_points: standing?.total_points || 0,
+      perfect_picks: standing?.perfect_picks || 0,
+      events_played: standing?.events_played || 0,
+      rank_position: standing?.rank_position || 9999,
+    };
+  });
+  enrichedMembers.sort((a: any, b: any) => a.rank_position - b.rank_position);
   return {
     ...group,
+    current_season: currentSeason,
     members: enrichedMembers,
     member_count: enrichedMembers.length,
   } as GroupWithMembers;
