@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { toPng } from "html-to-image";
+import toast from "react-hot-toast";
 
 type Props = {
   cardRef: React.RefObject<HTMLDivElement | null>;
@@ -17,6 +17,7 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
     if (!cardRef.current) return null;
     setCapturing(true);
     try {
+      const { toPng } = await import("html-to-image");
       const dataUrl = await toPng(cardRef.current, {
         quality: 1,
         pixelRatio: 2,
@@ -25,15 +26,14 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
       const res = await fetch(dataUrl);
       return res.blob();
     } catch {
+      toast.error("Não foi possível gerar a imagem.");
       return null;
     } finally {
       setCapturing(false);
     }
   }
 
-  async function handleDownload() {
-    const blob = await captureBlob();
-    if (!blob) return;
+  function downloadBlob(blob: Blob) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -41,7 +41,22 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  async function copyCaption() {
+    try {
+      await navigator.clipboard.writeText(shareCaption);
+      toast.success("Legenda copiada.");
+    } catch {
+      /* clipboard not available */
+    }
+  }
+
+  async function handleDownload() {
+    const blob = await captureBlob();
+    if (!blob) return;
+    downloadBlob(blob);
   }
 
   async function handleShare() {
@@ -50,15 +65,18 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
 
     const file = new File([blob], filename, { type: "image/png" });
 
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file], text: shareCaption });
-    } else {
-      await handleDownload();
+    if (navigator.share && navigator.canShare?.({ files: [file] })) {
       try {
-        await navigator.clipboard.writeText(shareCaption);
-      } catch {
-        /* clipboard not available */
+        await navigator.share({ files: [file], text: shareCaption });
+      } catch (error: any) {
+        if (error?.name !== "AbortError") {
+          downloadBlob(blob);
+          await copyCaption();
+        }
       }
+    } else {
+      downloadBlob(blob);
+      await copyCaption();
     }
   }
 

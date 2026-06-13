@@ -22,6 +22,10 @@ function methodLabel(method?: string | null) {
   return method ? labels[method] || method : "-";
 }
 
+function safeFilenamePart(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "") || "jogador";
+}
+
 export default function EventPickSharePage({ data, shareUrl }: { data: ShareData; shareUrl: string }) {
   const { event, profile, picks, status } = data;
   const cardRef = useRef<HTMLDivElement>(null);
@@ -30,7 +34,7 @@ export default function EventPickSharePage({ data, shareUrl }: { data: ShareData
   const lockedPicks = picks.filter((p: any) => p.is_confirmed).length;
   const whatsappHref = `https://wa.me/?text=${encodeURIComponent(`Veja meus picks para o ${event.name}: ${profile.nickname} no UFC Fantasy ${shareUrl}`)}`;
   const shareCaption = `🎯 These are my picks for ${event.name}! Make yours at ${shareUrl}`;
-  const filename = `ufc-fantasy-picks-${event.slug}-${profile.nickname}.png`;
+  const filename = `ufc-fantasy-picks-${event.slug}-${safeFilenamePart(profile.nickname)}.png`;
 
   return (
     <main className="min-h-screen" style={{ backgroundColor: "var(--bg)" }}>

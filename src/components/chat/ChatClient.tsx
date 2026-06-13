@@ -8,6 +8,12 @@ import type { ChatMessage } from "@/types";
 
 const POLL_INTERVAL_MS = 10_000;
 
+function sortMessagesAscending(messages: ChatMessage[]) {
+  return [...messages].sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+  );
+}
+
 export default function ChatClient({ groupId }: { groupId?: string | null }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -43,18 +49,28 @@ export default function ChatClient({ groupId }: { groupId?: string | null }) {
   }, [groupId]);
 
   useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setMessages([]);
+    setHasMore(false);
+    setPollSince(null);
+
     (async () => {
       const data = await loadMessages(null);
+      if (cancelled) return;
       if (data) {
-        setMessages(data.messages);
+        const orderedMessages = sortMessagesAscending(data.messages);
+        setMessages(orderedMessages);
         setHasMore(data.hasMore);
-        if (data.messages.length > 0) {
-          setPollSince(data.messages[0].created_at);
-        }
+        setPollSince(orderedMessages[orderedMessages.length - 1]?.created_at ?? new Date().toISOString());
       }
       setLoading(false);
       scrollToBottom(false);
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [loadMessages, scrollToBottom]);
 
   useEffect(() => {
@@ -67,13 +83,14 @@ export default function ChatClient({ groupId }: { groupId?: string | null }) {
         const res = await fetch(`/api/chat?${params.toString()}`);
         const data = await readApiResponse<{ messages: ChatMessage[] }>(res);
         if (data.messages.length > 0) {
+          const orderedMessages = sortMessagesAscending(data.messages);
           setMessages((prev) => {
             const existingIds = new Set(prev.map((m) => m.id));
-            const newMessages = data.messages.filter((m) => !existingIds.has(m.id));
+            const newMessages = orderedMessages.filter((m) => !existingIds.has(m.id));
             if (newMessages.length === 0) return prev;
             return [...prev, ...newMessages];
           });
-          setPollSince(data.messages[data.messages.length - 1].created_at);
+          setPollSince(orderedMessages[orderedMessages.length - 1].created_at);
           scrollToBottom(true);
         }
       } catch {
@@ -82,14 +99,18 @@ export default function ChatClient({ groupId }: { groupId?: string | null }) {
     }, POLL_INTERVAL_MS);
 
     return () => clearInterval(interval);
-  }, [loading, pollSince, scrollToBottom]);
+  }, [groupId, loading, pollSince, scrollToBottom]);
 
   const handleLoadMore = async () => {
     if (messages.length === 0) return;
     const oldest = messages[0];
     const data = await loadMessages(oldest.created_at);
     if (data) {
-      setMessages((prev) => [...data.messages, ...prev]);
+      const olderMessages = sortMessagesAscending(data.messages);
+      setMessages((prev) => {
+        const existingIds = new Set(prev.map((m) => m.id));
+        return [...olderMessages.filter((m) => !existingIds.has(m.id)), ...prev];
+      });
       setHasMore(data.hasMore);
     }
   };
@@ -217,7 +238,10 @@ export default function ChatClient({ groupId }: { groupId?: string | null }) {
       <form
         onSubmit={handleSend}
         className="flex items-end gap-2 p-4"
-        style={{ borderTop: "1px solid var(--border)" }}
+        style={{
+          borderTop: "1px solid var(--border)",
+          paddingBottom: "calc(1rem + env(safe-area-inset-bottom))",
+        }}
       >
         <input
           type="text"
