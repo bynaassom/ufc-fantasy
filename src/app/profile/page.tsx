@@ -10,11 +10,9 @@ export default async function ProfilePage({
   const tab =
     searchParams.tab === "password"
       ? "password"
-      : searchParams.tab === "division"
-        ? "division"
-        : searchParams.tab === "badges"
-          ? "badges"
-          : "nickname";
+      : searchParams.tab === "badges"
+        ? "badges"
+        : "nickname";
 
   return <ProfileClient profile={profile} initialTab={tab} />;
 }

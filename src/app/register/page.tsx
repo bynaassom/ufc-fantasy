@@ -6,12 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createAuthClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
-import {
-  COMPETITIVE_DIVISIONS,
-  DEFAULT_COMPETITIVE_DIVISION,
-  getWeightClassLabel,
-  type CompetitiveDivision,
-} from "@/lib/ufc-weight";
+import { DEFAULT_COMPETITIVE_DIVISION } from "@/lib/ufc-weight";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -20,7 +15,6 @@ export default function RegisterPage() {
     nickname: "",
     first_name: "",
     last_name: "",
-    division: DEFAULT_COMPETITIVE_DIVISION as CompetitiveDivision,
     email: "",
     password: "",
     confirm_password: "",
@@ -60,7 +54,7 @@ export default function RegisterPage() {
           nickname: form.nickname,
           first_name: form.first_name,
           last_name: form.last_name,
-          division: form.division,
+          division: DEFAULT_COMPETITIVE_DIVISION,
           division_confirmed: true,
         },
       },
@@ -208,40 +202,6 @@ export default function RegisterPage() {
                   onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
                 />
               </div>
-            </div>
-
-            <div>
-              <label
-                className={labelClass}
-                style={{ color: "var(--text-secondary)" }}
-              >
-                Categoria
-              </label>
-              <select
-                value={form.division}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    division: e.target.value as CompetitiveDivision,
-                  })
-                }
-                style={inputStyle}
-                onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
-                onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
-              >
-                {COMPETITIVE_DIVISIONS.map((division) => (
-                  <option key={division} value={division}>
-                    {getWeightClassLabel(division)}
-                  </option>
-                ))}
-              </select>
-              <p
-                className="text-xs mt-1"
-                style={{ color: "var(--text-muted)" }}
-              >
-                Essa categoria define em qual ranking ranqueado você vai
-                competir.
-              </p>
             </div>
 
             <div>

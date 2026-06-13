@@ -2,12 +2,9 @@
 
 import { useState } from "react";
 import toast from "react-hot-toast";
-import {
-  COMPETITIVE_DIVISIONS,
-  getWeightClassLabel,
-} from "@/lib/ufc-weight";
 import Navbar from "@/components/layout/Navbar";
 import { readApiResponse } from "@/lib/api";
+import { getPlayerLevelProgress } from "@/lib/player-levels";
 import type { Profile } from "@/types";
 import type { MeResponse } from "@/types/api";
 import { createAuthClient } from "@/lib/supabase/client";
@@ -19,19 +16,18 @@ export default function ProfileClient({
   initialTab,
 }: {
   profile: Profile;
-  initialTab: "nickname" | "division" | "password" | "badges";
+  initialTab: "nickname" | "password" | "badges";
 }) {
   const [profile, setProfile] = useState(initialProfile);
   const [loading, setLoading] = useState(false);
-  const [tab, setTab] = useState<"nickname" | "division" | "password" | "badges">(initialTab);
+  const [tab, setTab] = useState<"nickname" | "password" | "badges">(initialTab);
   const [nickname, setNickname] = useState(initialProfile.nickname);
-  const [division, setDivision] = useState(initialProfile.division);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
   async function handleProfileUpdate(
-    payload: { nickname?: string; division?: Profile["division"] },
+    payload: { nickname?: string },
     successMessage: string,
   ) {
     setLoading(true);
@@ -47,7 +43,6 @@ export default function ProfileClient({
       toast.success(successMessage);
       setProfile(data.profile);
       setNickname(data.profile.nickname);
-      setDivision(data.profile.division);
     } catch (error: any) {
       toast.error(error.message);
     } finally {
@@ -68,12 +63,6 @@ export default function ProfileClient({
     }
 
     await handleProfileUpdate({ nickname }, "Nickname atualizado!");
-  }
-
-  async function handleUpdateDivision(e: React.FormEvent) {
-    e.preventDefault();
-    if (division === profile.division) return;
-    await handleProfileUpdate({ division }, "Categoria atualizada!");
   }
 
   async function handleUpdatePassword(e: React.FormEvent) {
@@ -132,6 +121,7 @@ export default function ProfileClient({
 
   const labelClass =
     "block text-xs font-700 uppercase tracking-widest mb-2 font-condensed";
+  const levelProgress = getPlayerLevelProgress(profile.total_points);
 
   return (
     <div className="min-h-screen pb-24 md:pb-0" style={{ backgroundColor: "var(--bg)" }}>
@@ -178,18 +168,29 @@ export default function ProfileClient({
               >
                 {profile.total_points} pontos
               </p>
-              <p
-                className="font-condensed font-600 text-xs uppercase tracking-widest mt-1"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                Categoria: {getWeightClassLabel(profile.division)}
-              </p>
+              <div className="mt-2">
+                <p
+                  className="font-condensed font-900 text-xs uppercase tracking-widest"
+                  style={{ color: "var(--red)" }}
+                >
+                  {levelProgress.level.label}
+                </p>
+                <div className="mt-1 h-1.5 w-40" style={{ backgroundColor: "var(--bg-elevated)" }}>
+                  <div
+                    className="h-full"
+                    style={{ width: `${levelProgress.progress}%`, backgroundColor: "var(--red)" }}
+                  />
+                </div>
+                <p className="text-[10px] mt-1 uppercase tracking-widest font-condensed font-600" style={{ color: "var(--text-muted)" }}>
+                  {levelProgress.pointsToNext > 0 ? `${levelProgress.pointsToNext} pts para o próximo nível` : "Nível máximo"}
+                </p>
+              </div>
             </div>
           </div>
         </div>
 
         <div className="flex gap-0 mb-6 overflow-x-auto" style={{ borderBottom: "1px solid var(--border)" }}>
-          {(["nickname", "division", "password", "badges"] as const).map((item) => (
+          {(["nickname", "password", "badges"] as const).map((item) => (
             <button
               key={item}
               onClick={() => setTab(item)}
@@ -198,9 +199,7 @@ export default function ProfileClient({
             >
               {item === "nickname"
                 ? "Nickname"
-                : item === "division"
-                  ? "Categoria"
-                  : item === "password"
+                : item === "password"
                     ? "Senha"
                     : "Conquistas"}
               {tab === item && (
@@ -242,42 +241,6 @@ export default function ProfileClient({
               style={{ backgroundColor: "var(--red)" }}
             >
               {loading ? "SALVANDO..." : "SALVAR NICKNAME"}
-            </button>
-          </form>
-        )}
-
-        {tab === "division" && (
-          <form onSubmit={handleUpdateDivision} className="space-y-5">
-            <div>
-              <label className={labelClass} style={{ color: "var(--text-secondary)" }}>
-                Categoria ranqueada
-              </label>
-              <select
-                value={division}
-                onChange={(e) => setDivision(e.target.value as Profile["division"])}
-                style={inputStyle}
-                onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
-                onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
-              >
-                {COMPETITIVE_DIVISIONS.map((value) => (
-                  <option key={value} value={value}>
-                    {getWeightClassLabel(value)}
-                  </option>
-                ))}
-              </select>
-              <p className="text-xs mt-1.5" style={{ color: "var(--text-muted)" }}>
-                Essa categoria define em qual ranking ranqueado você compete.
-                Você continua fazendo picks do card inteiro normalmente.
-              </p>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading || division === profile.division}
-              className="w-full py-3.5 font-condensed font-900 text-sm uppercase tracking-widest text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-40"
-              style={{ backgroundColor: "var(--red)" }}
-            >
-              {loading ? "SALVANDO..." : "SALVAR CATEGORIA"}
             </button>
           </form>
         )}

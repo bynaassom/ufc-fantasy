@@ -95,7 +95,7 @@ export default function BadgeGrid() {
                   <div key={badge.id} className="relative">
                     <button
                       onClick={() => setExpanded(isExpanded ? null : badge.id)}
-                      className="w-full flex flex-col items-center gap-1.5 p-3 transition-all active:scale-95"
+                      className="w-full aspect-square flex flex-col items-center justify-center gap-1.5 p-2 sm:p-3 transition-all active:scale-95"
                       style={{
                         backgroundColor: isUnlocked ? colors.bg : "var(--bg-elevated)",
                         border: `1px solid ${isUnlocked ? colors.border : "var(--border)"}`,
@@ -108,7 +108,13 @@ export default function BadgeGrid() {
                       </div>
                       <span
                         className="text-[10px] font-condensed font-700 uppercase tracking-widest text-center leading-tight"
-                        style={{ color: isUnlocked ? "var(--text)" : "var(--text-muted)" }}
+                        style={{
+                          color: isUnlocked ? "var(--text)" : "var(--text-muted)",
+                          display: "-webkit-box",
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: "vertical",
+                          overflow: "hidden",
+                        }}
                       >
                         {badge.name}
                       </span>

@@ -1,9 +1,8 @@
-import DivisionSelector from "@/components/ranking/DivisionSelector";
 import EventRankingSelector from "@/components/ranking/EventRankingSelector";
 import Pagination from "@/components/ui/Pagination";
 import Navbar from "@/components/layout/Navbar";
 import Link from "next/link";
-import type { CompetitiveDivision } from "@/lib/ufc-weight";
+import { getPlayerLevel } from "@/lib/player-levels";
 import type { RankingSelectableEvent } from "@/lib/ranking-events";
 import { getRankingPageData } from "@/server/services/app";
 
@@ -24,14 +23,12 @@ export const dynamic = "force-dynamic";
 export default async function RankingPage({
   searchParams,
 }: {
-  searchParams: { tab?: string; division?: string; event?: string; page?: string };
+  searchParams: { tab?: string; event?: string; page?: string };
 }) {
   const tab =
     searchParams.tab === "evento"
       ? "evento"
-      : searchParams.tab === "categoria"
-        ? "categoria"
-        : "geral";
+      : "geral";
   const currentPage = Math.max(1, Number(searchParams.page) || 1);
   const {
     profile,
@@ -40,15 +37,11 @@ export default async function RankingPage({
     rankingEvents,
     displayRanking,
     myRank,
-    selectedDivision,
-    selectedDivisionLabel,
-    userDivisionLabel,
-  } = await getRankingPageData(tab, searchParams.division, searchParams.event);
+  } = await getRankingPageData(tab, undefined, searchParams.event);
   const ranking = displayRanking as RankingRow[];
   const currentMyRank = myRank as RankingRow | null;
   const eventOptions = rankingEvents as RankingSelectableEvent[];
   const selectedEvent = selectedRankingEvent as RankingSelectableEvent | null;
-  const categoryHref = `/ranking?tab=categoria&division=${selectedDivision}`;
 
   const totalPages = Math.max(1, Math.ceil(ranking.length / ITEMS_PER_PAGE));
   const paginatedRanking = ranking.slice(
@@ -59,7 +52,6 @@ export default async function RankingPage({
   function rankingPageHref(page: number) {
     const params = new URLSearchParams();
     params.set("tab", tab);
-    if (tab === "categoria") params.set("division", selectedDivision);
     if (tab === "evento" && selectedEvent) params.set("event", selectedEvent.slug);
     if (page > 1) params.set("page", String(page));
     return `/ranking?${params.toString()}`;
@@ -83,7 +75,7 @@ export default async function RankingPage({
 
         {/* Toggle — estilo igual ao da imagem (Card Principal / Preliminares) */}
         <div
-          className="grid grid-cols-3 mb-6"
+          className="grid grid-cols-2 mb-6"
           style={{ border: "1px solid var(--border)" }}
         >
           <Link
@@ -114,49 +106,7 @@ export default async function RankingPage({
           >
             EVENTO
           </Link>
-          <Link
-            href={categoryHref}
-            className="flex-1 py-3 text-center font-condensed font-900 text-xs uppercase tracking-widest transition-all"
-            style={{
-              backgroundColor:
-                tab === "categoria" ? "var(--red)" : "var(--bg-card)",
-              color: tab === "categoria" ? "white" : "var(--text-muted)",
-            }}
-          >
-            CATEGORIA
-          </Link>
         </div>
-
-        {tab === "categoria" && (
-          <div
-            className="mb-5 flex flex-col gap-4 p-4 md:flex-row md:items-end md:justify-between"
-            style={{
-              backgroundColor: "var(--bg-card)",
-              border: "1px solid var(--border)",
-            }}
-          >
-            <div>
-              <p
-                className="font-condensed font-900 text-lg uppercase tracking-wide"
-                style={{ color: "var(--text)" }}
-              >
-                {selectedDivisionLabel}
-              </p>
-              <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-                Você compete oficialmente em {userDivisionLabel}.
-              </p>
-              {selectedDivision !== (profile.division as CompetitiveDivision) && (
-                <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>
-                  Visualizando outra categoria. Sua posição aparece apenas na sua
-                  divisão principal.
-                </p>
-              )}
-            </div>
-            <DivisionSelector
-              selectedDivision={selectedDivision as CompetitiveDivision}
-            />
-          </div>
-        )}
 
         {tab === "evento" && eventOptions.length > 0 && selectedEvent && (
           <div
@@ -214,14 +164,12 @@ export default async function RankingPage({
                   (você)
                 </span>
               </p>
-              {tab === "categoria" && (
-                <p
-                  className="font-condensed font-600 text-xs uppercase tracking-widest"
-                  style={{ color: "var(--text-secondary)" }}
-                >
-                  {selectedDivisionLabel}
-                </p>
-              )}
+              <p
+                className="font-condensed font-600 text-xs uppercase tracking-widest"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                {getPlayerLevel(currentMyRank.points).label}
+              </p>
               {currentMyRank.nickname && (
                 <p
                   className="font-condensed font-600 text-xs uppercase tracking-widest"
@@ -259,20 +207,6 @@ export default async function RankingPage({
               style={{ color: "var(--text-muted)" }}
             >
               Ainda sem resultados para este evento
-            </p>
-          </div>
-        )}
-
-        {tab === "categoria" && ranking.length === 0 && (
-          <div
-            className="py-12 text-center"
-            style={{ border: "1px solid var(--border)" }}
-          >
-            <p
-              className="font-condensed font-700 uppercase tracking-widest text-sm"
-              style={{ color: "var(--text-muted)" }}
-            >
-              Ainda não há jogadores ranqueados em {selectedDivisionLabel}
             </p>
           </div>
         )}
@@ -390,6 +324,12 @@ export default async function RankingPage({
                               {entry.first_name} {entry.last_name}
                             </p>
                           )}
+                          <p
+                            className="font-condensed font-700 text-[10px] uppercase tracking-widest"
+                            style={{ color: "var(--red)" }}
+                          >
+                            {getPlayerLevel(entry.points).label}
+                          </p>
                         </div>
                       </Link>
                     </div>

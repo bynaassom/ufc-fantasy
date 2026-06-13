@@ -15,6 +15,7 @@ export type NotificationType =
   | "challenge_accepted"
   | "challenge_declined"
   | "challenge_result"
+  | "badge_earned"
   | "picks_opened"
   | "picks_closing_tomorrow"
   | "picks_closing_today"

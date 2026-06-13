@@ -13,13 +13,6 @@ import type {
   PublicProfileSummary,
 } from "@/types";
 import {
-  COMPETITIVE_DIVISIONS,
-  DEFAULT_COMPETITIVE_DIVISION,
-  getWeightClassLabel,
-  isCompetitiveDivision,
-  type CompetitiveDivision,
-} from "@/lib/ufc-weight";
-import {
   resolveRankingEventSelection,
   type RankingSelectableEvent,
 } from "@/lib/ranking-events";
@@ -73,7 +66,6 @@ import {
   findPublicProfileByNickname,
   findPublicProfilesByIds,
   listPublicProfiles,
-  listPublicProfilesByDivision,
   listRecentProfiles,
   updateProfile,
   updateProfileBan,
@@ -208,18 +200,6 @@ const getCachedGlobalRanking = unstable_cache(
     return getGlobalRanking(supabase);
   },
   ["global-ranking"],
-  {
-    revalidate: RANKING_CACHE_SECONDS,
-    tags: [CACHE_TAGS.ranking],
-  },
-);
-
-const getCachedDivisionRanking = unstable_cache(
-  async (division: CompetitiveDivision) => {
-    const supabase = getServiceRoleSupabase();
-    return getDivisionRanking(supabase, division);
-  },
-  ["division-ranking"],
   {
     revalidate: RANKING_CACHE_SECONDS,
     tags: [CACHE_TAGS.ranking],
@@ -613,13 +593,6 @@ async function getGlobalRanking(client: any) {
   return data || [];
 }
 
-async function getDivisionRanking(
-  client: any,
-  division: CompetitiveDivision,
-) {
-  return listPublicProfilesByDivision(client, division, 100);
-}
-
 async function getEventRanking(client: any, eventId: string) {
   const { data, error } = await client
     .from("event_scores")
@@ -752,7 +725,7 @@ export async function getEventLiveData(slug: string) {
 }
 
 export async function getRankingPageData(
-  tab: "geral" | "evento" | "categoria",
+  tab: "geral" | "evento",
   divisionParam?: string,
   eventSlugParam?: string,
 ) {
@@ -775,11 +748,6 @@ export async function getRankingPageData(
       selectedSlug: eventSlugParam,
       completedLimit: 7,
     });
-  const selectedDivision =
-    divisionParam && isCompetitiveDivision(divisionParam)
-      ? divisionParam
-      : profile.division || DEFAULT_COMPETITIVE_DIVISION;
-
   let displayRanking: RankingDisplayEntry[] = [];
 
   if (tab === "evento") {
@@ -794,18 +762,6 @@ export async function getRankingPageData(
       points: entry.total_points,
       perfect_picks: entry.perfect_picks,
       userId: entry.user_id,
-    }));
-  } else if (tab === "categoria") {
-    const divisionRanking = await getCachedDivisionRanking(selectedDivision);
-
-    displayRanking = divisionRanking.map((entry: any, index: number) => ({
-      rank: index + 1,
-      nickname: entry.nickname,
-      first_name: entry.first_name,
-      last_name: entry.last_name,
-      points: entry.total_points,
-      perfect_picks: 0,
-      userId: entry.id,
     }));
   } else {
     const globalRanking = await getCachedGlobalRanking();
@@ -834,10 +790,6 @@ export async function getRankingPageData(
     displayRanking,
     myRank,
     tab,
-    selectedDivision,
-    selectedDivisionLabel: getWeightClassLabel(selectedDivision),
-    userDivisionLabel: getWeightClassLabel(profile.division),
-    divisions: COMPETITIVE_DIVISIONS,
   };
 }
 
@@ -900,16 +852,11 @@ export async function getMyProfile() {
 
 export async function updateMyProfile(payload: {
   nickname?: string;
-  division?: CompetitiveDivision;
 }) {
   const { supabase, user } = await requireActiveUser();
-  const nextPayload =
-    payload.division !== undefined
-      ? { ...payload, division_confirmed: true }
-      : payload;
 
   try {
-    const profile = await updateProfile(supabase, user.id, nextPayload);
+    const profile = await updateProfile(supabase, user.id, payload);
     return { profile };
   } catch (error: any) {
     if (payload.nickname && error?.message?.toLowerCase().includes("unique")) {

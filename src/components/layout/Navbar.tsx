@@ -7,7 +7,6 @@ import { useEffect, useState } from "react";
 import { createAuthClient } from "@/lib/supabase/client";
 import { Profile } from "@/types";
 import { getDisplayName, getDisplaySubtitle } from "@/lib/utils";
-import DivisionOnboardingModal from "./DivisionOnboardingModal";
 import NotificationBell from "./NotificationBell";
 import PushNotificationManager from "./PushNotificationManager";
 import ThemeToggle from "@/components/ui/ThemeToggle";
@@ -20,9 +19,6 @@ export default function Navbar({ profile }: NavbarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [needsDivisionSetup, setNeedsDivisionSetup] = useState(
-    !profile.division_confirmed,
-  );
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -65,11 +61,6 @@ export default function Navbar({ profile }: NavbarProps) {
 
   return (
     <>
-      <DivisionOnboardingModal
-        initialDivision={profile.division}
-        open={needsDivisionSetup}
-        onConfirmed={() => setNeedsDivisionSetup(false)}
-      />
       <PushNotificationManager variant="mobile" />
 
       {/* ── DESKTOP ── */}
