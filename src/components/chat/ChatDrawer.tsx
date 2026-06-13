@@ -1,15 +1,20 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useCallback } from "react";
 import ChatClient from "@/components/chat/ChatClient";
 import { useChatDrawer } from "@/stores/chat-drawer";
 
 export default function ChatDrawer() {
   const { isOpen, close } = useChatDrawer();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const drawerRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
+
+    previousFocusRef.current = document.activeElement as HTMLElement;
+
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     closeButtonRef.current?.focus();
@@ -21,24 +26,53 @@ export default function ChatDrawer() {
     return () => {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", handleKey);
+      previousFocusRef.current?.focus();
     };
   }, [isOpen, close]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key !== "Tab") return;
+    const drawer = drawerRef.current;
+    if (!drawer) return;
+
+    const focusable = drawer.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    );
+    if (focusable.length === 0) return;
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+
+    if (e.shiftKey) {
+      if (document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else {
+      if (document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  }, []);
 
   return (
     <>
       {isOpen && (
         <div
-          className="fixed inset-0 z-[60] md:block hidden"
+          className="fixed inset-0 z-40"
           style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
           onClick={close}
         />
       )}
 
       <div
+        ref={drawerRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="global-chat-title"
         aria-hidden={!isOpen}
+        onKeyDown={handleKeyDown}
         className="fixed z-[70] top-0 right-0 h-full flex flex-col"
         style={{
           width: "min(420px, 100vw)",

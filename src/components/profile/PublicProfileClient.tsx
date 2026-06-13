@@ -97,7 +97,7 @@ export default function PublicProfileClient({
   ];
 
   return (
-    <div className="min-h-screen pb-24 md:pb-10" style={{ backgroundColor: "var(--bg)" }}>
+    <div className="min-h-[100dvh] pb-24 md:pb-0" style={{ backgroundColor: "var(--bg)" }}>
       <Navbar profile={viewerProfile} />
 
       <main className="max-w-4xl mx-auto px-4 py-8">

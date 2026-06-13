@@ -9,7 +9,7 @@ export default async function ChatPage() {
 
   return (
     <div
-      className="min-h-screen pb-20 md:pb-0"
+      className="min-h-[100dvh] pb-20 md:pb-0"
       style={{ backgroundColor: "var(--bg)" }}
     >
       <Navbar profile={profile} />

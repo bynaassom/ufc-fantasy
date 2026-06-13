@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import dynamic from "next/dynamic";
 import Navbar from "@/components/layout/Navbar";
@@ -32,12 +33,18 @@ export default async function EventPage({ params }: EventPageProps) {
 
   return (
     <div
-      className="min-h-screen pb-24 md:pb-10"
+      className="min-h-[100dvh] pb-24 md:pb-0"
       style={{ backgroundColor: "var(--bg)" }}
     >
       <Navbar profile={profile} />
       <LiveFeed eventSlug={params.slug} />
       <main className="max-w-2xl mx-auto px-4 py-8">
+        <Link href="/home" className="inline-flex items-center gap-1 mb-4" style={{ color: "var(--text-muted)" }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+          <span className="text-xs font-condensed font-700 uppercase tracking-wider">Eventos</span>
+        </Link>
         {/* Event header */}
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-3">

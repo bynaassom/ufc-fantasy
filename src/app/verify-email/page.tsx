@@ -161,7 +161,7 @@ function VerifyEmailContent() {
 export default function VerifyEmailPage() {
   return (
     <main
-      className="min-h-screen flex flex-col"
+      className="min-h-[100dvh] flex flex-col"
       style={{ backgroundColor: "var(--bg)" }}
     >
       <header className="flex items-center justify-between px-6 py-4">

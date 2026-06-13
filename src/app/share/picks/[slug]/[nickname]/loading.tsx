@@ -1,6 +1,6 @@
 export default function SharePicksLoading() {
   return (
-    <main className="min-h-screen px-4 py-8" style={{ backgroundColor: "var(--bg)" }}>
+    <main className="min-h-[100dvh] px-4 py-8" style={{ backgroundColor: "var(--bg)" }}>
       <div className="mx-auto max-w-5xl">
         <div className="skeleton h-10 w-56 mb-6" />
         <div className="grid gap-2 md:grid-cols-3">

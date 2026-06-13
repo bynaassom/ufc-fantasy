@@ -6,7 +6,7 @@ export default function EventRecapContent({ data }: { data: EventRecapData }) {
   const { event, ranking, aggregateStats, fightStats } = data;
 
   return (
-    <main className="min-h-screen" style={{ backgroundColor: "var(--bg)" }}>
+    <main className="min-h-[100dvh]" style={{ backgroundColor: "var(--bg)" }}>
       <section className="mx-auto max-w-3xl px-4 py-8">
         {/* Header */}
         <div className="mb-6">

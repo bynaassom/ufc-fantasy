@@ -3,7 +3,7 @@ import Link from "next/link";
 export default function TermosPage() {
   return (
     <main
-      className="min-h-screen flex flex-col"
+      className="min-h-[100dvh] flex flex-col"
       style={{ backgroundColor: "var(--bg)" }}
     >
       <header style={{ borderBottom: "1px solid var(--border)" }}>

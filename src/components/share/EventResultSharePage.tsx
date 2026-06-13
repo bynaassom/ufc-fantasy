@@ -44,7 +44,7 @@ export default function EventResultSharePage({ data, shareUrl }: { data: ShareDa
   const filename = `ufc-fantasy-result-${event.slug}-${safeFilenamePart(profile.nickname)}.png`;
 
   return (
-    <main className="min-h-screen" style={{ backgroundColor: "var(--bg)" }}>
+    <main className="min-h-[100dvh]" style={{ backgroundColor: "var(--bg)" }}>
       <PublicShareHeader />
       <section className="mx-auto max-w-5xl px-4 py-8">
         <div

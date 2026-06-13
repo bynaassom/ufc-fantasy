@@ -106,7 +106,7 @@ function FightComparisonRow({
         {comparison.fight.result_confirmed && comparison.fight.winner_id && (
           <span
             className="px-2 py-1 text-xs font-condensed font-900 uppercase tracking-widest text-white"
-            style={{ backgroundColor: "#22c55e" }}
+            style={{ backgroundColor: "var(--green)" }}
           >
             Resultado: {getWinnerName(comparison.fight, comparison.fight.winner_id)}
           </span>
@@ -118,7 +118,7 @@ function FightComparisonRow({
           className="p-4"
           style={{
             backgroundColor: "var(--bg-elevated)",
-            border: `1px solid ${challengerWon ? "#22c55e" : "var(--border)"}`,
+            border: `1px solid ${challengerWon ? "var(--green)" : "var(--border)"}`,
           }}
         >
           <div className="flex items-center justify-between gap-2">
@@ -126,7 +126,7 @@ function FightComparisonRow({
               {challengerName}
             </p>
             {challengerWon && (
-              <span className="text-[10px] font-condensed font-900 uppercase tracking-widest text-white px-1.5 py-0.5" style={{ backgroundColor: "#22c55e" }}>
+              <span className="text-[10px] font-condensed font-900 uppercase tracking-widest text-white px-1.5 py-0.5" style={{ backgroundColor: "var(--green)" }}>
                 +1
               </span>
             )}
@@ -162,7 +162,7 @@ function FightComparisonRow({
           className="p-4"
           style={{
             backgroundColor: "var(--bg-elevated)",
-            border: `1px solid ${challengedWon ? "#22c55e" : "var(--border)"}`,
+            border: `1px solid ${challengedWon ? "var(--green)" : "var(--border)"}`,
           }}
         >
           <div className="flex items-center justify-between gap-2">
@@ -170,7 +170,7 @@ function FightComparisonRow({
               {challengedName}
             </p>
             {challengedWon && (
-              <span className="text-[10px] font-condensed font-900 uppercase tracking-widest text-white px-1.5 py-0.5" style={{ backgroundColor: "#22c55e" }}>
+              <span className="text-[10px] font-condensed font-900 uppercase tracking-widest text-white px-1.5 py-0.5" style={{ backgroundColor: "var(--green)" }}>
                 +1
               </span>
             )}
@@ -284,10 +284,16 @@ export default function ChallengeDetailClient({
     : null;
 
   return (
-    <div className="min-h-screen pb-24 md:pb-10" style={{ backgroundColor: "var(--bg)" }}>
+    <div className="min-h-[100dvh] pb-24 md:pb-0" style={{ backgroundColor: "var(--bg)" }}>
       <Navbar profile={profile} />
 
       <main className="max-w-5xl mx-auto px-4 py-8">
+        <Link href="/desafios" className="inline-flex items-center gap-1 mb-4" style={{ color: "var(--text-muted)" }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+          <span className="text-xs font-condensed font-700 uppercase tracking-wider">Desafios</span>
+        </Link>
         {/* Header */}
         <div className="mb-8 pb-6" style={{ borderBottom: "1px solid var(--border)" }}>
           <p className="font-condensed font-700 text-xs uppercase tracking-widest" style={{ color: "var(--text-secondary)" }}>
@@ -323,7 +329,7 @@ export default function ChallengeDetailClient({
               {isCompleted && challenge.leader_user_id && (
                 <span
                   className="inline-block px-1.5 md:px-2 py-0.5 md:py-1 text-[10px] md:text-xs font-condensed font-900 uppercase tracking-widest text-white"
-                  style={{ backgroundColor: isUserWinner ? "#22c55e" : "var(--red)" }}
+                  style={{ backgroundColor: isUserWinner ? "var(--green)" : "var(--red)" }}
                 >
                   {isUserWinner ? "VOCÊ VENCEU" : "DERROTA"}
                 </span>
@@ -331,7 +337,7 @@ export default function ChallengeDetailClient({
               {!isDone && challenge.status !== "pending" && challenge.leader_user_id && (
                 <span
                   className="inline-block px-1.5 md:px-2 py-0.5 md:py-1 text-[10px] md:text-xs font-condensed font-900 uppercase tracking-widest text-white"
-                  style={{ backgroundColor: isLeading ? "#22c55e" : "var(--text-muted)" }}
+                  style={{ backgroundColor: isLeading ? "var(--green)" : "var(--text-muted)" }}
                 >
                   {isLeading ? "VENCENDO" : "PERDENDO"}
                 </span>
@@ -359,7 +365,7 @@ export default function ChallengeDetailClient({
                 onClick={() => handleRespond("accept")}
                 disabled={loadingAction === "accept"}
                 className="w-full sm:w-auto px-5 py-3 font-condensed font-900 text-sm uppercase tracking-widest text-white disabled:opacity-60"
-                style={{ backgroundColor: "#22c55e" }}
+                style={{ backgroundColor: "var(--green)" }}
               >
                 {loadingAction === "accept" ? "Aceitando..." : "Aceitar desafio"}
               </button>
@@ -385,7 +391,7 @@ export default function ChallengeDetailClient({
                 {rematching ? "Enviando..." : `Rematch para ${nextEvent.name}`}
               </button>
               <p className="text-xs mt-2" style={{ color: "var(--text-secondary)" }}>
-                Desafie {challenge.challenger?.nickname || challenge.challenged?.nickname || "seu oponente"} novamente
+                Desafie {(isUserChallenger ? challenge.challenged : challenge.challenger)?.nickname || "seu oponente"} novamente
               </p>
             </div>
           )}
@@ -419,13 +425,13 @@ export default function ChallengeDetailClient({
                       {challengerName}
                     </span>
                     {fightRecords[idx]?.challengerWon && (
-                      <span className="text-[10px] font-condensed font-900 text-white px-1 py-0.5" style={{ backgroundColor: "#22c55e" }}>+1</span>
+                      <span className="text-[10px] font-condensed font-900 text-white px-1 py-0.5" style={{ backgroundColor: "var(--green)" }}>+1</span>
                     )}
                     <span className="text-xs font-condensed font-900" style={{ color: "var(--text)" }}>
                       {fightRecords.slice(0, idx + 1).filter((r) => r.challengerWon).length}:{fightRecords.slice(0, idx + 1).filter((r) => r.challengedWon).length}
                     </span>
                     {fightRecords[idx]?.challengedWon && (
-                      <span className="text-[10px] font-condensed font-900 text-white px-1 py-0.5" style={{ backgroundColor: "#22c55e" }}>+1</span>
+                      <span className="text-[10px] font-condensed font-900 text-white px-1 py-0.5" style={{ backgroundColor: "var(--green)" }}>+1</span>
                     )}
                     <span className="hidden md:inline text-[10px] font-condensed font-700 uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
                       {challengedName}

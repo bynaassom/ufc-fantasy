@@ -22,7 +22,7 @@ export default async function HomePage() {
   return (
     <HomeWithTour show={!profile.onboarding_completed}>
       <div
-        className="min-h-screen pb-20 md:pb-0"
+        className="min-h-[100dvh] pb-20 md:pb-0"
         style={{ backgroundColor: "var(--bg)" }}
       >
         <Navbar profile={profile} />
@@ -37,7 +37,7 @@ export default async function HomePage() {
             className="font-condensed font-700 text-xs uppercase tracking-widest mb-1"
             style={{ color: "var(--text-secondary)" }}
           >
-            Bem-vindo de volta
+            {profile ? `Bem-vindo de volta, ${getDisplayName(profile)}` : "Bem-vindo de volta"}
           </p>
           <h1
             className="font-condensed font-900 text-3xl uppercase tracking-wide"

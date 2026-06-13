@@ -11,9 +11,11 @@ export default function LoginPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ email: "", password: "" });
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
+    setFieldErrors({});
     setLoading(true);
     const supabase = createAuthClient();
     const { error } = await supabase.auth.signInWithPassword({
@@ -21,12 +23,38 @@ export default function LoginPage() {
       password: form.password,
     });
     if (error) {
-      toast.error("Email ou senha incorretos.");
+      if (error.message.includes("User not found")) {
+        toast.error("Email não encontrado");
+        setFieldErrors({ email: "Email não encontrado" });
+      } else if (error.message.includes("Invalid login credentials")) {
+        toast.error("Senha incorreta");
+        setFieldErrors({ password: "Senha incorreta" });
+      } else {
+        toast.error("Erro ao fazer login. Tente novamente.");
+      }
       setLoading(false);
       return;
     }
     router.push("/home");
     router.refresh();
+  }
+
+  async function handleForgotPassword() {
+    if (!form.email) {
+      toast.error("Digite seu email primeiro.");
+      return;
+    }
+    setLoading(true);
+    const supabase = createAuthClient();
+    const { error } = await supabase.auth.resetPasswordForEmail(form.email, {
+      redirectTo: `${window.location.origin}/auth/callback?next=/update-password`,
+    });
+    setLoading(false);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("Link de redefinição enviado para seu email");
+    }
   }
 
   const inputStyle: React.CSSProperties = {
@@ -43,7 +71,7 @@ export default function LoginPage() {
 
   return (
     <main
-      className="min-h-screen flex flex-col"
+      className="min-h-[100dvh] flex flex-col"
       style={{ backgroundColor: "var(--bg)" }}
     >
       <header style={{ borderBottom: "1px solid var(--border)" }}>
@@ -97,6 +125,11 @@ export default function LoginPage() {
                 onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
                 onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
               />
+              {fieldErrors.email && (
+                <p className="text-xs mt-1" style={{ color: "var(--red)" }} role="alert">
+                  {fieldErrors.email}
+                </p>
+              )}
             </div>
 
             <div>
@@ -117,6 +150,22 @@ export default function LoginPage() {
                 onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
                 onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
               />
+              {fieldErrors.password && (
+                <p className="text-xs mt-1" style={{ color: "var(--red)" }} role="alert">
+                  {fieldErrors.password}
+                </p>
+              )}
+            </div>
+
+            <div className="text-right">
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                className="text-xs font-condensed font-700 uppercase tracking-widest hover:opacity-80 transition-opacity"
+                style={{ color: "var(--red)" }}
+              >
+                Esqueci a senha?
+              </button>
             </div>
 
             <button

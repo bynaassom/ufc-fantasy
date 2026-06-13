@@ -1,6 +1,6 @@
 export default function ProfileLoading() {
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "var(--bg)" }}>
+    <div className="min-h-[100dvh]" style={{ backgroundColor: "var(--bg)" }}>
       <div
         className="h-14 mb-8"
         style={{ backgroundColor: "var(--bg-secondary)", borderBottom: "3px solid var(--red)" }}

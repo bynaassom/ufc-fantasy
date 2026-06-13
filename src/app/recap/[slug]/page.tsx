@@ -24,7 +24,7 @@ export default async function RecapPage({ params }: Params) {
   if (!data) notFound();
 
   return (
-    <div className="min-h-screen pb-24 md:pb-10" style={{ backgroundColor: "var(--bg)" }}>
+    <div className="min-h-[100dvh] pb-24 md:pb-0" style={{ backgroundColor: "var(--bg)" }}>
       <Navbar profile={profile} />
       <EventRecapContent data={data} />
     </div>

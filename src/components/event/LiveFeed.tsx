@@ -100,6 +100,7 @@ export default function LiveFeed({ eventSlug }: { eventSlug: string }) {
         const json = await res.json();
         if (json.error) throw new Error(json.error);
         const data: LiveData = json.data;
+        setError(false);
 
         setStatus(data.status);
         if (data.leaderboard) setLeaderboard(data.leaderboard);
@@ -141,7 +142,7 @@ export default function LiveFeed({ eventSlug }: { eventSlug: string }) {
     };
   }, [eventSlug]);
 
-  if (status !== "live" && entries.length === 0) return null;
+  if (status !== "live" && entries.length === 0 && !error) return null;
 
   return (
     <div
@@ -150,6 +151,20 @@ export default function LiveFeed({ eventSlug }: { eventSlug: string }) {
         borderBottom: open ? "1px solid var(--border)" : "none",
       }}
     >
+      {/* Error banner */}
+      {error && (
+        <div className="px-4 py-3 text-sm" style={{ backgroundColor: "var(--bg-card)", borderBottom: "1px solid var(--border)" }}>
+          <span style={{ color: "var(--red)" }}>Erro ao carregar dados ao vivo</span>
+          <button
+            onClick={() => window.location.reload()}
+            className="ml-2 underline text-xs"
+            style={{ color: "var(--text-muted)" }}
+          >
+            Tentar novamente
+          </button>
+        </div>
+      )}
+
       {/* Toggle bar */}
       <button
         onClick={() => setOpen(!open)}

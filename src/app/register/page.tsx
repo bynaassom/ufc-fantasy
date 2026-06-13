@@ -11,6 +11,8 @@ import { DEFAULT_COMPETITIVE_DIVISION } from "@/lib/ufc-weight";
 export default function RegisterPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [needsEmailConfirmation, setNeedsEmailConfirmation] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
     nickname: "",
     first_name: "",
@@ -22,16 +24,20 @@ export default function RegisterPage() {
 
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
+    setFieldErrors({});
     if (form.password !== form.confirm_password) {
       toast.error("As senhas não coincidem.");
+      setFieldErrors({ confirm_password: "As senhas não coincidem." });
       return;
     }
     if (form.password.length < 8) {
       toast.error("Senha deve ter pelo menos 8 caracteres.");
+      setFieldErrors({ password: "Senha deve ter pelo menos 8 caracteres." });
       return;
     }
     if (form.nickname && !/^[a-zA-Z0-9_]+$/.test(form.nickname)) {
       toast.error("Nickname: apenas letras, números e _");
+      setFieldErrors({ nickname: "Apenas letras, números e _." });
       return;
     }
     if (
@@ -39,13 +45,14 @@ export default function RegisterPage() {
       (form.nickname.length < 3 || form.nickname.length > 20)
     ) {
       toast.error("Nickname deve ter entre 3 e 20 caracteres.");
+      setFieldErrors({ nickname: "Deve ter entre 3 e 20 caracteres." });
       return;
     }
 
     setLoading(true);
     const supabase = createAuthClient();
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
       options: {
@@ -70,7 +77,13 @@ export default function RegisterPage() {
       return;
     }
 
-    router.push(`/home`);
+    if (data.session) {
+      router.push(`/home`);
+      setLoading(false);
+      return;
+    }
+
+    setNeedsEmailConfirmation(true);
     setLoading(false);
   }
 
@@ -91,7 +104,7 @@ export default function RegisterPage() {
 
   return (
     <main
-      className="min-h-screen flex flex-col"
+      className="min-h-[100dvh] flex flex-col"
       style={{ backgroundColor: "var(--bg)" }}
     >
       <header style={{ borderBottom: "1px solid var(--border)" }}>
@@ -110,7 +123,74 @@ export default function RegisterPage() {
       </header>
 
       <div className="flex-1 flex items-center justify-center px-4 py-12">
-        <div className="w-full max-w-sm">
+        {needsEmailConfirmation ? (
+          <div className="w-full max-w-sm text-center">
+            <div className="mb-6 flex justify-center">
+              <div
+                className="w-16 h-16 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: "var(--red)" }}
+              >
+                <svg
+                  className="w-8 h-8 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={3}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              </div>
+            </div>
+            <h2
+              className="text-xl font-condensed font-900 uppercase tracking-widest mb-3"
+              style={{ color: "var(--text)" }}
+            >
+              Verifique seu email
+            </h2>
+            <p
+              className="text-sm mb-8 leading-relaxed"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Enviamos um link de confirmação para {form.email}. Clique no link
+              para ativar sua conta.
+            </p>
+            <button
+              type="button"
+              onClick={async () => {
+                setLoading(true);
+                const supabase = createAuthClient();
+                const { error } =
+                  await supabase.auth.resend({
+                    type: "signup",
+                    email: form.email,
+                  });
+                setLoading(false);
+                if (error) {
+                  toast.error(error.message);
+                } else {
+                  toast.success("Email reenviado com sucesso");
+                }
+              }}
+              disabled={loading}
+              className="w-full py-3.5 font-condensed font-900 text-sm uppercase tracking-widest text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-50 mb-4"
+              style={{ backgroundColor: "var(--red)" }}
+            >
+              {loading ? "REENVIANDO..." : "REENVIAR EMAIL"}
+            </button>
+            <Link
+              href="/login"
+              className="block text-xs font-condensed font-700 uppercase tracking-widest underline transition-opacity hover:opacity-80"
+              style={{ color: "var(--red)" }}
+            >
+              Voltar ao login
+            </Link>
+          </div>
+        ) : (
+          <div className="w-full max-w-sm">
           <div className="mb-8">
             <div className="red-line">
               <span className="section-title" style={{ fontSize: "1.75rem" }}>
@@ -159,6 +239,11 @@ export default function RegisterPage() {
                 3–20 caracteres, letras, números e _ · Se vazio, usaremos seu
                 nome
               </p>
+              {fieldErrors.nickname && (
+                <p className="text-xs mt-1" style={{ color: "var(--red)" }} role="alert">
+                  {fieldErrors.nickname}
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -222,6 +307,11 @@ export default function RegisterPage() {
                 onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
                 onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
               />
+              {fieldErrors.email && (
+                <p className="text-xs mt-1" style={{ color: "var(--red)" }} role="alert">
+                  {fieldErrors.email}
+                </p>
+              )}
             </div>
 
             <div>
@@ -243,6 +333,11 @@ export default function RegisterPage() {
                 onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
                 onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
               />
+              {fieldErrors.password && (
+                <p className="text-xs mt-1" style={{ color: "var(--red)" }} role="alert">
+                  {fieldErrors.password}
+                </p>
+              )}
             </div>
 
             <div>
@@ -265,6 +360,11 @@ export default function RegisterPage() {
                 onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
                 onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
               />
+              {fieldErrors.confirm_password && (
+                <p className="text-xs mt-1" style={{ color: "var(--red)" }} role="alert">
+                  {fieldErrors.confirm_password}
+                </p>
+              )}
             </div>
 
             <button
@@ -290,6 +390,7 @@ export default function RegisterPage() {
             </p>
           </div>
         </div>
+        )}
       </div>
     </main>
   );

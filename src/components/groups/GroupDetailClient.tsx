@@ -67,6 +67,12 @@ export default function GroupDetailClient({
 
   return (
     <div>
+      <Link href="/ligas" className="inline-flex items-center gap-1 mb-4" style={{ color: "var(--text-muted)" }}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <polyline points="15 18 9 12 15 6" />
+        </svg>
+        <span className="text-xs font-condensed font-700 uppercase tracking-wider">Ligas</span>
+      </Link>
       {/* Header */}
       <div className="mb-6 pb-6" style={{ borderBottom: "1px solid var(--border)" }}>
         <p

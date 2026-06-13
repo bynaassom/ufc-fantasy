@@ -327,7 +327,7 @@ export default function EventPicksClient({
             <button
               onClick={handleConfirm}
               disabled={saving}
-              className="w-full py-4 font-condensed font-900 text-white text-sm uppercase tracking-widest transition-all hover:opacity-90 active:scale-98 disabled:opacity-60"
+              className="w-full py-4 font-condensed font-900 text-white text-sm uppercase tracking-widest transition-all hover:opacity-90 active:scale-95 disabled:opacity-60"
               style={{ backgroundColor: "var(--red)" }}
             >
               {saving ? "SALVANDO..." : `CONFIRMAR ${pendingCount} PICK(S)`}

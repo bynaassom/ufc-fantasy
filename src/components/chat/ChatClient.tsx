@@ -250,7 +250,9 @@ export default function ChatClient({ groupId }: { groupId?: string | null }) {
           placeholder="Digite sua mensagem..."
           maxLength={500}
           disabled={sending}
-          className="flex-1 min-w-0 px-4 py-3 text-sm"
+          enterKeyHint="send"
+          inputMode="text"
+          className="flex-1 min-w-0 px-4 py-3 text-[16px]"
           style={{
             backgroundColor: "var(--bg-card)",
             color: "var(--text)",

@@ -8,7 +8,7 @@ export default async function AdminPage() {
   if (!isAdmin) {
     return (
       <div
-        className="min-h-screen flex items-center justify-center"
+        className="min-h-[100dvh] flex items-center justify-center"
         style={{ backgroundColor: "var(--bg)" }}
       >
         <div
@@ -47,7 +47,7 @@ export default async function AdminPage() {
 
   return (
     <div
-      className="min-h-screen pb-24 md:pb-10"
+      className="min-h-[100dvh] pb-24 md:pb-0"
       style={{ backgroundColor: "var(--bg)" }}
     >
       <Navbar profile={profile} />

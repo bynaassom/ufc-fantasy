@@ -12,7 +12,7 @@ export default async function ConvitePage({ params }: Params) {
 
   if (result.status === "invalid") {
     return (
-      <main className="min-h-screen" style={{ backgroundColor: "var(--bg)" }}>
+      <main className="min-h-[100dvh]" style={{ backgroundColor: "var(--bg)" }}>
         <PublicShareHeader />
         <section className="mx-auto max-w-2xl px-4 py-16 text-center">
           <p className="font-condensed text-4xl font-900 uppercase" style={{ color: "var(--text)" }}>
@@ -35,7 +35,7 @@ export default async function ConvitePage({ params }: Params) {
 
   if (result.status === "banned") {
     return (
-      <main className="min-h-screen" style={{ backgroundColor: "var(--bg)" }}>
+      <main className="min-h-[100dvh]" style={{ backgroundColor: "var(--bg)" }}>
         <PublicShareHeader />
         <section className="mx-auto max-w-2xl px-4 py-16 text-center">
           <p className="font-condensed text-4xl font-900 uppercase" style={{ color: "var(--text)" }}>

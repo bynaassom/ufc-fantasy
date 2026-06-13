@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createAuthClient } from "@/lib/supabase/client";
 import { Profile } from "@/types";
 import { getDisplayName, getDisplaySubtitle } from "@/lib/utils";
@@ -23,8 +23,31 @@ export default function Navbar({ profile }: NavbarProps) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
-  const { open: openChat } = useChatDrawer();
+  const { open: openChat, isOpen: isChatOpen } = useChatDrawer();
   const showGlobalChat = pathname !== "/bate-papo";
+
+  const maisTriggerRef = useRef<HTMLButtonElement>(null);
+  const maisMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (moreMenuOpen) {
+      const first = maisMenuRef.current?.querySelector<HTMLElement>(
+        'a, button, [tabindex]:not([tabindex="-1"])',
+      );
+      first?.focus();
+    } else if (maisTriggerRef.current) {
+      maisTriggerRef.current.focus();
+    }
+  }, [moreMenuOpen]);
+
+  useEffect(() => {
+    if (!moreMenuOpen) return;
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setMoreMenuOpen(false);
+    }
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [moreMenuOpen]);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -317,7 +340,7 @@ export default function Navbar({ profile }: NavbarProps) {
                 onClick={link.action}
                 className="flex flex-1 min-w-0 min-tap flex-col items-center gap-0.5 px-1 py-1"
                 style={{
-                  color: "var(--text-muted)",
+                  color: isChatOpen ? "var(--red)" : "var(--text-muted)",
                   touchAction: "manipulation",
                   WebkitTapHighlightColor: "transparent",
                 }}
@@ -349,6 +372,7 @@ export default function Navbar({ profile }: NavbarProps) {
 
           {/* MAIS toggle */}
           <button
+            ref={maisTriggerRef}
             onClick={() => setMoreMenuOpen(!moreMenuOpen)}
             className="flex flex-1 min-w-0 min-tap flex-col items-center gap-0.5 px-1 py-1"
             style={{
@@ -379,6 +403,7 @@ export default function Navbar({ profile }: NavbarProps) {
             onClick={() => setMoreMenuOpen(false)}
           />
           <div
+            ref={maisMenuRef}
             className="fixed bottom-0 left-0 right-0 z-[70] md:hidden"
             style={{
               backgroundColor: "var(--bg)",

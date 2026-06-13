@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import toast from "react-hot-toast";
 import Navbar from "@/components/layout/Navbar";
@@ -25,6 +26,7 @@ export default function ProfileClient({
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   async function handleProfileUpdate(
     payload: { nickname?: string },
@@ -52,13 +54,16 @@ export default function ProfileClient({
 
   async function handleUpdateNickname(e: React.FormEvent) {
     e.preventDefault();
+    setFieldErrors({});
     if (!nickname || nickname === profile.nickname) return;
     if (!/^[a-zA-Z0-9_]+$/.test(nickname)) {
       toast.error("Nickname: apenas letras, números e _");
+      setFieldErrors({ nickname: "Apenas letras, números e _." });
       return;
     }
     if (nickname.length < 3 || nickname.length > 20) {
       toast.error("Nickname deve ter entre 3 e 20 caracteres.");
+      setFieldErrors({ nickname: "Deve ter entre 3 e 20 caracteres." });
       return;
     }
 
@@ -67,12 +72,15 @@ export default function ProfileClient({
 
   async function handleUpdatePassword(e: React.FormEvent) {
     e.preventDefault();
+    setFieldErrors({});
     if (newPassword !== confirmPassword) {
       toast.error("As senhas não coincidem.");
+      setFieldErrors({ confirm_password: "As senhas não coincidem." });
       return;
     }
     if (newPassword.length < 8) {
       toast.error("Senha deve ter pelo menos 8 caracteres.");
+      setFieldErrors({ new_password: "Mínimo de 8 caracteres." });
       return;
     }
 
@@ -124,10 +132,16 @@ export default function ProfileClient({
   const levelProgress = getPlayerLevelProgress(profile.total_points);
 
   return (
-    <div className="min-h-screen pb-24 md:pb-0" style={{ backgroundColor: "var(--bg)" }}>
+    <div className="min-h-[100dvh] pb-24 md:pb-0" style={{ backgroundColor: "var(--bg)" }}>
       <Navbar profile={profile} />
 
       <main className="max-w-lg mx-auto px-4 py-8">
+        <Link href="/home" className="inline-flex items-center gap-1 mb-4" style={{ color: "var(--text-muted)" }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+          <span className="text-xs font-condensed font-700 uppercase tracking-wider">Início</span>
+        </Link>
         <div className="mb-8 pb-6" style={{ borderBottom: "1px solid var(--border)" }}>
           <div className="red-line">
             <span className="section-title" style={{ fontSize: "1.75rem" }}>
@@ -232,6 +246,11 @@ export default function ProfileClient({
                 3–20 caracteres · letras, números e _ · atual:{" "}
                 <span style={{ color: "var(--red)" }}>{profile.nickname}</span>
               </p>
+              {fieldErrors.nickname && (
+                <p className="text-xs mt-1" style={{ color: "var(--red)" }} role="alert">
+                  {fieldErrors.nickname}
+                </p>
+              )}
             </div>
 
             <button
@@ -277,6 +296,11 @@ export default function ProfileClient({
                 onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
                 onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
               />
+              {fieldErrors.new_password && (
+                <p className="text-xs mt-1" style={{ color: "var(--red)" }} role="alert">
+                  {fieldErrors.new_password}
+                </p>
+              )}
             </div>
             <div>
               <label className={labelClass} style={{ color: "var(--text-secondary)" }}>
@@ -292,6 +316,11 @@ export default function ProfileClient({
                 onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
                 onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
               />
+              {fieldErrors.confirm_password && (
+                <p className="text-xs mt-1" style={{ color: "var(--red)" }} role="alert">
+                  {fieldErrors.confirm_password}
+                </p>
+              )}
             </div>
 
             <button

@@ -11,7 +11,7 @@ export default function ErrorPage({
 
   return (
     <main
-      className="min-h-screen flex flex-col items-center justify-center px-6 py-16"
+      className="min-h-[100dvh] flex flex-col items-center justify-center px-6 py-16"
       style={{ backgroundColor: "var(--bg)" }}
     >
       <div className="mb-12 text-center">

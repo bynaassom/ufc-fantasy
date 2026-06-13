@@ -58,10 +58,10 @@ function getStatusLabel(status: Challenge["status"]) {
 function getStatusColor(status: Challenge["status"]) {
   const colors: Record<Challenge["status"], string> = {
     pending: "var(--red)",
-    accepted: "#22c55e",
+    accepted: "var(--green)",
     declined: "var(--text-muted)",
     expired: "var(--text-muted)",
-    completed: "var(--red)",
+    completed: "var(--text-muted)",
   };
   return colors[status];
 }
@@ -167,7 +167,7 @@ function ChallengeCardItem({
               onClick={() => onRespond(challenge.id, "accept")}
               disabled={loadingAction === `accept:${challenge.id}`}
               className="px-4 py-2 text-xs font-condensed font-900 uppercase tracking-widest text-white disabled:opacity-60"
-              style={{ backgroundColor: "#22c55e" }}
+              style={{ backgroundColor: "var(--green)" }}
             >
               {loadingAction === `accept:${challenge.id}` ? "Aceitando..." : "Aceitar"}
             </button>
@@ -295,10 +295,16 @@ export default function ChallengesClient({
   ];
 
   return (
-    <div className="min-h-screen pb-24 md:pb-10" style={{ backgroundColor: "var(--bg)" }}>
+    <div className="min-h-[100dvh] pb-24 md:pb-0" style={{ backgroundColor: "var(--bg)" }}>
       <Navbar profile={profile} />
 
       <main className="max-w-5xl mx-auto px-4 py-8">
+        <Link href="/home" className="inline-flex items-center gap-1 mb-4" style={{ color: "var(--text-muted)" }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+          <span className="text-xs font-condensed font-700 uppercase tracking-wider">Início</span>
+        </Link>
         <div className="mb-8 pb-6" style={{ borderBottom: "1px solid var(--border)" }}>
           <div className="red-line">
             <span className="section-title" style={{ fontSize: "1.75rem" }}>
@@ -306,7 +312,7 @@ export default function ChallengesClient({
             </span>
           </div>
           <p className="text-sm mt-2" style={{ color: "var(--text-secondary)" }}>
-            {unreadCount} notificação(ões) não lida(s) no sino.
+            {`${unreadCount} notificação${unreadCount !== 1 ? 'ões' : ''} não lida${unreadCount !== 1 ? 's' : ''} no sino.`}
           </p>
         </div>
 
@@ -339,9 +345,9 @@ export default function ChallengesClient({
                     className="px-2 py-1 text-xs font-condensed font-900 uppercase tracking-widest"
                     style={{
                       backgroundColor: "var(--bg-elevated)",
-                      color: currentEvent.status === "live" ? "#22c55e" : "var(--red)",
+                      color: currentEvent.status === "live" ? "var(--green)" : "var(--red)",
                       border: `1px solid ${
-                        currentEvent.status === "live" ? "#22c55e" : "var(--red)"
+                        currentEvent.status === "live" ? "var(--green)" : "var(--red)"
                       }`,
                     }}
                   >

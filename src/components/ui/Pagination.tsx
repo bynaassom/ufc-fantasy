@@ -32,20 +32,33 @@ export default function Pagination({
       className="flex items-center justify-center gap-1 mt-8"
       aria-label="Paginação"
     >
-      <Link
-        href={currentPage === 1 ? "#" : buildHref(currentPage - 1)}
-        className="font-condensed font-700 text-xs uppercase tracking-widest px-3 py-2"
-        style={{
-          color: currentPage === 1 ? "var(--text-muted)" : "var(--text)",
-          border: "1px solid var(--border)",
-          backgroundColor: "var(--bg-card)",
-          pointerEvents: currentPage === 1 ? "none" : undefined,
-          opacity: currentPage === 1 ? 0.4 : 1,
-        }}
-        aria-disabled={currentPage === 1}
-      >
-        Anterior
-      </Link>
+      {currentPage === 1 ? (
+        <span
+          className="font-condensed font-700 text-xs uppercase tracking-widest px-3 py-2"
+          style={{
+            color: "var(--text-muted)",
+            border: "1px solid var(--border)",
+            backgroundColor: "var(--bg-card)",
+            opacity: 0.4,
+          }}
+          aria-disabled={true}
+        >
+          Anterior
+        </span>
+      ) : (
+        <Link
+          href={buildHref(currentPage - 1)}
+          className="font-condensed font-700 text-xs uppercase tracking-widest px-3 py-2"
+          style={{
+            color: "var(--text)",
+            border: "1px solid var(--border)",
+            backgroundColor: "var(--bg-card)",
+            opacity: 1,
+          }}
+        >
+          Anterior
+        </Link>
+      )}
 
       {pages.map((p, i) =>
         p === "..." ? (
@@ -73,23 +86,33 @@ export default function Pagination({
         ),
       )}
 
-      <Link
-        href={
-          currentPage === totalPages ? "#" : buildHref(currentPage + 1)
-        }
-        className="font-condensed font-700 text-xs uppercase tracking-widest px-3 py-2"
-        style={{
-          color:
-            currentPage === totalPages ? "var(--text-muted)" : "var(--text)",
-          border: "1px solid var(--border)",
-          backgroundColor: "var(--bg-card)",
-          pointerEvents: currentPage === totalPages ? "none" : undefined,
-          opacity: currentPage === totalPages ? 0.4 : 1,
-        }}
-        aria-disabled={currentPage === totalPages}
-      >
-        Próximo
-      </Link>
+      {currentPage === totalPages ? (
+        <span
+          className="font-condensed font-700 text-xs uppercase tracking-widest px-3 py-2"
+          style={{
+            color: "var(--text-muted)",
+            border: "1px solid var(--border)",
+            backgroundColor: "var(--bg-card)",
+            opacity: 0.4,
+          }}
+          aria-disabled={true}
+        >
+          Próximo
+        </span>
+      ) : (
+        <Link
+          href={buildHref(currentPage + 1)}
+          className="font-condensed font-700 text-xs uppercase tracking-widest px-3 py-2"
+          style={{
+            color: "var(--text)",
+            border: "1px solid var(--border)",
+            backgroundColor: "var(--bg-card)",
+            opacity: 1,
+          }}
+        >
+          Próximo
+        </Link>
+      )}
     </nav>
   );
 }
