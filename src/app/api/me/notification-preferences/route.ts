@@ -14,16 +14,18 @@ import {
   updateMyNotificationPreferences,
 } from "@/server/services/app";
 
-const NOTIFICATION_KEYS = [
+const NOTIFICATION_KEYS: (keyof NotificationPreferences)[] = [
   "picks_opened",
   "picks_closed",
-  "reminder_24h",
-  "reminder_6h",
-  "reminder_1h",
-  "fight_result",
-  "event_completed",
+  "picks_reminders",
   "card_updated",
-] as const;
+  "perfect_pick",
+  "challenge_received",
+  "challenge_accepted",
+  "challenge_declined",
+  "challenge_result",
+  "badge_earned",
+];
 
 const updateNotificationPreferencesSchema = z.object(
   Object.fromEntries(NOTIFICATION_KEYS.map((key) => [key, z.boolean()])),

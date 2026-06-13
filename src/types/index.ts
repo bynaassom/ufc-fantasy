@@ -191,12 +191,14 @@ export interface PushSubscriptionRecord {
 export type NotificationPreferences = {
   picks_opened: boolean;
   picks_closed: boolean;
-  reminder_24h: boolean;
-  reminder_6h: boolean;
-  reminder_1h: boolean;
-  fight_result: boolean;
-  event_completed: boolean;
+  picks_reminders: boolean;
   card_updated: boolean;
+  perfect_pick: boolean;
+  challenge_received: boolean;
+  challenge_accepted: boolean;
+  challenge_declined: boolean;
+  challenge_result: boolean;
+  badge_earned: boolean;
 };
 
 export interface PublicProfileStats {
@@ -311,6 +313,19 @@ export interface Badge {
   icon_name: string;
   tier: number;
   sort_order: number;
+  archived?: boolean;
+  criteria_description?: string | null;
+}
+
+export interface Rivalry {
+  id: string;
+  user_id_a: string;
+  user_id_b: string;
+  user_a_wins: number;
+  user_b_wins: number;
+  draws: number;
+  updated_at: string;
+  created_at: string;
 }
 
 export interface UserBadge {
@@ -358,4 +373,21 @@ export interface EventRecapData {
     total_perfect_picks: number;
   };
   fightStats: EventRecapFightStat[];
+}
+
+export interface ChatMessage {
+  id: string;
+  user_id: string;
+  group_id?: string | null;
+  content: string;
+  is_hidden: boolean;
+  hidden_by?: string | null;
+  hidden_at?: string | null;
+  created_at: string;
+  profile?: {
+    nickname: string;
+    first_name: string;
+    last_name: string;
+    role: string;
+  };
 }

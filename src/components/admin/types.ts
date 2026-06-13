@@ -1,4 +1,4 @@
-export type MainTab = "eventos" | "lutas" | "resultados" | "operacoes" | "badges" | "usuarios";
+export type MainTab = "eventos" | "lutas" | "resultados" | "operacoes" | "badges" | "analytics" | "usuarios";
 
 export type SubTab =
   | "evento-pendencias"
@@ -16,6 +16,7 @@ export type SubTab =
   | "ops-auditoria"
   | "badges-list"
   | "badges-novo"
+  | "analytics"
   | "usuarios";
 
 export interface FighterData {

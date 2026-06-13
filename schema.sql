@@ -31,7 +31,7 @@ CREATE TABLE profiles (
   division TEXT NOT NULL DEFAULT 'Lightweight',
   division_confirmed BOOLEAN NOT NULL DEFAULT false,
   onboarding_completed BOOLEAN NOT NULL DEFAULT false,
-  notification_preferences JSONB NOT NULL DEFAULT '{"picks_opened": true, "picks_closed": true, "reminder_24h": true, "reminder_6h": true, "reminder_1h": true, "fight_result": true, "event_completed": true, "card_updated": true}',
+  notification_preferences JSONB NOT NULL DEFAULT '{"picks_opened": true, "picks_closed": true, "picks_reminders": true, "card_updated": true, "perfect_pick": true, "challenge_received": true, "challenge_accepted": true, "challenge_declined": true, "challenge_result": true, "badge_earned": true}',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT nickname_length CHECK (char_length(nickname) >= 3 AND char_length(nickname) <= 20),
@@ -591,6 +591,106 @@ CREATE POLICY "group_members_delete_own" ON group_members FOR DELETE USING (
 CREATE INDEX idx_groups_invite_code ON groups(invite_code);
 CREATE INDEX idx_group_members_group_id ON group_members(group_id);
 CREATE INDEX idx_group_members_user_id ON group_members(user_id);
+
+-- ============================================================
+-- CHAT
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS chat_messages (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  group_id UUID REFERENCES groups(id) ON DELETE CASCADE,
+  content TEXT NOT NULL,
+  is_hidden BOOLEAN NOT NULL DEFAULT false,
+  hidden_by UUID REFERENCES profiles(id),
+  hidden_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT chat_content_length CHECK (char_length(content) >= 1 AND char_length(content) <= 500)
+);
+
+ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "chat_messages_select" ON chat_messages;
+CREATE POLICY "chat_messages_select" ON chat_messages FOR SELECT USING (
+  (is_hidden = false OR is_admin())
+  AND (
+    group_id IS NULL
+    OR is_admin()
+    OR EXISTS (
+      SELECT 1 FROM group_members
+      WHERE group_members.group_id = chat_messages.group_id
+        AND group_members.user_id = auth.uid()
+    )
+  )
+);
+
+DROP POLICY IF EXISTS "chat_messages_insert" ON chat_messages;
+CREATE POLICY "chat_messages_insert" ON chat_messages FOR INSERT WITH CHECK (
+  auth.uid() = user_id
+  AND NOT EXISTS (
+    SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.is_banned = true
+  )
+  AND (
+    group_id IS NULL
+    OR EXISTS (
+      SELECT 1 FROM group_members
+      WHERE group_members.group_id = chat_messages.group_id
+        AND group_members.user_id = auth.uid()
+    )
+  )
+);
+
+DROP POLICY IF EXISTS "chat_messages_update_admin" ON chat_messages;
+CREATE POLICY "chat_messages_update_admin" ON chat_messages FOR UPDATE USING (is_admin()) WITH CHECK (is_admin());
+
+DROP POLICY IF EXISTS "chat_messages_delete_admin" ON chat_messages;
+CREATE POLICY "chat_messages_delete_admin" ON chat_messages FOR DELETE USING (is_admin());
+
+CREATE INDEX IF NOT EXISTS idx_chat_messages_created_at ON chat_messages(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_group_id ON chat_messages(group_id);
+
+-- ============================================================
+-- RIVALRIES
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS rivalries (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id_a UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  user_id_b UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  user_a_wins INTEGER NOT NULL DEFAULT 0,
+  user_b_wins INTEGER NOT NULL DEFAULT 0,
+  draws INTEGER NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(user_id_a, user_id_b),
+  CONSTRAINT different_users CHECK (user_id_a <> user_id_b)
+);
+
+ALTER TABLE rivalries ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "rivalries_select" ON rivalries;
+CREATE POLICY "rivalries_select" ON rivalries FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "rivalries_insert" ON rivalries;
+CREATE POLICY "rivalries_insert" ON rivalries FOR INSERT WITH CHECK (is_admin());
+
+DROP POLICY IF EXISTS "rivalries_update" ON rivalries;
+CREATE POLICY "rivalries_update" ON rivalries FOR UPDATE USING (is_admin()) WITH CHECK (is_admin());
+
+CREATE INDEX IF NOT EXISTS idx_rivalries_user_a ON rivalries(user_id_a);
+CREATE INDEX IF NOT EXISTS idx_rivalries_user_b ON rivalries(user_id_b);
+
+-- ============================================================
+-- BADGE ARCHIVE
+-- ============================================================
+
+ALTER TABLE badges ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE badges ADD COLUMN IF NOT EXISTS criteria_description TEXT;
+
+DROP POLICY IF EXISTS "badges_select" ON badges;
+CREATE POLICY "badges_select" ON badges FOR SELECT USING (
+  archived = false OR is_admin()
+);
 
 -- ============================================================
 -- FIRST ADMIN SETUP (run after creating your account)

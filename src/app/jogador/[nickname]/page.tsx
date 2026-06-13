@@ -21,6 +21,8 @@ export default async function PublicProfilePage({ params }: Props) {
       currentEvent={data.currentEvent}
       existingChallenge={data.existingChallenge}
       canChallenge={data.canChallenge}
+      badges={data.badges as any[]}
+      rivalry={data.rivalry as any}
     />
   );
 }

@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import toast from "react-hot-toast";
 import Navbar from "@/components/layout/Navbar";
+import BadgeIcon from "@/components/badges/BadgeIcon";
 import { readApiResponse } from "@/lib/api";
 import type { ChallengeResponse, CreateChallengePayload } from "@/types/api";
-import type { Profile, PublicProfileStats, PublicProfileSummary } from "@/types";
+import type { Badge, Profile, PublicProfileStats, PublicProfileSummary, Rivalry } from "@/types";
 
 export default function PublicProfileClient({
   viewerProfile,
@@ -16,6 +17,8 @@ export default function PublicProfileClient({
   currentEvent,
   existingChallenge,
   canChallenge,
+  badges,
+  rivalry,
 }: {
   viewerProfile: Profile;
   profile: PublicProfileSummary;
@@ -29,6 +32,8 @@ export default function PublicProfileClient({
   } | null;
   existingChallenge: { id: string } | null;
   canChallenge: boolean;
+  badges: Badge[];
+  rivalry: Rivalry | null;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -249,6 +254,98 @@ export default function PublicProfileClient({
             </div>
           ))}
         </section>
+
+        {/* Trophy case */}
+        {badges.length > 0 && (
+          <div className="mb-8">
+            <p
+              className="font-condensed font-700 text-xs uppercase tracking-widest mb-3"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Conquistas recentes
+            </p>
+            <div className="flex gap-3">
+              {badges.map((badge) => (
+                <div
+                  key={badge.id}
+                  className="flex flex-col items-center gap-1 p-3"
+                  style={{
+                    backgroundColor: "var(--bg-card)",
+                    border: "1px solid var(--border)",
+                  }}
+                >
+                  <div style={{ color: "var(--red)", width: 40, height: 40 }}>
+                    <BadgeIcon iconName={badge.icon_name} size={40} />
+                  </div>
+                  <p
+                    className="font-condensed font-700 text-[10px] uppercase tracking-wider text-center leading-tight"
+                    style={{ color: "var(--text-muted)" }}
+                  >
+                    {badge.name}
+                  </p>
+                  <p className="text-[9px]" style={{ color: "var(--text-secondary)" }}>
+                    T{badge.tier}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Rivalry */}
+        {rivalry && (
+          <div className="mb-8">
+            <p
+              className="font-condensed font-700 text-xs uppercase tracking-widest mb-3"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              Rivalidade
+            </p>
+            <div
+              className="p-4"
+              style={{
+                backgroundColor: "var(--bg-card)",
+                border: "1px solid var(--border)",
+                borderLeft: "3px solid var(--red)",
+              }}
+            >
+              <p
+                className="font-condensed font-900 text-lg uppercase tracking-wide"
+                style={{ color: "var(--text)" }}
+              >
+                <span style={{ color: "var(--red)" }}>
+                  {profile.nickname}
+                </span>{" "}
+                <span className="text-sm font-700" style={{ color: "var(--text-muted)" }}>
+                  VS
+                </span>{" "}
+                <span style={{ color: "var(--green)" }}>{viewerProfile.nickname}</span>
+              </p>
+              <div className="flex gap-6 mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
+                <span>
+                  {profile.nickname}:{" "}
+                  <strong style={{ color: "var(--text)" }}>
+                    {profile.id === rivalry.user_id_a
+                      ? rivalry.user_a_wins
+                      : rivalry.user_b_wins}
+                  </strong>
+                </span>
+                <span>
+                  Empates:{" "}
+                  <strong style={{ color: "var(--text)" }}>{rivalry.draws}</strong>
+                </span>
+                <span>
+                  {viewerProfile.nickname}:{" "}
+                  <strong style={{ color: "var(--text)" }}>
+                    {viewerProfile.id === rivalry.user_id_a
+                      ? rivalry.user_a_wins
+                      : rivalry.user_b_wins}
+                  </strong>
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
 
         <section
           className="p-5"

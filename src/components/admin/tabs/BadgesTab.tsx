@@ -113,10 +113,13 @@ export default function BadgesTab({ subTab }: { subTab: string }) {
     }
   }
 
-  async function handleDelete(id: string) {
+  async function handleArchive(id: string) {
     try {
-      await adminSend(`/api/admin/badges/${id}`, { method: "DELETE" });
-      toast.success("Badge removido!");
+      await adminSend(`/api/admin/badges/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ archived: true }),
+      });
+      toast.success("Badge arquivado!");
       setDeletingId(null);
       await loadBadges();
     } catch (e: any) {
@@ -329,7 +332,15 @@ export default function BadgesTab({ subTab }: { subTab: string }) {
                   <span>{badge.slug}</span>
                   <span className="mx-1">·</span>
                   <span style={{ color: "var(--text-secondary)" }}>{badge.description}</span>
+                  {badge.archived && (
+                    <span className="ml-2" style={{ color: "var(--red)" }}>[ARQUIVADO]</span>
+                  )}
                 </p>
+                {badge.criteria_description && (
+                  <p className="text-[10px] mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                    Critério: {badge.criteria_description}
+                  </p>
+                )}
               </div>
               <div className="flex gap-1 flex-shrink-0">
                 <button
@@ -342,7 +353,7 @@ export default function BadgesTab({ subTab }: { subTab: string }) {
                 {deletingId === badge.id ? (
                   <div className="flex gap-1">
                     <button
-                      onClick={() => handleDelete(badge.id)}
+                      onClick={() => handleArchive(badge.id)}
                       className="text-[10px] font-condensed font-700 uppercase tracking-widest px-3 py-1.5 transition-all"
                       style={{ color: "#fff", backgroundColor: "var(--red)" }}
                     >
@@ -362,7 +373,7 @@ export default function BadgesTab({ subTab }: { subTab: string }) {
                     className="text-[10px] font-condensed font-700 uppercase tracking-widest px-3 py-1.5 transition-all"
                     style={{ color: "var(--red)", border: "1px solid var(--red)" }}
                   >
-                    REMOVER
+                    ARQUIVAR
                   </button>
                 )}
               </div>

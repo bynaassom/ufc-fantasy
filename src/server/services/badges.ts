@@ -1,7 +1,7 @@
 import { listBadges, listUserBadges, awardBadge, createBadge, updateBadge, deleteBadge, getBadgeById } from "@/server/repositories/badges";
-import { createNotificationOnce } from "@/server/repositories/notifications";
+import { createNotificationOnce, shouldNotifyUser } from "@/server/repositories/notifications";
 import { getPublicProfileStats } from "@/server/services/app";
-import { buildBadgeNotificationContent } from "@/lib/notifications";
+import { buildBadgeNotificationContent, getNotificationPreferenceKey } from "@/lib/notifications";
 import { mapBadgeDbError } from "@/server/services/badge-admin-utils";
 import type { Badge, BadgeWithStatus, PublicProfileStats } from "@/types";
 
@@ -94,15 +94,18 @@ export async function evaluateAndGetBadges(
         existingBadgeIds.add(badge.id);
         existingBySlug.set(badge.slug, result);
 
-        const content = buildBadgeNotificationContent(badge.name);
-        await createNotificationOnce(client, {
-          user_id: userId,
-          type: "badge_earned",
-          title: content.title,
-          message: content.message,
-          target_path: "/profile?tab=badges",
-          dedupe_key: `badge_earned:${badge.id}`,
-        });
+        const prefKey = getNotificationPreferenceKey("badge_earned");
+        if (!prefKey || await shouldNotifyUser(client, userId, prefKey)) {
+          const content = buildBadgeNotificationContent(badge.name);
+          await createNotificationOnce(client, {
+            user_id: userId,
+            type: "badge_earned",
+            title: content.title,
+            message: content.message,
+            target_path: "/profile?tab=badges",
+            dedupe_key: `badge_earned:${badge.id}`,
+          });
+        }
 
         newlyAwarded.push(badge.slug);
       }

@@ -1,3 +1,5 @@
+import type { NotificationPreferences } from "@/types";
+
 export type UfcNotificationType =
   | "challenge_received"
   | "challenge_accepted"
@@ -24,6 +26,30 @@ export type PickReminderType = Extract<
   | "picks_closing_30m"
   | "picks_closing_15m"
 >;
+
+export function getNotificationPreferenceKey(
+  type: UfcNotificationType,
+): keyof NotificationPreferences | null {
+  const map: Record<UfcNotificationType, keyof NotificationPreferences | null> = {
+    picks_opened: "picks_opened",
+    picks_closing_tomorrow: "picks_reminders",
+    picks_closing_today: "picks_reminders",
+    picks_closing_1h: "picks_reminders",
+    picks_closing_30m: "picks_reminders",
+    picks_closing_15m: "picks_reminders",
+    picks_closed: "picks_closed",
+    card_updated: "card_updated",
+    fight_removed: "card_updated",
+    fight_added: "card_updated",
+    perfect_pick: "perfect_pick",
+    challenge_received: "challenge_received",
+    challenge_accepted: "challenge_accepted",
+    challenge_declined: "challenge_declined",
+    challenge_result: "challenge_result",
+    badge_earned: "badge_earned",
+  };
+  return map[type] ?? null;
+}
 
 type NotificationEvent = {
   id: string;

@@ -15,6 +15,7 @@ import FightersTab from "./tabs/FightersTab";
 import SyncTab from "./tabs/SyncTab";
 import UsersTab from "./tabs/UsersTab";
 import BadgesTab from "./tabs/BadgesTab";
+import AnalyticsTab from "./tabs/AnalyticsTab";
 
 export default function AdminClient({
   events,
@@ -111,6 +112,9 @@ export default function AdminClient({
       { key: "badges-list", label: "Lista" },
       { key: "badges-novo", label: "Novo" },
     ]},
+    { key: "analytics", label: "ANALYTICS", subs: [
+      { key: "analytics", label: "Dashboard" },
+    ]},
     { key: "usuarios", label: "USUÁRIOS", subs: [] },
   ];
 
@@ -168,6 +172,7 @@ export default function AdminClient({
       {subTab === "usuarios" && <UsersTab subTab={subTab} {...tabProps} />}
       {subTab === "badges-list" && <BadgesTab subTab={subTab} />}
       {subTab === "badges-novo" && <BadgesTab subTab={subTab} />}
+      {subTab === "analytics" && <AnalyticsTab />}
     </div>
   );
 }

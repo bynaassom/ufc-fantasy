@@ -40,6 +40,7 @@ export default function Navbar({ profile }: NavbarProps) {
     { href: "/desafios", label: "DESAFIOS" },
     { href: "/ligas", label: "LIGAS" },
     { href: "/ranking", label: "RANKING" },
+    { href: "/bate-papo", label: "BATE-PAPO" },
     { href: "/historico", label: "HISTÓRICO" },
     ...(profile.role === "admin" ? [{ href: "/admin", label: "ADMIN" }] : []),
   ];
@@ -334,6 +335,22 @@ export default function Navbar({ profile }: NavbarProps) {
                   <rect x="18" y="3" width="3" height="18" rx="1" />
                   <rect x="10.5" y="8" width="3" height="13" rx="1" />
                   <rect x="3" y="13" width="3" height="8" rx="1" />
+                </svg>
+              ),
+            },
+            {
+              href: "/bate-papo",
+              label: "BATE-PAPO",
+              icon: (
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                >
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                 </svg>
               ),
             },

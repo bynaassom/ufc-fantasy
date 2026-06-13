@@ -57,6 +57,47 @@ export async function listActiveNotificationRecipients(client: any) {
   return data || [];
 }
 
+export async function filterUserIdsByNotificationPreference(
+  client: any,
+  userIds: string[],
+  prefKey: string,
+): Promise<string[]> {
+  if (!userIds.length) return [];
+
+  const { data, error } = await client
+    .from("profiles")
+    .select("id, notification_preferences")
+    .in("id", userIds)
+    .eq("is_banned", false);
+
+  if (error) throw error;
+
+  return (data || [])
+    .filter((profile: any) => {
+      const prefs = profile.notification_preferences || {};
+      return prefs[prefKey] !== false;
+    })
+    .map((profile: any) => profile.id);
+}
+
+export async function shouldNotifyUser(
+  client: any,
+  userId: string,
+  prefKey: string,
+): Promise<boolean> {
+  const { data, error } = await client
+    .from("profiles")
+    .select("notification_preferences")
+    .eq("id", userId)
+    .eq("is_banned", false)
+    .single();
+
+  if (error || !data) return false;
+
+  const prefs = data.notification_preferences || {};
+  return prefs[prefKey] !== false;
+}
+
 export async function listConfirmedPickUsersForEvent(
   client: DbClient,
   eventId: string,

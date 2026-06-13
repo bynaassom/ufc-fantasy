@@ -43,6 +43,7 @@ import {
 import {
   getEventRankForUser,
   getEventScoreForUserAndEvent as getEventScoreRowForUserAndEvent,
+  listEventLeaderboard,
 } from "@/server/repositories/event-scores";
 import { resolvePublicEventSequence } from "@/lib/event-sequence";
 import {
@@ -84,6 +85,7 @@ import {
   listNotificationsForUser,
   markAllNotificationsAsRead,
   markNotificationAsRead,
+  shouldNotifyUser,
 } from "@/server/repositories/notifications";
 import {
   countMembersForGroups,
@@ -102,6 +104,7 @@ import {
   notifyActiveUsers,
   sendBrowserPush,
 } from "@/server/services/notifications";
+import { getNotificationPreferenceKey } from "@/lib/notifications";
 import {
   deletePushSubscriptionByEndpoint,
   listPushSubscriptionsForUsers,
@@ -123,6 +126,8 @@ import {
   requireAdminPageProfile,
   requirePageUserProfile,
 } from "@/server/services/page-auth";
+import { listUserBadges } from "@/server/repositories/badges";
+import { getRivalry } from "@/server/repositories/rivalries";
 import { getAdminSupabase, getUserSupabase } from "@/server/supabase";
 
 type RankingProfileRow = Pick<
@@ -445,6 +450,12 @@ async function createChallengeNotification(
     targetPath: string;
   },
 ) {
+  const prefKey = getNotificationPreferenceKey(payload.type as any);
+  if (prefKey) {
+    const shouldSend = await shouldNotifyUser(client, payload.userId, prefKey);
+    if (!shouldSend) return null;
+  }
+
   const notification = await createNotification(client, {
     user_id: payload.userId,
     type: payload.type,
@@ -861,7 +872,7 @@ export async function getEventLiveData(slug: string) {
   const { supabase, user } = await requirePageUserProfile();
   const event = await getCachedEventBySlug(slug);
   if (!event) {
-    return { status: "completed" as const, fights: [], picks: [] };
+    return { status: "completed" as const, fights: [], picks: [], leaderboard: [], myScore: null };
   }
 
   const confirmedFights = (event as EventWithFights).fights.filter(
@@ -889,7 +900,27 @@ export async function getEventLiveData(slug: string) {
     points_round: p.points_round,
   }));
 
-  return { status: event.status, fights, picks };
+  const [leaderboard, myScoreResult] = await Promise.all([
+    listEventLeaderboard(supabase, event.id),
+    getEventScoreRowForUserAndEvent(supabase, user.id, event.id),
+  ]);
+
+  const myScore = myScoreResult
+    ? {
+        total_points: myScoreResult.total_points,
+        perfect_picks: myScoreResult.perfect_picks,
+        fights_scored: myScoreResult.fights_scored,
+        rank_position: myScoreResult.rank_position,
+      }
+    : null;
+
+  return {
+    status: event.status,
+    fights,
+    picks,
+    leaderboard,
+    myScore,
+  };
 }
 
 export async function getRankingPageData(
@@ -1339,12 +1370,18 @@ export async function getPublicProfilePageData(nickname: string) {
       currentEvent: null,
       existingChallenge: null,
       canChallenge: false,
+      badges: [],
+      rivalry: null,
     };
   }
 
-  const [stats, currentEvent] = await Promise.all([
+  const [stats, currentEvent, userBadges, rivalry] = await Promise.all([
     getPublicProfileStats(adminSupabase, publicProfile.id),
     getCachedCurrentPublicEvent(),
+    listUserBadges(adminSupabase, publicProfile.id),
+    publicProfile.id !== profile.id
+      ? getRivalry(adminSupabase, profile.id, publicProfile.id)
+      : Promise.resolve(null),
   ]);
 
   const challengeableEvent = currentEvent || null;
@@ -1365,6 +1402,13 @@ export async function getPublicProfilePageData(nickname: string) {
       )[0]
     : null;
 
+  const recentBadges = (userBadges || [])
+    .filter((ub) => ub.badge && !ub.badge.archived)
+    .sort((a, b) => new Date(b.unlocked_at).getTime() - new Date(a.unlocked_at).getTime())
+    .slice(0, 3)
+    .map((ub) => ub.badge)
+    .filter(Boolean);
+
   return {
     viewerProfile: profile,
     publicProfile,
@@ -1383,6 +1427,8 @@ export async function getPublicProfilePageData(nickname: string) {
       publicProfile.id !== profile.id &&
       !!challengeableEvent &&
       !enrichedExistingChallenge,
+    badges: recentBadges,
+    rivalry,
   };
 }
 
@@ -2285,12 +2331,14 @@ export async function getGroupDetail(groupId: string): Promise<GroupWithMembers 
 const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   picks_opened: true,
   picks_closed: true,
-  reminder_24h: true,
-  reminder_6h: true,
-  reminder_1h: true,
-  fight_result: true,
-  event_completed: true,
+  picks_reminders: true,
   card_updated: true,
+  perfect_pick: true,
+  challenge_received: true,
+  challenge_accepted: true,
+  challenge_declined: true,
+  challenge_result: true,
+  badge_earned: true,
 };
 
 export async function getMyNotificationPreferences() {

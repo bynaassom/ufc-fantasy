@@ -27,6 +27,7 @@ function createDeps(overrides: Partial<NotificationServiceDeps> = {}) {
       getCurrentEvent: vi.fn(async () => null),
       listActiveRecipients: vi.fn(async () => []),
       listConfirmedPickUsersForEvent: vi.fn(async () => []),
+      filterUserIdsByPreference: vi.fn(async (_client, userIds) => userIds),
       ...overrides,
     } satisfies NotificationServiceDeps,
   };

@@ -29,10 +29,31 @@ interface LivePick {
   points_round?: number;
 }
 
+interface LiveLeaderboardEntry {
+  user_id: string;
+  total_points: number;
+  perfect_picks: number;
+  fights_scored: number;
+  rank_position: number;
+  profile?: {
+    id: string;
+    nickname: string;
+    first_name: string;
+    last_name: string;
+  };
+}
+
 interface LiveData {
   status: string;
   fights: LiveFight[];
   picks: LivePick[];
+  leaderboard?: LiveLeaderboardEntry[];
+  myScore?: {
+    total_points: number;
+    perfect_picks: number;
+    fights_scored: number;
+    rank_position: number;
+  } | null;
 }
 
 interface FeedEntry {
@@ -64,6 +85,9 @@ export default function LiveFeed({ eventSlug }: { eventSlug: string }) {
   const [error, setError] = useState(false);
   const seenIds = useRef(new Set<string>());
   const [status, setStatus] = useState("");
+  const [leaderboard, setLeaderboard] = useState<LiveLeaderboardEntry[]>([]);
+  const [myScore, setMyScore] = useState<LiveData["myScore"]>(null);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -78,6 +102,8 @@ export default function LiveFeed({ eventSlug }: { eventSlug: string }) {
         const data: LiveData = json.data;
 
         setStatus(data.status);
+        if (data.leaderboard) setLeaderboard(data.leaderboard);
+        if (data.myScore !== undefined) setMyScore(data.myScore);
 
         if (data.status !== "live") return;
 
@@ -154,10 +180,75 @@ export default function LiveFeed({ eventSlug }: { eventSlug: string }) {
         </svg>
       </button>
 
+      {/* My score */}
+      {open && myScore && (
+        <div
+          className="px-4 py-3 flex items-center justify-between text-sm"
+          style={{ backgroundColor: "var(--bg-card)", borderBottom: "1px solid var(--border)" }}
+        >
+          <span className="font-condensed font-700 uppercase tracking-wider" style={{ color: "var(--text)" }}>
+            Meus pontos
+          </span>
+          <span className="font-condensed font-900 text-lg" style={{ color: "var(--red)" }}>
+            {myScore.total_points}
+            <span className="text-xs font-normal ml-1" style={{ color: "var(--text-muted)" }}>
+              pts · {myScore.fights_scored} lutas · {myScore.perfect_picks} cravadas
+            </span>
+          </span>
+        </div>
+      )}
+
+      {/* Leaderboard toggle */}
+      {open && leaderboard.length > 0 && (
+        <>
+          <button
+            type="button"
+            onClick={() => setShowLeaderboard((v) => !v)}
+            className="w-full flex items-center justify-between px-4 py-2 text-xs font-700 uppercase tracking-widest"
+            style={{ backgroundColor: "var(--bg-card)", color: "var(--text-secondary)", borderBottom: showLeaderboard ? "1px solid var(--border)" : "none" }}
+          >
+            Classificação ao vivo · {leaderboard.length}
+            <svg
+              width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+              style={{ transform: showLeaderboard ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+          {showLeaderboard && (
+            <div style={{ backgroundColor: "var(--bg-card)" }}>
+              {leaderboard.map((entry, idx) => (
+                <div
+                  key={entry.user_id}
+                  className="flex items-center gap-3 px-4 py-2"
+                  style={{ borderBottom: "1px solid var(--border)" }}
+                >
+                  <span
+                    className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center font-condensed font-900 text-xs"
+                    style={{
+                      backgroundColor: idx < 3 ? "var(--red)" : "transparent",
+                      color: idx < 3 ? "white" : "var(--text-muted)",
+                    }}
+                  >
+                    {idx + 1}
+                  </span>
+                  <span className="flex-1 font-condensed font-700 text-xs uppercase tracking-wide truncate" style={{ color: "var(--text)" }}>
+                    {entry.profile?.nickname || "---"}
+                  </span>
+                  <span className="font-condensed font-900 text-sm" style={{ color: "var(--text)" }}>
+                    {entry.total_points}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
       {/* Feed */}
       {open && (
         <div
-          className="max-h-80 overflow-y-auto px-4 py-3 space-y-3"
+          className="max-h-72 overflow-y-auto px-4 py-3 space-y-3"
           style={{ backgroundColor: "var(--bg-card)" }}
         >
           {entries.length === 0 && (

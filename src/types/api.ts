@@ -153,7 +153,7 @@ export type AdminEventFightOddsUpdate = {
 };
 
 export type NotificationPreferencesPayload = Record<
-  "picks_opened" | "picks_closed" | "reminder_24h" | "reminder_6h" | "reminder_1h" | "fight_result" | "event_completed" | "card_updated",
+  keyof NotificationPreferences,
   boolean
 >;
 
@@ -172,4 +172,17 @@ export type HomeChallenge = {
   status: Challenge["status"];
   event: { id: string; name: string; slug: string } | null;
   opponent: PublicProfileSummary | null;
+};
+
+export type ChatListResponse = {
+  messages: import("@/types").ChatMessage[];
+  hasMore: boolean;
+};
+
+export type SendChatMessagePayload = {
+  content: string;
+};
+
+export type SendChatMessageResponse = {
+  message: import("@/types").ChatMessage;
 };

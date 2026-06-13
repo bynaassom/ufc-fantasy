@@ -117,6 +117,8 @@ export const adminBadgePatchSchema = z.object({
   icon_name: badgeIconSchema.optional(),
   tier: z.number().int().min(1).max(5).optional(),
   sort_order: z.number().int().min(0).optional(),
+  archived: z.boolean().optional(),
+  criteria_description: z.string().optional().nullable(),
 }).refine((value) => Object.keys(value).length > 0, {
   message: "Informe ao menos um campo para atualizar.",
 });

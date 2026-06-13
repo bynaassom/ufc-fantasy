@@ -23,22 +23,29 @@ const SECTIONS: Section[] = [
   {
     title: "Lembretes",
     keys: [
-      { key: "reminder_24h", label: "Lembrete 24h", desc: "Lembrar 24 horas antes do evento" },
-      { key: "reminder_6h", label: "Lembrete 6h", desc: "Lembrar 6 horas antes do evento" },
-      { key: "reminder_1h", label: "Lembrete 1h", desc: "Lembrar 1 hora antes do evento" },
-    ],
-  },
-  {
-    title: "Resultados",
-    keys: [
-      { key: "fight_result", label: "Resultado de luta", desc: "Notificar quando uma luta for finalizada" },
-      { key: "event_completed", label: "Evento finalizado", desc: "Notificar quando o evento for concluído" },
+      { key: "picks_reminders", label: "Lembretes de pick", desc: "Lembretes antes do fechamento dos picks" },
     ],
   },
   {
     title: "Cartas",
     keys: [
-      { key: "card_updated", label: "Card atualizado", desc: "Notificar quando o card do evento for alterado" },
+      { key: "card_updated", label: "Card atualizado", desc: "Notificar quando o card do evento for alterado (lutas adicionadas/removidas)" },
+      { key: "perfect_pick", label: "Cravadas", desc: "Notificar quando voce cravar uma luta (vencedor, metodo e round)" },
+    ],
+  },
+  {
+    title: "Desafios",
+    keys: [
+      { key: "challenge_received", label: "Desafio recebido", desc: "Notificar quando alguem te desafiar" },
+      { key: "challenge_accepted", label: "Desafio aceito", desc: "Notificar quando seu desafio for aceito" },
+      { key: "challenge_declined", label: "Desafio recusado", desc: "Notificar quando seu desafio for recusado" },
+      { key: "challenge_result", label: "Resultado de desafio", desc: "Notificar o resultado de um desafio" },
+    ],
+  },
+  {
+    title: "Conquistas",
+    keys: [
+      { key: "badge_earned", label: "Badges", desc: "Notificar quando voce desbloquear um novo badge" },
     ],
   },
 ];

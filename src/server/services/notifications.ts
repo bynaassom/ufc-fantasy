@@ -5,6 +5,7 @@ import {
   buildNotificationDedupeKey,
   filterUsersWithoutConfirmedPicks,
   getDuePickReminderTypes,
+  getNotificationPreferenceKey,
   isPicksClosedNotificationDue,
   isPicksOpenedNotificationDue,
   type PerfectPickRarity,
@@ -13,6 +14,7 @@ import {
 import { getCurrentPublicEvent } from "@/server/repositories/events";
 import {
   createNotificationOnce,
+  filterUserIdsByNotificationPreference,
   listActiveNotificationRecipients,
   listConfirmedPickUsersForEvent,
 } from "@/server/repositories/notifications";
@@ -89,6 +91,11 @@ export type NotificationServiceDeps = {
     client: DbClient,
     eventId: string,
   ) => Promise<Array<{ user_id: string; event_id: string; is_confirmed?: boolean | null }>>;
+  filterUserIdsByPreference: (
+    client: DbClient,
+    userIds: string[],
+    prefKey: string,
+  ) => Promise<string[]>;
 };
 
 export type NotificationBatchResult = {
@@ -175,6 +182,7 @@ const defaultDeps: NotificationServiceDeps = {
   getCurrentEvent: getCurrentPublicEvent as NotificationServiceDeps["getCurrentEvent"],
   listActiveRecipients: listActiveNotificationRecipients,
   listConfirmedPickUsersForEvent,
+  filterUserIdsByPreference: filterUserIdsByNotificationPreference,
 };
 
 function eventTargetPath(event: Pick<NotificationEvent, "slug">) {
@@ -198,6 +206,12 @@ export async function createNotificationsForUsers(
   const uniqueUserIds = Array.from(new Set(input.userIds)).filter(Boolean);
   if (!uniqueUserIds.length) return { ...emptyNotificationBatchResult };
 
+  const prefKey = getNotificationPreferenceKey(input.type);
+  const userIds = prefKey
+    ? await deps.filterUserIdsByPreference(client, uniqueUserIds, prefKey)
+    : uniqueUserIds;
+  if (!userIds.length) return { ...emptyNotificationBatchResult };
+
   const targetPath = input.targetPath || eventTargetPath(input.event);
   const content = buildNotificationContent({
     type: input.type,
@@ -215,7 +229,7 @@ export async function createNotificationsForUsers(
 
   const createdNotifications: NotificationPayload[] = [];
 
-  for (const userId of uniqueUserIds) {
+  for (const userId of userIds) {
     const notification = await deps.createNotificationOnce(client, {
       user_id: userId,
       type: input.type,

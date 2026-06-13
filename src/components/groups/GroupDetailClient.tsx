@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import type { GroupWithMembers } from "@/types";
 import CopyInviteButton from "@/components/groups/CopyInviteButton";
+import ChatClient from "@/components/chat/ChatClient";
 
 interface MemberWithScore {
   id: string;
@@ -34,6 +35,7 @@ export default function GroupDetailClient({
 }) {
   const router = useRouter();
   const [leaving, setLeaving] = useState(false);
+  const [showChat, setShowChat] = useState(false);
   const members = (group.members || []) as unknown as MemberWithScore[];
   members.sort((a, b) => (a.rank_position || 9999) - (b.rank_position || 9999));
 
@@ -200,6 +202,43 @@ export default function GroupDetailClient({
             </div>
           );
         })}
+      </div>
+
+      {/* Chat */}
+      <div className="mt-8" style={{ borderTop: "1px solid var(--border)" }}>
+        <button
+          type="button"
+          onClick={() => setShowChat((v) => !v)}
+          className="w-full flex items-center justify-between py-4"
+        >
+          <span
+            className="font-condensed font-700 text-xs uppercase tracking-widest"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            Bate-papo da liga
+          </span>
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            style={{
+              color: "var(--text-muted)",
+              transform: showChat ? "rotate(180deg)" : "none",
+              transition: "transform 0.15s",
+            }}
+          >
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </button>
+
+        {showChat && (
+          <div className="pb-4" style={{ height: "400px" }}>
+            <ChatClient groupId={group.id} />
+          </div>
+        )}
       </div>
     </div>
   );
