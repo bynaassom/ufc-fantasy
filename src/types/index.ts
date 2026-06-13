@@ -325,3 +325,37 @@ export interface BadgeWithStatus extends Badge {
   unlocked: boolean;
   unlocked_at?: string;
 }
+
+export interface EventRecapFightStat {
+  fight_id: string;
+  fighter_a_name: string;
+  fighter_a_id: string;
+  fighter_b_name: string;
+  fighter_b_id: string;
+  winner_id: string | null;
+  result_method: string | null;
+  result_round: number | null;
+  result_confirmed: boolean;
+  total_picks: number;
+  pick_a_percent: number;
+  pick_b_percent: number;
+  perfect_pick_count: number;
+}
+
+export interface EventRecapData {
+  event: import("@/types").EventWithFights;
+  ranking: Array<{
+    rank: number;
+    user_id: string;
+    nickname: string;
+    total_points: number;
+    perfect_picks: number;
+  }>;
+  aggregateStats: {
+    total_players: number;
+    average_score: number;
+    best_score: number;
+    total_perfect_picks: number;
+  };
+  fightStats: EventRecapFightStat[];
+}

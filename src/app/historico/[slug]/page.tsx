@@ -118,10 +118,17 @@ export default async function HistoricoEventoPage({
             </div>
             <Link
               href={shareHref}
-              className="mt-4 block w-full px-4 py-3 text-center font-condensed text-xs font-900 uppercase tracking-widest text-white transition-opacity hover:opacity-90"
+              className="block w-full px-4 py-3 text-center font-condensed text-xs font-900 uppercase tracking-widest text-white transition-opacity hover:opacity-90"
               style={{ backgroundColor: "var(--red)" }}
             >
               Compartilhar resultado
+            </Link>
+            <Link
+              href={`/recap/${encodeURIComponent(event.slug)}`}
+              className="mt-2 block w-full px-4 py-3 text-center font-condensed text-xs font-900 uppercase tracking-widest transition-opacity hover:opacity-80"
+              style={{ color: "var(--text)", border: "1px solid var(--border)", backgroundColor: "var(--bg-card)" }}
+            >
+              Recap do evento
             </Link>
           </div>
         )}

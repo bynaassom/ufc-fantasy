@@ -60,6 +60,7 @@ import {
 } from "@/server/repositories/fights";
 import {
   countConfirmedPicksForFight,
+  getPickDistributionForEvent,
   listPerfectPickUsersForFight,
   listPicksForUser,
   listPicksForUserEvent,
@@ -1003,6 +1004,65 @@ export async function getHistoryEventPageData(slug: string) {
   const picks = userPicks.filter((pick: any) => pick.event_id === event.id);
 
   return { profile, event, picks, score };
+}
+
+export async function getEventRecapData(slug: string): Promise<import("@/types").EventRecapData | null> {
+  const supabase = getServiceRoleSupabase();
+  const event = await getCachedEventBySlug(slug) as import("@/types").EventWithFights | null;
+  if (!event) return null;
+
+  const [ranking, scoreStats, pickDistribution] = await Promise.all([
+    getCachedEventRanking(event.id),
+    getEventScoreStats(supabase, event.id),
+    getPickDistributionForEvent(supabase, event.id),
+  ]);
+
+  const fightStats: import("@/types").EventRecapFightStat[] = (event.fights || [])
+    .slice()
+    .sort((a: any, b: any) => a.fight_order - b.fight_order)
+    .map((fight: any) => {
+      const dist = pickDistribution[fight.id] || { fighter_a: 0, fighter_b: 0 };
+      const total = dist.fighter_a + dist.fighter_b;
+      const perfectCount = dist.fighter_a + dist.fighter_b > 0
+        ? (fight.result_confirmed && fight.winner_id === fight.fighter_a_id ? dist.fighter_a
+          : fight.result_confirmed && fight.winner_id === fight.fighter_b_id ? dist.fighter_b
+          : 0)
+        : 0;
+
+      return {
+        fight_id: fight.id,
+        fighter_a_name: fight.fighter_a?.name || "",
+        fighter_a_id: fight.fighter_a_id,
+        fighter_b_name: fight.fighter_b?.name || "",
+        fighter_b_id: fight.fighter_b_id,
+        winner_id: fight.winner_id,
+        result_method: fight.result_method,
+        result_round: fight.result_round,
+        result_confirmed: fight.result_confirmed,
+        total_picks: total,
+        pick_a_percent: total > 0 ? Math.round((dist.fighter_a / total) * 100) : 0,
+        pick_b_percent: total > 0 ? Math.round((dist.fighter_b / total) * 100) : 0,
+        perfect_pick_count: perfectCount,
+      };
+    });
+
+  return {
+    event,
+    ranking: ranking.map((entry: any, index: number) => ({
+      rank: index + 1,
+      user_id: entry.user_id,
+      nickname: entry.profile?.nickname || "",
+      total_points: entry.total_points,
+      perfect_picks: entry.perfect_picks || 0,
+    })),
+    aggregateStats: {
+      total_players: scoreStats.scoredUsers,
+      average_score: scoreStats.averagePoints,
+      best_score: scoreStats.bestScore,
+      total_perfect_picks: scoreStats.perfectPicks,
+    },
+    fightStats,
+  };
 }
 
 export async function getProfilePageData() {

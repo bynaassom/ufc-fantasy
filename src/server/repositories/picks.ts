@@ -107,3 +107,21 @@ export async function countConfirmedPicksForFight(client: any, fightId: string) 
   if (error) throw error;
   return count || 0;
 }
+
+export async function getPickDistributionForEvent(client: any, eventId: string) {
+  const { data, error } = await client
+    .from("picks")
+    .select("fight_id, picked_winner_id")
+    .eq("event_id", eventId)
+    .eq("is_confirmed", true);
+
+  if (error) throw error;
+  const distribution: Record<string, { fighter_a: number; fighter_b: number }> = {};
+  for (const row of data || []) {
+    if (!distribution[row.fight_id]) {
+      distribution[row.fight_id] = { fighter_a: 0, fighter_b: 0 };
+    }
+    distribution[row.fight_id][row.picked_winner_id as keyof typeof distribution[string]] += 1;
+  }
+  return distribution;
+}
