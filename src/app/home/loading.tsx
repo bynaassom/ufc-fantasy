@@ -1,6 +1,6 @@
 export default function HomeLoading() {
   return (
-    <div className="min-h-[100dvh] pb-20 md:pb-0" style={{ backgroundColor: "var(--bg)" }}>
+    <div className="min-h-[100dvh] md:pb-0" style={{ backgroundColor: "var(--bg)" }}>
       {/* Navbar placeholder */}
       <div className="h-14 mb-8" style={{ backgroundColor: "var(--bg-secondary)", borderBottom: "3px solid var(--red)" }} />
 

@@ -302,7 +302,7 @@ export default function Navbar({ profile }: NavbarProps) {
 
       {/* ── MOBILE BOTTOM BAR ── */}
       <nav
-        className="md:hidden fixed bottom-0 left-0 right-0 z-50 navbar-mobile-safe"
+        className="md:hidden navbar-mobile-safe"
         style={{
           backgroundColor: "var(--bg)",
           borderTop: "2px solid var(--red)",

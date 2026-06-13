@@ -33,7 +33,7 @@ export default async function EventPage({ params }: EventPageProps) {
 
   return (
     <div
-      className="min-h-[100dvh] pb-24 md:pb-0"
+      className="min-h-[100dvh] md:pb-0"
       style={{ backgroundColor: "var(--bg)" }}
     >
       <Navbar profile={profile} />

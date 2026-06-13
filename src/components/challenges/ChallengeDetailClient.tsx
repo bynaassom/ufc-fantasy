@@ -284,7 +284,7 @@ export default function ChallengeDetailClient({
     : null;
 
   return (
-    <div className="min-h-[100dvh] pb-24 md:pb-0" style={{ backgroundColor: "var(--bg)" }}>
+    <div className="min-h-[100dvh] md:pb-0" style={{ backgroundColor: "var(--bg)" }}>
       <Navbar profile={profile} />
 
       <main className="max-w-5xl mx-auto px-4 py-8">

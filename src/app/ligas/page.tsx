@@ -10,7 +10,7 @@ export default async function GroupsPage() {
   const groups = await getEnrichedMyGroups();
 
   return (
-    <div className="min-h-[100dvh] pb-24 md:pb-0" style={{ backgroundColor: "var(--bg)" }}>
+    <div className="min-h-[100dvh] md:pb-0" style={{ backgroundColor: "var(--bg)" }}>
       <Navbar profile={profile} />
       <main className="max-w-2xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-6">
