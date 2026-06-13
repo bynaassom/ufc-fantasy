@@ -324,6 +324,9 @@ export default async function RankingPage({
                       borderLeft: isMe
                         ? "3px solid var(--red)"
                         : "3px solid transparent",
+                      boxShadow: isMe
+                        ? "inset 0 0 0 1px var(--red)"
+                        : "none",
                     }}
                   >
                     <div className="col-span-1">
