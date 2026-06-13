@@ -10,10 +10,9 @@ export default function ChatFab() {
   return (
     <button
       onClick={open}
-      className="fixed z-50 hidden md:flex items-center justify-center rounded-full shadow-lg transition-transform hover:scale-110 active:scale-95"
+      className="fixed z-50 hidden md:flex items-center gap-2.5 shadow-lg transition-transform hover:scale-105 active:scale-95"
       style={{
-        width: 56,
-        height: 56,
+        padding: "12px 18px",
         backgroundColor: "var(--red)",
         color: "#fff",
         bottom: 24,
@@ -23,9 +22,12 @@ export default function ChatFab() {
       }}
       aria-label="Abrir bate-papo"
     >
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
       </svg>
+      <span className="font-condensed font-900 text-xs uppercase tracking-widest">
+        BATE-PAPO
+      </span>
     </button>
   );
 }
