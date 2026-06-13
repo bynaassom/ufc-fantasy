@@ -163,6 +163,16 @@ export default async function EventPage({ params }: EventPageProps) {
           </div>
         </div>
 
+        {locked && existingPicks && existingPicks.length > 0 && (
+          <a
+            href={`/share/picks/${encodeURIComponent(params.slug)}/${encodeURIComponent(profile.nickname)}`}
+            className="mb-6 block w-full px-5 py-3 text-center font-condensed text-xs font-900 uppercase tracking-widest text-white transition-opacity hover:opacity-90"
+            style={{ backgroundColor: "var(--red)" }}
+          >
+            Compartilhar meus picks
+          </a>
+        )}
+
         <EventPicksClient
           event={event}
           existingPicks={existingPicks || []}

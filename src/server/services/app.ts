@@ -755,6 +755,38 @@ export async function getPublicEventResultShareData(
   };
 }
 
+export async function getPublicEventPickShareData(
+  eventSlug: string,
+  nickname: string,
+) {
+  const supabase = getServiceRoleSupabase();
+  const [event, profile] = await Promise.all([
+    findEventBySlugWithFights(supabase, eventSlug) as Promise<EventWithFights | null>,
+    findPublicProfileByNickname(supabase, nickname),
+  ]);
+
+  if (!event || !profile) return null;
+
+  const picksLocked = hasDatePassed(event.picks_lock_at);
+  if (!picksLocked) {
+    return {
+      status: "not_public_yet" as const,
+      event,
+      profile,
+      picks: [],
+    };
+  }
+
+  const picks = await listPicksForUserEvent(supabase, profile.id, event.id);
+
+  return {
+    status: "public" as const,
+    event,
+    profile,
+    picks,
+  };
+}
+
 export async function getHomePageData() {
   const { profile, user } = await requirePageUserProfile();
   const [cachedCurrentEvent, rawUpcomingEvents, completedEvents] = await Promise.all([
