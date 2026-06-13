@@ -213,17 +213,6 @@ export default async function HomePage() {
           </div>
         )}
 
-        <ActivityFeed
-          currentEvent={currentEvent}
-          upcomingEvents={upcomingEvents}
-          completedEvents={completedEvents}
-        />
-
-        <HomeChallenges
-          challenges={activeChallenges}
-          userId={userId}
-        />
-
         {/* Upcoming */}
         {upcomingEvents.length > 0 && (
           <section className="mb-10">
@@ -276,6 +265,17 @@ export default async function HomePage() {
             </div>
           </section>
         )}
+
+        <ActivityFeed
+          currentEvent={currentEvent}
+          upcomingEvents={upcomingEvents}
+          completedEvents={completedEvents}
+        />
+
+        <HomeChallenges
+          challenges={activeChallenges}
+          userId={userId}
+        />
 
         {/* Completed */}
         {completedEvents.length > 0 && (
