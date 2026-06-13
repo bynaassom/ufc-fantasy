@@ -5,6 +5,7 @@ import { useState } from "react";
 import toast from "react-hot-toast";
 import { readApiResponse } from "@/lib/api";
 import type { Group } from "@/types";
+import CopyInviteButton from "@/components/groups/CopyInviteButton";
 
 export default function GroupsClient({ groups }: { groups: Group[] }) {
   const [list, setList] = useState(groups);
@@ -223,6 +224,9 @@ export default function GroupsClient({ groups }: { groups: Group[] }) {
               <p className="text-xs mt-2 font-mono" style={{ color: "var(--text-muted)" }}>
                 Código: {g.invite_code}
               </p>
+              <div className="mt-2" onClick={(e) => e.preventDefault()}>
+                <CopyInviteButton inviteCode={g.invite_code} />
+              </div>
             </Link>
           ))}
         </div>

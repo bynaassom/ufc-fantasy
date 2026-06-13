@@ -67,6 +67,7 @@ import {
   upsertUserPicks,
 } from "@/server/repositories/picks";
 import {
+  findProfileById,
   findPublicProfileByNickname,
   findPublicProfilesByIds,
   listPublicProfiles,
@@ -2093,6 +2094,39 @@ export async function joinGroupByCode(code: string) {
     role: "member",
   });
   return group;
+}
+
+export async function processInviteLink(code: string) {
+  const adminSupabase = await getAdminSupabase();
+  const group = await findGroupByInviteCode(adminSupabase, code);
+  if (!group) return { status: "invalid" as const };
+
+  const userSupabase = await getUserSupabase();
+  const {
+    data: { user },
+  } = await userSupabase.auth.getUser();
+
+  if (!user) {
+    return { status: "needs_login" as const, group };
+  }
+
+  const existing = await getGroupMember(adminSupabase, group.id, user.id);
+  if (existing) {
+    return { status: "already_member" as const, group };
+  }
+
+  const profile = await findProfileById(userSupabase, user.id);
+  if (!profile || profile.is_banned) {
+    return { status: "banned" as const, group };
+  }
+
+  await addGroupMember(adminSupabase, {
+    group_id: group.id,
+    user_id: user.id,
+    role: "member",
+  });
+
+  return { status: "joined" as const, group };
 }
 
 export async function leaveGroup(groupId: string) {

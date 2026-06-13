@@ -5,6 +5,7 @@ import { useState } from "react";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import type { GroupWithMembers } from "@/types";
+import CopyInviteButton from "@/components/groups/CopyInviteButton";
 
 interface MemberWithScore {
   id: string;
@@ -86,6 +87,18 @@ export default function GroupDetailClient({
         <p className="text-xs mt-2 font-mono" style={{ color: "var(--text-muted)" }}>
           Código: {group.invite_code}
         </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <CopyInviteButton inviteCode={group.invite_code} />
+          <a
+            href={`https://wa.me/?text=${encodeURIComponent(`Entre na minha liga do UFC Fantasy! ${process.env.NEXT_PUBLIC_APP_URL || ""}/convite/${group.invite_code}`)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2 font-condensed text-xs font-900 uppercase tracking-widest text-white transition-opacity hover:opacity-80"
+            style={{ backgroundColor: "#25D366" }}
+          >
+            Convidar no WhatsApp
+          </a>
+        </div>
 
         {isAdmin && (
           <button
