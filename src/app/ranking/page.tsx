@@ -321,12 +321,11 @@ export default async function RankingPage({
                         index < paginatedRanking.length - 1
                           ? "1px solid var(--border-light)"
                           : "none",
-                      borderLeft: isMe
-                        ? "3px solid var(--red)"
-                        : "3px solid transparent",
-                      boxShadow: isMe
-                        ? "inset 0 0 0 1px var(--red)"
+                      borderLeft: "1px solid transparent",
+                      outline: isMe
+                        ? "1px solid var(--red)"
                         : "none",
+                      outlineOffset: "-1px",
                     }}
                   >
                     <div className="col-span-1">
