@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { createAuthClient } from "@/lib/supabase/client";
 import { Profile } from "@/types";
 import { getDisplayName, getDisplaySubtitle } from "@/lib/utils";
@@ -23,11 +24,16 @@ export default function Navbar({ profile }: NavbarProps) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const [portalReady, setPortalReady] = useState(false);
   const { open: openChat, isOpen: isChatOpen } = useChatDrawer();
   const showGlobalChat = pathname !== "/bate-papo";
 
   const maisTriggerRef = useRef<HTMLButtonElement>(null);
   const maisMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setPortalReady(true);
+  }, []);
 
   useEffect(() => {
     if (moreMenuOpen) {
@@ -301,13 +307,14 @@ export default function Navbar({ profile }: NavbarProps) {
       </nav>
 
       {/* ── MOBILE BOTTOM BAR ── */}
-      <nav
-        className="md:hidden navbar-mobile-safe"
-        style={{
-          backgroundColor: "var(--bg)",
-          borderTop: "2px solid var(--red)",
-        }}
-      >
+      {portalReady && createPortal(
+        <nav
+          className="md:hidden navbar-mobile-safe"
+          style={{
+            backgroundColor: "var(--bg)",
+            borderTop: "2px solid var(--red)",
+          }}
+        >
         <div className="flex items-center justify-around h-14">
           {[
             { href: "/home", label: "INÍCIO", icon: (
@@ -392,7 +399,9 @@ export default function Navbar({ profile }: NavbarProps) {
             </span>
           </button>
         </div>
-      </nav>
+      </nav>,
+      document.body
+      )}
 
       {/* ── MOBILE MORE MENU ── */}
       {moreMenuOpen && (

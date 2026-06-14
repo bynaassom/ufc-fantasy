@@ -232,7 +232,7 @@ export default function PushNotificationManager({
 
   const overlayClassName =
     variant === "mobile"
-      ? "md:hidden fixed inset-0 z-[80] flex items-end justify-center px-4 pb-6 pt-20"
+      ? "md:hidden fixed inset-0 z-[80] flex items-center justify-center px-4 pb-6 pt-20 overflow-y-auto"
       : "hidden md:flex fixed inset-0 z-[80] items-center justify-center px-4";
   const overlayBg = "var(--bg-overlay-82)";
 
