@@ -136,6 +136,45 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
+  function jpegFilename(value: string) {
+    return value.replace(/\.png$/i, ".jpg");
+  }
+
+  async function flattenForShare(blob: Blob): Promise<Blob | null> {
+    const url = URL.createObjectURL(blob);
+    try {
+      const img = new Image();
+      const loaded = new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("Could not load share image for JPEG conversion"));
+      });
+      img.src = url;
+      await loaded;
+      await img.decode?.().catch(() => undefined);
+
+      const width = img.naturalWidth || 1080;
+      const height = img.naturalHeight || 1920;
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return null;
+
+      ctx.fillStyle = "#0d0d0d";
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(img, 0, 0, width, height);
+
+      return await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, "image/jpeg", 0.94),
+      );
+    } catch (err) {
+      console.warn("JPEG share conversion failed", err);
+      return null;
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+
   async function copyCaption() {
     try {
       await navigator.clipboard.writeText(shareCaption);
@@ -155,7 +194,10 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
     const blob = await captureBlob();
     if (!blob) return;
 
-    const file = new File([blob], filename, { type: "image/png" });
+    const shareBlob = await flattenForShare(blob);
+    const file = shareBlob
+      ? new File([shareBlob], jpegFilename(filename), { type: "image/jpeg" })
+      : new File([blob], filename, { type: "image/png" });
 
     if (navigator.share && navigator.canShare?.({ files: [file] })) {
       try {
