@@ -27,17 +27,32 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
       await document.fonts?.ready?.catch(() => undefined);
       await waitForPaint();
 
-      const { toBlob } = await import("html-to-image");
-      const rect = node.getBoundingClientRect();
-      const width = Math.ceil(Math.max(rect.width, node.scrollWidth));
-      const height = Math.ceil(Math.max(rect.height, node.scrollHeight));
+      const { toBlob, toPng } = await import("html-to-image");
+      const width = node.scrollWidth;
+      const height = node.scrollHeight;
       const backgroundColor =
-        getComputedStyle(node).backgroundColor ||
-        getComputedStyle(document.documentElement).getPropertyValue("--bg") ||
-        "#0d0d0d";
+        getComputedStyle(node).backgroundColor || "#0d0d0d";
 
-      const blob = await toBlob(node, {
-        quality: 1,
+      try {
+        const blob = await toBlob(node, {
+          pixelRatio: 2,
+          cacheBust: true,
+          width,
+          height,
+          backgroundColor,
+          style: {
+            width: `${width}px`,
+            height: `${height}px`,
+            maxWidth: "none",
+            transform: "none",
+          },
+        });
+        if (blob) return blob;
+      } catch (err) {
+        console.warn("toBlob failed, trying toPng fallback", err);
+      }
+
+      const dataUrl = await toPng(node, {
         pixelRatio: 2,
         cacheBust: true,
         width,
@@ -50,11 +65,8 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
           transform: "none",
         },
       });
-      if (!blob) throw new Error("html-to-image returned an empty image");
-      if (!blob.type.includes("png")) {
-        return new Blob([blob], { type: "image/png" });
-      }
-      return blob;
+      const res = await fetch(dataUrl);
+      return res.blob();
     } catch (error) {
       console.error("Share image generation failed", error);
       toast.error("Não foi possível gerar a imagem.");

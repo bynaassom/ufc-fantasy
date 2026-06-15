@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { formatEventDate } from "@/lib/utils";
 import PublicShareHeader from "@/components/share/PublicShareHeader";
 import ShareActions from "@/components/share/ShareActions";
+import ShareCta from "@/components/share/ShareCta";
 
 type ShareData = NonNullable<Awaited<ReturnType<typeof import("@/server/services/app").getPublicEventResultShareData>>>;
 
@@ -123,6 +123,7 @@ export default function EventResultSharePage({ data, shareUrl }: { data: ShareDa
                   <img
                     src={event.banner_image_url!}
                     alt=""
+                    crossOrigin="anonymous"
                     style={{
                       position: "absolute",
                       inset: 0,
@@ -295,6 +296,7 @@ export default function EventResultSharePage({ data, shareUrl }: { data: ShareDa
                         paddingRight: 10,
                         borderBottom: "1px solid #2a2a2a",
                         paddingBottom: 7,
+                        borderLeft: "3px solid transparent",
                       }}
                     >
                       <span
@@ -462,13 +464,7 @@ export default function EventResultSharePage({ data, shareUrl }: { data: ShareDa
         )}
 
         <div className="mt-4 flex justify-center">
-          <Link
-            href="/register"
-            className="px-5 py-3 text-center font-condensed text-sm font-900 uppercase tracking-widest"
-            style={{ border: "1px solid var(--border)", color: "var(--text)" }}
-          >
-            Criar minha conta
-          </Link>
+          <ShareCta />
         </div>
       </section>
     </main>
