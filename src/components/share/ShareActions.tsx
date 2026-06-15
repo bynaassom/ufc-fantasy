@@ -177,9 +177,9 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
     const blob = serverShareBlob || await captureBlob();
     if (!blob) return;
 
-    const isJpeg = blob.type === "image/jpeg" || !!serverShareBlob;
+    const isJpeg = blob.type === "image/jpeg";
     const file = new File([blob], isJpeg ? jpegFilename(filename) : filename, {
-      type: isJpeg ? "image/jpeg" : "image/png",
+      type: blob.type || (isJpeg ? "image/jpeg" : "image/png"),
     });
 
     if (navigator.share && navigator.canShare?.({ files: [file] })) {
