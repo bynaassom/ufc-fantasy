@@ -49,7 +49,7 @@ const GRID = [
 const HERO_OVERLAY =
   "linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(13,13,13,0.45) 40%, rgba(13,13,13,0.95) 100%)";
 
-export default function EventResultSharePage({ data, shareUrl, bannerDataUrl, shareImageUrl, shareJpegUrl }: { data: ShareData; shareUrl: string; bannerDataUrl?: string | null; shareImageUrl?: string; shareJpegUrl?: string }) {
+export default function EventResultSharePage({ data, shareUrl, bannerDataUrl, shareImageUrl }: { data: ShareData; shareUrl: string; bannerDataUrl?: string | null; shareImageUrl?: string }) {
   const { event, profile, picks, score, rank, status } = data;
   const cardRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -475,7 +475,6 @@ export default function EventResultSharePage({ data, shareUrl, bannerDataUrl, sh
             whatsappTextUrl={whatsappHref}
             bannerLoaded={bannerLoaded}
             serverImageUrl={shareImageUrl}
-            serverShareImageUrl={shareJpegUrl}
           />
         </div>
       )}
