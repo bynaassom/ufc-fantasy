@@ -177,13 +177,10 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
 
   async function handleShare() {
     const serverShareBlob = serverShareImageUrl ? await fetchServerBlob(serverShareImageUrl) : null;
-    if (serverShareImageUrl && !serverShareBlob) {
-      window.open(serverShareImageUrl, "_blank", "noopener,noreferrer");
-      toast.error("Não foi possível anexar automaticamente. A imagem foi aberta para salvar/compartilhar manualmente.");
-      return;
-    }
-
-    const blob = serverShareBlob || await captureBlob();
+    const serverDownloadBlob = !serverShareBlob && serverImageUrl
+      ? await fetchServerBlob(serverImageUrl)
+      : null;
+    const blob = serverShareBlob || serverDownloadBlob || await captureBlob();
     if (!blob) return;
 
     const isJpeg = blob.type === "image/jpeg";
