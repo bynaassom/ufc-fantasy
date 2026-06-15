@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import EventPickSharePage from "@/components/share/EventPickSharePage";
+import { buildPublicUrl, normalizePublicOrigin } from "@/lib/public-url";
 import { getPublicEventPickShareData } from "@/server/services/app";
 
 type Params = {
@@ -28,8 +30,15 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function SharePicksPage({ params }: Params) {
   const data = await getPublicEventPickShareData(params.slug, params.nickname);
   if (!data) notFound();
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "";
-  const shareUrl = `${baseUrl}/share/picks/${params.slug}/${params.nickname}`;
+  const requestHeaders = headers();
+  const requestOrigin = normalizePublicOrigin(
+    requestHeaders.get("x-forwarded-host") || requestHeaders.get("host"),
+  );
+  const baseUrl = normalizePublicOrigin(process.env.NEXT_PUBLIC_APP_URL) || requestOrigin;
+  const shareUrl = buildPublicUrl(
+    `/share/picks/${params.slug}/${params.nickname}`,
+    baseUrl,
+  );
 
   return <EventPickSharePage data={data} shareUrl={shareUrl} />;
 }

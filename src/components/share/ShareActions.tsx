@@ -13,19 +13,47 @@ type Props = {
 export default function ShareActions({ cardRef, filename, shareCaption, whatsappTextUrl }: Props) {
   const [capturing, setCapturing] = useState(false);
 
+  function waitForPaint() {
+    return new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
+  }
+
   async function captureBlob(): Promise<Blob | null> {
-    if (!cardRef.current) return null;
+    const node = cardRef.current;
+    if (!node) return null;
     setCapturing(true);
     try {
-      const { toPng } = await import("html-to-image");
-      const dataUrl = await toPng(cardRef.current, {
+      await document.fonts?.ready?.catch(() => undefined);
+      await waitForPaint();
+
+      const { toBlob } = await import("html-to-image");
+      const rect = node.getBoundingClientRect();
+      const width = Math.ceil(Math.max(rect.width, node.scrollWidth));
+      const height = Math.ceil(Math.max(rect.height, node.scrollHeight));
+      const backgroundColor =
+        getComputedStyle(node).backgroundColor ||
+        getComputedStyle(document.documentElement).getPropertyValue("--bg") ||
+        "#0d0d0d";
+
+      const blob = await toBlob(node, {
         quality: 1,
         pixelRatio: 2,
         cacheBust: true,
+        width,
+        height,
+        backgroundColor,
+        style: {
+          width: `${width}px`,
+          height: `${height}px`,
+          maxWidth: "none",
+          transform: "none",
+        },
       });
-      const res = await fetch(dataUrl);
-      return res.blob();
-    } catch {
+      if (!blob) throw new Error("html-to-image returned an empty image");
+      return blob;
+    } catch (error) {
+      console.error("Share image generation failed", error);
       toast.error("Não foi possível gerar a imagem.");
       return null;
     } finally {
