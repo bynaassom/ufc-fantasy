@@ -240,6 +240,53 @@ async function logSyncAttempt(
 
 type Update = ConsensusUpdate;
 
+// ─── Monitoramento ───────────────────────────────────────────
+async function countConsecutiveSyncFailures(adminSupabase: any): Promise<number> {
+  try {
+    const { data: logs } = await adminSupabase
+      .from("activity_logs")
+      .select("details")
+      .eq("action", "admin_sync_results")
+      .order("created_at", { ascending: false })
+      .limit(5);
+
+    if (!logs?.length) return 0;
+
+    let consecutive = 0;
+    for (const log of logs) {
+      const step = log.details?.step;
+      if (step === "no_scraped_results" || step === "no_consensus" || step === "no_active_event") {
+        consecutive++;
+      } else if (step === "complete") {
+        break;
+      } else {
+        break;
+      }
+    }
+    return consecutive;
+  } catch {
+    return 0;
+  }
+}
+
+async function checkSyncFailures(adminSupabase: any, currentStep: string, eventId?: string) {
+  try {
+    const failures = await countConsecutiveSyncFailures(adminSupabase);
+    if (failures >= 3) {
+      await adminSupabase.from("activity_logs").insert({
+        user_id: null,
+        action: "admin_sync_alert",
+        details: {
+          type: "consecutive_failures",
+          count: failures,
+          step: currentStep,
+          event_id: eventId || null,
+        },
+      });
+    }
+  } catch { /* silent */ }
+}
+
 // ─── Handler ─────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   const adminSupabase = await createAdminClient();
@@ -433,6 +480,7 @@ export async function POST(req: NextRequest) {
       is_external: !!isExternalCall,
       sources: diagnostics,
     });
+    await checkSyncFailures(adminSupabase, "no_scraped_results", event_id);
     return NextResponse.json({
       ok: true,
       message:
@@ -454,6 +502,7 @@ export async function POST(req: NextRequest) {
       is_external: !!isExternalCall,
       sources: diagnostics,
     });
+    await checkSyncFailures(adminSupabase, "no_consensus", event_id);
     return NextResponse.json({
       ok: true,
       message: consensus.conflicts.length
@@ -489,30 +538,31 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  let saved = 0;
-  const savedLabels: string[] = [];
-  const slugsToRevalidate = new Set<string>();
+  const resultsBatch = updates.map((upd) => ({
+    fight_id: upd.fight_id,
+    winner_id: upd.winner_id,
+    method: upd.method,
+    round: upd.round,
+  }));
 
-  for (const upd of updates) {
-    const { error } = await adminSupabase
-      .from("fights")
-      .update({
-        winner_id: upd.winner_id,
-        result_method: upd.method,
-        result_round: upd.round,
-        result_confirmed: true,
-      })
-      .eq("id", upd.fight_id);
+  const { data: rpcResult, error: rpcError } = await adminSupabase.rpc(
+    "sync_fight_results_batch",
+    { results: JSON.stringify(resultsBatch) },
+  );
 
-    if (!error) {
-      saved++;
-      savedLabels.push(upd.label);
-      if (upd.eventSlug) slugsToRevalidate.add(upd.eventSlug);
-      await adminSupabase.rpc("score_picks_for_fight", {
-        p_fight_id: upd.fight_id,
-      });
-    }
+  if (rpcError) {
+    return NextResponse.json(
+      { error: `Falha na transação: ${rpcError.message}` },
+      { status: 500 },
+    );
   }
+
+  const saved = typeof rpcResult === "number" ? rpcResult : 0;
+  const savedLabels: string[] = updates.slice(0, saved).map((upd) => upd.label);
+  const slugsToRevalidate = new Set<string>();
+  updates.slice(0, saved).forEach((upd) => {
+    if (upd.eventSlug) slugsToRevalidate.add(upd.eventSlug);
+  });
 
   const lifecycle = await completeEventIfAllResultsConfirmed(adminSupabase, event_id);
 

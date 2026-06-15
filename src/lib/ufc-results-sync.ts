@@ -23,6 +23,7 @@ const UFC_STATS_HEADERS = {
   "Cache-Control": "no-cache",
   Pragma: "no-cache",
 };
+const BROWSER_CHALLENGE_TIMEOUT_MS = 8_000;
 const MAX_BROWSER_CHALLENGE_ATTEMPTS = 10_000_000;
 
 function decodeHtml(value: string) {
@@ -161,8 +162,12 @@ function parseBrowserChallenge(html: string) {
 
 function solveBrowserChallenge(nonce: string, zeroCount: number) {
   const target = "0".repeat(zeroCount);
+  const startTime = Date.now();
 
   for (let n = 0; n <= MAX_BROWSER_CHALLENGE_ATTEMPTS; n += 1) {
+    if (Date.now() - startTime >= BROWSER_CHALLENGE_TIMEOUT_MS) {
+      throw new Error("UFCStats browser challenge timed out");
+    }
     const hash = createHash("sha256").update(`${nonce}:${n}`).digest("hex");
     if (hash.slice(0, zeroCount) === target) return n;
   }

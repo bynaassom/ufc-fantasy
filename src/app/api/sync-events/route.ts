@@ -10,6 +10,7 @@ import {
 } from "@/lib/ufc-api";
 import { logAdminAction } from "@/lib/admin-audit";
 import { syncScrapedCardForEvent } from "@/lib/ufc-card-sync";
+import { discoverUfcStatsUrl } from "@/lib/ufc-stats-discovery";
 import { assertSameOriginForMutation } from "@/server/api";
 import { CACHE_TAGS } from "@/server/cache-tags";
 
@@ -120,7 +121,17 @@ type SyncCandidate = {
   > | null;
 };
 
-async function requireAdmin() {
+async function requireAdmin(req?: NextRequest) {
+  if (req) {
+    const authHeader = req.headers.get("authorization");
+    const syncSecret = process.env.SYNC_SECRET;
+    const isExternalCall = syncSecret && authHeader === `Bearer ${syncSecret}`;
+    if (isExternalCall) {
+      const adminSupabase = await createAdminClient();
+      return { adminSupabase, userId: null, isExternal: true };
+    }
+  }
+
   const supabase = await createClient();
   const adminSupabase = await createAdminClient();
 
@@ -141,7 +152,7 @@ async function requireAdmin() {
     return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
 
-  return { adminSupabase, userId: user.id };
+  return { adminSupabase, userId: user.id, isExternal: false };
 }
 
 async function loadExistingEvents(adminSupabase: Awaited<ReturnType<typeof createAdminClient>>) {
@@ -355,8 +366,8 @@ function summarizePlan(candidates: SyncCandidate[]) {
   };
 }
 
-export async function GET() {
-  const auth = await requireAdmin();
+export async function GET(req: NextRequest) {
+  const auth = await requireAdmin(req);
   if (auth.error) return auth.error;
 
   try {
@@ -387,7 +398,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   assertSameOriginForMutation(req);
-  const auth = await requireAdmin();
+  const auth = await requireAdmin(req);
   if (auth.error) return auth.error;
 
   let selectedEventIds: string[] | undefined;
@@ -480,6 +491,16 @@ export async function POST(req: NextRequest) {
       }
 
       if (!eventId) continue;
+
+      // Tenta descobrir ufc_stats_url automaticamente
+      try {
+        const ufcStatsUrl = await discoverUfcStatsUrl(candidate.name, candidate.event_date);
+        if (ufcStatsUrl) {
+          await auth.adminSupabase.from("events").update({ ufc_stats_url: ufcStatsUrl }).eq("id", eventId);
+        }
+      } catch {
+        // silencioso — não quebra o sync
+      }
 
       try {
         const cardResult = await syncScrapedCardForEvent(
