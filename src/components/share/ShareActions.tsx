@@ -169,6 +169,11 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
 
   async function handleShare() {
     const serverShareBlob = serverShareImageUrl ? await fetchServerBlob(serverShareImageUrl) : null;
+    if (serverShareImageUrl && !serverShareBlob) {
+      toast.error("Não foi possível carregar a imagem para compartilhar.");
+      return;
+    }
+
     const blob = serverShareBlob || await captureBlob();
     if (!blob) return;
 
@@ -179,7 +184,8 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
 
     if (navigator.share && navigator.canShare?.({ files: [file] })) {
       try {
-        await navigator.share({ files: [file], text: shareCaption });
+        await navigator.share({ files: [file] });
+        await copyCaption();
       } catch (error: any) {
         if (error?.name !== "AbortError") {
           downloadBlob(blob);
