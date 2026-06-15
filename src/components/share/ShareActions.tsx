@@ -3,9 +3,6 @@
 import { useState } from "react";
 import toast from "react-hot-toast";
 
-const TRANSPARENT_PIXEL =
-  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
-
 type Props = {
   cardRef: React.RefObject<HTMLDivElement | null>;
   filename: string;
@@ -23,33 +20,33 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
   }
 
   // Inline external images via our CORS proxy so they don't taint the canvas
+  // Returns a restore function to revert img srcs back to originals
   async function inlineImages(node: HTMLElement): Promise<() => void> {
     const imgs = Array.from(node.querySelectorAll<HTMLImageElement>("img[src]"));
-    const restored: { img: HTMLImageElement; src: string }[] = [];
+    const restored: { img: HTMLImageElement; src: string; blobUrl: string }[] = [];
     for (const img of imgs) {
       const originalSrc = img.src;
-      if (originalSrc.startsWith("data:")) continue;
+      if (originalSrc.startsWith("data:") || originalSrc.startsWith("blob:")) continue;
       try {
         const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(originalSrc)}`;
         const resp = await fetch(proxyUrl);
-        if (!resp.ok) continue;
+        if (!resp.ok) {
+          console.warn("proxy fetch not ok", resp.status, originalSrc);
+          continue;
+        }
         const blob = await resp.blob();
-        const dataUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(blob);
-        });
-        img.src = dataUrl;
-        restored.push({ img, src: originalSrc });
+        const blobUrl = URL.createObjectURL(blob);
+        img.src = blobUrl;
+        restored.push({ img, src: originalSrc, blobUrl });
         await img.decode();
-      } catch {
-        // skip — will be handled by imagePlaceholder
+      } catch (e) {
+        console.error("inlineImages failed for", originalSrc, e);
       }
     }
     return () => {
-      for (const { img, src } of restored) {
+      for (const { img, src, blobUrl } of restored) {
         img.src = src;
+        URL.revokeObjectURL(blobUrl);
       }
     };
   }
@@ -70,7 +67,6 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
       const height = node.scrollHeight;
       const bgColor = getComputedStyle(node).backgroundColor || "#0d0d0d";
 
-      // Try toBlob first, then toPng + fetch
       try {
         const blob = await toBlob(node, {
           pixelRatio: 2,
@@ -78,7 +74,6 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
           width,
           height,
           backgroundColor: bgColor,
-          imagePlaceholder: TRANSPARENT_PIXEL,
           style: {
             width: `${width}px`,
             height: `${height}px`,
@@ -97,7 +92,6 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
         width,
         height,
         backgroundColor: bgColor,
-        imagePlaceholder: TRANSPARENT_PIXEL,
         style: {
           width: `${width}px`,
           height: `${height}px`,

@@ -6,20 +6,31 @@ export async function GET(request: NextRequest) {
   const url = request.nextUrl.searchParams.get("url");
   if (!url) return new NextResponse("Missing url", { status: 400 });
 
+  if (!/^https?:\/\//i.test(url))
+    return new NextResponse("Invalid url", { status: 400 });
+
   try {
-    const resp = await fetch(url);
-    if (!resp.ok) return new NextResponse("Fetch failed", { status: resp.status });
-
-    const blob = await resp.blob();
-    const headers = new Headers(resp.headers);
-    headers.set("Access-Control-Allow-Origin", "*");
-    headers.set("Cache-Control", "public, max-age=86400");
-
-    return new NextResponse(blob, {
-      status: 200,
-      headers,
+    const resp = await fetch(url, {
+      signal: AbortSignal.timeout(10000),
     });
-  } catch {
+    if (!resp.ok)
+      return new NextResponse("Fetch failed", { status: resp.status });
+
+    const buffer = await resp.arrayBuffer();
+    const contentType =
+      resp.headers.get("content-type") || "image/jpeg";
+
+    return new NextResponse(buffer, {
+      status: 200,
+      headers: {
+        "Content-Type": contentType,
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "public, max-age=86400",
+        "Content-Length": buffer.byteLength.toString(),
+      },
+    });
+  } catch (err) {
+    console.error("image-proxy error for", url, err);
     return new NextResponse("Proxy error", { status: 502 });
   }
 }
