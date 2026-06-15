@@ -6,7 +6,6 @@ import toast from "react-hot-toast";
 import FighterSearchInput from "../FighterSearchInput";
 
 import {
-  adminGet,
   adminSend,
   inp,
   sel,

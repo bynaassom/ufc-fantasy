@@ -99,6 +99,9 @@ const badgeSlugSchema = z
   .min(1)
   .regex(/^[a-z0-9_]+$/, "slug deve conter apenas letras minúsculas, números e underscore");
 
+const badgeAwardModeSchema = z.enum(["automatic", "manual"]);
+const optionalTextSchema = z.string().trim().optional().nullable();
+
 export const adminBadgeSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
   slug: badgeSlugSchema.optional(),
@@ -107,6 +110,10 @@ export const adminBadgeSchema = z.object({
   icon_name: badgeIconSchema,
   tier: z.number().int().min(1).max(5),
   sort_order: z.number().int().min(0),
+  award_mode: badgeAwardModeSchema.default("automatic"),
+  criteria_description: optionalTextSchema,
+  notification_title: optionalTextSchema,
+  notification_message: optionalTextSchema,
 });
 
 export const adminBadgePatchSchema = z.object({
@@ -118,7 +125,14 @@ export const adminBadgePatchSchema = z.object({
   tier: z.number().int().min(1).max(5).optional(),
   sort_order: z.number().int().min(0).optional(),
   archived: z.boolean().optional(),
-  criteria_description: z.string().optional().nullable(),
+  award_mode: badgeAwardModeSchema.optional(),
+  criteria_description: optionalTextSchema,
+  notification_title: optionalTextSchema,
+  notification_message: optionalTextSchema,
 }).refine((value) => Object.keys(value).length > 0, {
   message: "Informe ao menos um campo para atualizar.",
+});
+
+export const adminBadgeAwardSchema = z.object({
+  userIds: z.array(z.string().uuid()).min(1, "Selecione ao menos um usuário"),
 });

@@ -30,14 +30,6 @@ export const metadata: Metadata = {
       "Faça seus picks, acerte os resultados e suba no ranking com seus amigos.",
     url: process.env.NEXT_PUBLIC_APP_URL,
     siteName: "UFC Fantasy",
-    images: [
-      {
-        url: `${process.env.NEXT_PUBLIC_APP_URL}/og-image.png`,
-        width: 1200,
-        height: 630,
-        alt: "UFC Fantasy",
-      },
-    ],
     locale: "pt_BR",
     type: "website",
   },
@@ -46,7 +38,6 @@ export const metadata: Metadata = {
     title: "UFC Fantasy | Faça seus picks",
     description:
       "Faça seus picks, acerte os resultados e suba no ranking com seus amigos.",
-    images: [`${process.env.NEXT_PUBLIC_APP_URL}/og-image.png`],
   },
 };
 

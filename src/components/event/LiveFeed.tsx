@@ -277,10 +277,6 @@ export default function LiveFeed({ eventSlug }: { eventSlug: string }) {
               entry.fight.fighter_a.id === entry.fight.winner_id
                 ? entry.fight.fighter_a
                 : entry.fight.fighter_b;
-            const loser =
-              entry.fight.fighter_a.id === entry.fight.winner_id
-                ? entry.fight.fighter_b
-                : entry.fight.fighter_a;
 
             const isCorrect = entry.pick?.winner_id === entry.fight.winner_id;
             const methodLabel = getMethodLabel(entry.fight.result_method || "");

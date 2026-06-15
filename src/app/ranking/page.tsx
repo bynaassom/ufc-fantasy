@@ -34,7 +34,6 @@ export default async function RankingPage({
   const requestedPage = Math.max(1, Number(searchParams.page) || 1);
   const {
     profile,
-    currentEvent,
     currentSeason,
     selectedRankingEvent,
     rankingEvents,

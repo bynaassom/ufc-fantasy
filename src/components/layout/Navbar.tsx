@@ -25,7 +25,8 @@ export default function Navbar({ profile }: NavbarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [portalReady, setPortalReady] = useState(false);
-  const { open: openChat, isOpen: isChatOpen } = useChatDrawer();
+  const [isDesktop, setIsDesktop] = useState(false);
+  const { open: openChat, close: closeChat, isOpen: isChatOpen } = useChatDrawer();
   const showGlobalChat = pathname !== "/bate-papo";
 
   const maisTriggerRef = useRef<HTMLButtonElement>(null);
@@ -34,6 +35,23 @@ export default function Navbar({ profile }: NavbarProps) {
   useEffect(() => {
     setPortalReady(true);
   }, []);
+
+  useEffect(() => {
+    document.body.classList.add("has-mobile-nav");
+    return () => document.body.classList.remove("has-mobile-nav");
+  }, []);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(min-width: 768px)");
+    function handleViewportChange() {
+      setIsDesktop(mediaQuery.matches);
+      if (!mediaQuery.matches) closeChat();
+    }
+
+    handleViewportChange();
+    mediaQuery.addEventListener("change", handleViewportChange);
+    return () => mediaQuery.removeEventListener("change", handleViewportChange);
+  }, [closeChat]);
 
   useEffect(() => {
     if (moreMenuOpen) {
@@ -120,7 +138,7 @@ export default function Navbar({ profile }: NavbarProps) {
                   onClick={openChat}
                   aria-label="Abrir bate-papo"
                   className="relative font-condensed font-700 text-xs uppercase tracking-widest px-4 py-2 transition-all hover:opacity-80"
-                  style={{ color: "var(--text-secondary)" }}
+                  style={{ color: isChatOpen ? "var(--red)" : "var(--text-secondary)" }}
                 >
                   {link.label}
                 </button>
@@ -335,7 +353,7 @@ export default function Navbar({ profile }: NavbarProps) {
                 <path d="M2 12l10 5 10-5" />
               </svg>
             )},
-            { label: "BATE-PAPO", action: openChat, icon: (
+            { href: "/bate-papo", label: "BATE-PAPO", icon: (
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
               </svg>
@@ -515,7 +533,7 @@ export default function Navbar({ profile }: NavbarProps) {
           </div>
         </>
       )}
-      {showGlobalChat && (
+      {showGlobalChat && isDesktop && (
         <>
           <ChatDrawer />
           <ChatFab />

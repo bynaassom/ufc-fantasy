@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import toast from "react-hot-toast";
-import { useRouter } from "next/navigation";
 import { readApiResponse } from "@/lib/api";
 import type { ChatMessage } from "@/types";
 
@@ -22,7 +21,6 @@ export default function ChatClient({ groupId }: { groupId?: string | null }) {
   const [hasMore, setHasMore] = useState(false);
   const [pollSince, setPollSince] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  const router = useRouter();
 
   const scrollToBottom = useCallback((smooth = true) => {
     requestAnimationFrame(() => {
@@ -138,17 +136,6 @@ export default function ChatClient({ groupId }: { groupId?: string | null }) {
       toast.error(err.message || "Erro ao enviar mensagem");
     } finally {
       setSending(false);
-    }
-  };
-
-  const handleHide = async (messageId: string) => {
-    try {
-      const res = await fetch(`/api/chat/${messageId}`, { method: "DELETE" });
-      await readApiResponse<{ hidden: boolean }>(res);
-      setMessages((prev) => prev.filter((m) => m.id !== messageId));
-      toast.success("Mensagem ocultada");
-    } catch (err: any) {
-      toast.error(err.message || "Erro ao ocultar mensagem");
     }
   };
 

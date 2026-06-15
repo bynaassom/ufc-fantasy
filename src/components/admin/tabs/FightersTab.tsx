@@ -5,7 +5,6 @@ import toast from "react-hot-toast";
 
 import {
   adminGet,
-  adminSend,
   inp,
   sel,
   lbl,

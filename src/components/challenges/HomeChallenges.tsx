@@ -25,10 +25,8 @@ function getStatusColor(status: HomeChallenge["status"]) {
 
 export default function HomeChallenges({
   challenges,
-  userId,
 }: {
   challenges: HomeChallenge[];
-  userId: string;
 }) {
   if (!challenges.length) return null;
 

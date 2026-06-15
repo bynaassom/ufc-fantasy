@@ -1,18 +1,8 @@
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
 import { formatDistanceToNow, format, isBefore } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
-
 export function formatEventDate(date: string) {
   return format(new Date(date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
-}
-
-export function formatEventTime(date: string) {
-  return format(new Date(date), "HH:mm");
 }
 
 export function timeUntilEvent(date: string) {
@@ -68,15 +58,6 @@ export function getMethodLabel(method: string): string {
     knockout: "Nocaute",
   };
   return labels[method] || method;
-}
-
-export function getMethodIcon(method: string): string {
-  const icons: Record<string, string> = {
-    decision: "⚖️",
-    submission: "🤼",
-    knockout: "👊",
-  };
-  return icons[method] || "❓";
 }
 
 export function getFallbackHeadshot(name: string): string {

@@ -10,7 +10,3 @@ export function PageSkeleton({ lines = 6 }: { lines?: number }) {
     </div>
   );
 }
-
-export function CardSkeleton() {
-  return <div className="skeleton w-full h-20" />;
-}

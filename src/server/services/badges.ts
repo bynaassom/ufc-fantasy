@@ -3,7 +3,7 @@ import { createNotificationOnce, shouldNotifyUser } from "@/server/repositories/
 import { getPublicProfileStats } from "@/server/services/app";
 import { buildBadgeNotificationContent, getNotificationPreferenceKey } from "@/lib/notifications";
 import { mapBadgeDbError } from "@/server/services/badge-admin-utils";
-import type { Badge, BadgeWithStatus, PublicProfileStats } from "@/types";
+import type { Badge, BadgeWithStatus, PublicProfileStats, UserBadge } from "@/types";
 
 type BadgeCriteria = {
   slug: string;
@@ -73,7 +73,6 @@ export async function evaluateAndGetBadges(
   const existingBySlug = new Map(
     userBadges.filter((ub) => ub.badge).map((ub) => [ub.badge!.slug, ub]),
   );
-  const badgeById = new Map(badges.map((b) => [b.id, b]));
 
   const totalPerfectPicks = ((eventScoresResult.data || []) as any[])
     .reduce((sum: number, row: any) => sum + Number(row.perfect_picks || 0), 0);
@@ -85,6 +84,7 @@ export async function evaluateAndGetBadges(
   const newlyAwarded: string[] = [];
 
   for (const badge of badges) {
+    if ((badge.award_mode || "automatic") !== "automatic") continue;
     if (existingBadgeIds.has(badge.id)) continue;
 
     const criteria = CRITERIA.find((c) => c.slug === badge.slug);
@@ -103,7 +103,7 @@ export async function evaluateAndGetBadges(
             title: content.title,
             message: content.message,
             target_path: "/profile?tab=badges",
-            dedupe_key: `badge_earned:${badge.id}`,
+            dedupe_key: `badge_earned:${badge.id}:${userId}`,
           });
         }
 
@@ -134,6 +134,10 @@ export async function createAdminBadge(
     icon_name: string;
     tier: number;
     sort_order: number;
+    award_mode?: string;
+    criteria_description?: string | null;
+    notification_title?: string | null;
+    notification_message?: string | null;
   },
 ): Promise<Badge> {
   try {
@@ -154,6 +158,10 @@ export async function updateAdminBadge(
     icon_name: string;
     tier: number;
     sort_order: number;
+    award_mode: string;
+    criteria_description: string | null;
+    notification_title: string | null;
+    notification_message: string | null;
   }>,
 ): Promise<Badge | null> {
   try {
@@ -175,4 +183,54 @@ export async function getAdminBadge(
   id: string,
 ): Promise<Badge | null> {
   return getBadgeById(client, id);
+}
+
+function getBadgeNotificationCopy(badge: Badge) {
+  const title = badge.notification_title?.trim() || "Nova badge desbloqueada";
+  const message =
+    badge.notification_message?.trim() ||
+    `Você desbloqueou a badge ${badge.name}.`;
+  return { title, message };
+}
+
+export async function awardAdminBadgeToUsers(
+  client: any,
+  badgeId: string,
+  userIds: string[],
+): Promise<{ awarded: number; alreadyHad: number; userBadges: UserBadge[] }> {
+  const badge = await getBadgeById(client, badgeId);
+  if (!badge) return { awarded: 0, alreadyHad: 0, userBadges: [] };
+
+  const uniqueUserIds = Array.from(new Set(userIds));
+  const awardedBadges: UserBadge[] = [];
+  let alreadyHad = 0;
+
+  for (const userId of uniqueUserIds) {
+    const result = await awardBadge(client, userId, badge.id);
+    if (!result) {
+      alreadyHad++;
+      continue;
+    }
+
+    awardedBadges.push(result);
+
+    const prefKey = getNotificationPreferenceKey("badge_earned");
+    if (!prefKey || (await shouldNotifyUser(client, userId, prefKey))) {
+      const content = getBadgeNotificationCopy(badge);
+      await createNotificationOnce(client, {
+        user_id: userId,
+        type: "badge_earned",
+        title: content.title,
+        message: content.message,
+        target_path: "/profile?tab=badges",
+        dedupe_key: `badge_earned:${badge.id}:${userId}`,
+      });
+    }
+  }
+
+  return {
+    awarded: awardedBadges.length,
+    alreadyHad,
+    userBadges: awardedBadges,
+  };
 }

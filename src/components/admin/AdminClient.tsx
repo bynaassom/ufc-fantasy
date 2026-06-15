@@ -170,8 +170,8 @@ export default function AdminClient({
       {subTab === "ops-fotos" && <FightersTab subTab={subTab} />}
       {subTab === "ops-auditoria" && <UsersTab subTab={subTab} {...tabProps} />}
       {subTab === "usuarios" && <UsersTab subTab={subTab} {...tabProps} />}
-      {subTab === "badges-list" && <BadgesTab subTab={subTab} />}
-      {subTab === "badges-novo" && <BadgesTab subTab={subTab} />}
+      {subTab === "badges-list" && <BadgesTab subTab={subTab} users={userList} />}
+      {subTab === "badges-novo" && <BadgesTab subTab={subTab} users={userList} />}
       {subTab === "analytics" && <AnalyticsTab />}
     </div>
   );

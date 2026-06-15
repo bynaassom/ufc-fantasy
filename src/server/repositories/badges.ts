@@ -1,5 +1,19 @@
 import type { Badge, UserBadge } from "@/types";
 
+type BadgeWritePayload = {
+  name: string;
+  slug: string;
+  description: string;
+  category: string;
+  icon_name: string;
+  tier: number;
+  sort_order: number;
+  award_mode?: string;
+  criteria_description?: string | null;
+  notification_title?: string | null;
+  notification_message?: string | null;
+};
+
 export async function listBadges(client: any): Promise<Badge[]> {
   const { data, error } = await client
     .from("badges")
@@ -55,15 +69,7 @@ export async function awardBadge(
 
 export async function createBadge(
   client: any,
-  badge: {
-    name: string;
-    slug: string;
-    description: string;
-    category: string;
-    icon_name: string;
-    tier: number;
-    sort_order: number;
-  },
+  badge: BadgeWritePayload,
 ): Promise<Badge> {
   const { data, error } = await client
     .from("badges")
@@ -86,6 +92,10 @@ export async function updateBadge(
     icon_name: string;
     tier: number;
     sort_order: number;
+    award_mode: string;
+    criteria_description: string | null;
+    notification_title: string | null;
+    notification_message: string | null;
   }>,
 ): Promise<Badge | null> {
   const { data, error } = await client

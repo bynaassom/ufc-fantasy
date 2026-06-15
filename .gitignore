@@ -12,3 +12,6 @@ test-results/
 playwright-report/
 coverage/
 .vercel/
+*.tsbuildinfo
+.playwright-cli/
+output/

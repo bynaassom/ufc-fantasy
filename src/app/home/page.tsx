@@ -16,7 +16,7 @@ import HomeChallenges from "@/components/challenges/HomeChallenges";
 export const revalidate = 60; // revalida a cada 60s
 
 export default async function HomePage() {
-  const { profile, userId, currentEvent, upcomingEvents, completedEvents, activeChallenges } =
+  const { profile, currentEvent, upcomingEvents, completedEvents, activeChallenges } =
     await getHomePageData();
 
   return (
@@ -274,7 +274,6 @@ export default async function HomePage() {
 
         <HomeChallenges
           challenges={activeChallenges}
-          userId={userId}
         />
 
         {/* Completed */}

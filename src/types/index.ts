@@ -303,6 +303,7 @@ export interface EnrichedGroup extends Group {
 }
 
 export type BadgeCategory = "volume" | "accuracy" | "streak" | "challenge" | "special";
+export type BadgeAwardMode = "automatic" | "manual";
 
 export interface Badge {
   id: string;
@@ -315,6 +316,9 @@ export interface Badge {
   sort_order: number;
   archived?: boolean;
   criteria_description?: string | null;
+  award_mode?: BadgeAwardMode;
+  notification_title?: string | null;
+  notification_message?: string | null;
 }
 
 export interface Rivalry {

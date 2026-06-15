@@ -1,75 +1,91 @@
 # UFC Fantasy Pick'em
 
-App web de picks para eventos do UFC. Os usuários escolhem vencedores, método e round, acompanham ranking e histórico, e um admin mantém eventos, lutas, odds e resultados.
+App web/PWA para picks de eventos do UFC, com ranking, ligas, desafios, chat, notificações, páginas compartilháveis e painel admin para operar cards, resultados e usuários.
 
 ## Stack
 
-- Next.js 14 + React 18 + TypeScript
-- Tailwind CSS
-- Supabase Auth + Postgres + RLS
-- `react-hot-toast`, `date-fns`, `zustand`
+- Next.js 14, React 18 e TypeScript
+- Tailwind CSS com tema claro/escuro via CSS variables
+- Supabase Auth, Postgres e RLS
+- Vitest e Playwright
+- Web Push com VAPID
+- `date-fns`, `react-hot-toast`, `html-to-image`, `zod`, `zustand`
 
 ## Funcionalidades
 
-- Cadastro, login e callback de autenticação com Supabase
-- Picks por luta com lock por horário de evento
-- Ranking geral e por evento
-- Histórico de eventos e pontuação do usuário
-- Painel admin para eventos, lutas, odds e sync de resultados
-- Comparativo de stats dos atletas via scraping do UFC
+- Cadastro/login com Supabase e callback seguro
+- Picks por luta com vencedor, método e round
+- Ranking geral, por evento e por temporada
+- Ligas com convite, standings e chat de grupo
+- Desafios entre jogadores
+- Chat global para usuários logados
+- Live fight-night com feed e placar durante eventos
+- Badges, trophy case, perfil público, rivalries e atribuição manual de badges especiais pelo admin
+- Páginas públicas de share para picks e resultados
+- Recap de evento
+- Notificações push e preferências por usuário
+- Painel admin para eventos, lutas, odds, links de fontes, resultados, badges, usuários, auditoria e analytics
+- Sincronização automática de eventos, cards, resultados e ciclo de eventos via cron externo
 
-## Setup local
+## Setup Local
 
-1. Instale as dependências:
+1. Instale dependências:
 
 ```bash
 npm install
 ```
 
-2. Crie o arquivo `.env.local`:
+2. Copie `.env.example` para `.env.local` e preencha:
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://SEU_PROJETO.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=sua_anon_key
 SUPABASE_SERVICE_ROLE_KEY=sua_service_role_key
 NEXT_PUBLIC_APP_URL=http://localhost:3000
+
 SYNC_SECRET=um_segredo_para_jobs_externos
 NOTIFICATIONS_CRON_SECRET=um_segredo_para_o_cron_de_notificacoes
+
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=sua_vapid_public_key
+VAPID_PRIVATE_KEY=sua_vapid_private_key
+VAPID_SUBJECT=mailto:seu-email@exemplo.com
+
 ODDS_API_KEY=sua_key_da_the_odds_api
 ```
 
-3. Rode o app:
+3. Rode em desenvolvimento:
 
 ```bash
 npm run dev
 ```
 
-## Banco de dados
+## Banco De Dados
 
-Há dois tipos de arquivo SQL neste projeto:
+O schema base histórico está em `schema.sql`, mas projetos em produção devem aplicar as migrations em ordem cronológica dentro de `supabase/migrations/`.
 
-- [`schema.sql`](/Users/naassom/Downloads/ufc-fantasy%202/schema.sql): referência do schema atual do projeto
-- [`supabase/picks_rls_fix.sql`](/Users/naassom/Downloads/ufc-fantasy%202/supabase/picks_rls_fix.sql), [`supabase/security_hardening.sql`](/Users/naassom/Downloads/ufc-fantasy%202/supabase/security_hardening.sql) e [`supabase/picks_delete_trigger_fix.sql`](/Users/naassom/Downloads/ufc-fantasy%202/supabase/picks_delete_trigger_fix.sql): patches pontuais para projetos já existentes
+Para um projeto novo:
 
-### Projeto novo
+1. Execute `schema.sql` se quiser partir do schema base.
+2. Aplique todas as migrations em `supabase/migrations/` que ainda não estão refletidas no banco.
 
-Se o banco estiver vazio, você pode usar o schema base como ponto de partida:
+Para um projeto existente:
 
-```sql
--- rode o conteúdo de schema.sql
-```
+1. Aplique somente as migrations pendentes, sempre em ordem pelo timestamp do nome do arquivo.
+2. Verifique especialmente as migrations recentes de chat, rivalries, `picks_lock_at` e RPC transacional de resultados.
 
-### Projeto já existente
+Migrations recentes importantes:
 
-Se o projeto já está rodando e você quer aplicar as correções recentes, rode no SQL Editor do Supabase:
-
-1. [`supabase/picks_rls_fix.sql`](/Users/naassom/Downloads/ufc-fantasy%202/supabase/picks_rls_fix.sql)
-2. [`supabase/security_hardening.sql`](/Users/naassom/Downloads/ufc-fantasy%202/supabase/security_hardening.sql)
-3. [`supabase/picks_delete_trigger_fix.sql`](/Users/naassom/Downloads/ufc-fantasy%202/supabase/picks_delete_trigger_fix.sql)
+- `20260614000001_chat_messages.sql`
+- `20260614000002_chat_group_id.sql`
+- `20260614000003_rivalries_and_badge_archive.sql`
+- `20260615000000_fix_picks_lock_at.sql`
+- `20260615000001_transactional_sync.sql`
+- `20260615000002_fix_transactional_sync_rpc.sql`
+- `20260615000003_badge_manual_awards.sql`
 
 ## Admin
 
-Depois de criar seu usuário, promova-o a admin:
+Depois de criar seu usuário, promova-o a admin no SQL Editor do Supabase:
 
 ```sql
 UPDATE profiles
@@ -77,60 +93,60 @@ SET role = 'admin'
 WHERE id = 'SEU_USER_UUID';
 ```
 
-## Verificação automática do card
+## Cron Jobs
 
-O endpoint `GET|POST /api/cron/card-verification` verifica eventos em T-72h e
-T-18h antes de `picks_lock_at`. Ele usa UFC.com como fonte principal, Sherdog
-como tira-teima e registra a disponibilidade do UFCStats.
+Use cron-job.org ou serviço equivalente. Todos os jobs abaixo usam `POST`.
 
-- Rode a migration `supabase/migrations/20260603203000_card_verification_runs.sql`.
-- Configure um job externo para chamar o endpoint uma vez por hora.
-- Envie `Authorization: Bearer <SYNC_SECRET>`.
-- T-18h remove lutas somente quando UFC.com e Sherdog concordam; se uma fonte
-  estiver indisponível, a execução gera alerta e não altera o card.
-- Alterações em massa geram uma única notificação, apenas quando o evento é o atual.
+### Sincronizar Eventos
 
-## Ciclo automático dos eventos
+- Endpoint: `POST /api/cron/sync-events`
+- Header: `Authorization: Bearer <SYNC_SECRET>`
+- Frequência sugerida: diariamente
+- Função: cria/sincroniza eventos futuros, tenta descobrir URL do UFCStats e sincroniza card.
 
-O endpoint `GET|POST /api/cron/notifications` também mantém o ciclo dos eventos:
+### Sincronizar Resultados
 
-- Promove o evento de `upcoming` para `live` quando chega `event_date`.
-- Marca o evento como `completed` após todas as lutas terem resultado confirmado.
-- Agenda `picks_open_at` do próximo evento para o dia seguinte à conclusão, às
-  `15:00 UTC` (`12:00` em Fortaleza).
-- Envia a notificação de picks abertos pelo fluxo deduplicado existente.
+- Endpoint: `POST /api/sync-results`
+- Header: `Authorization: Bearer <SYNC_SECRET>`
+- Frequência sugerida: a cada 10 minutos durante janelas de evento
+- Função: busca resultados nas fontes configuradas, aplica consenso e pontua picks via RPC transacional.
 
-Configure o job para chamar esse endpoint a cada 5 minutos usando
-`Authorization: Bearer <NOTIFICATIONS_CRON_SECRET>`. A confirmação do último
-resultado, manual ou automática, também conclui o evento imediatamente.
+### Notificações E Ciclo Do Evento
+
+- Endpoint: `POST /api/cron/notifications`
+- Header: `Authorization: Bearer <NOTIFICATIONS_CRON_SECRET>`
+- Frequência sugerida: a cada 5 minutos
+- Função: envia notificações, promove eventos para `live`, completa eventos quando todos os resultados forem confirmados e tenta fallback de sync-results durante janelas ativas.
+
+### Verificação Do Card
+
+- Endpoint: `POST /api/cron/card-verification`
+- Header: `Authorization: Bearer <SYNC_SECRET>`
+- Frequência sugerida: a cada 1 hora
+- Função: verifica cards em T-72h e T-18h, compara fontes e registra alertas antes de alterações sensíveis.
 
 ## Segurança
 
-O projeto foi endurecido para reduzir risco de vazamento e abuso:
-
-- Rotas administrativas exigem sessão autenticada, role `admin` e bloqueio de usuário banido
-- RLS em `picks` impede edição fora da janela permitida e protege campos sensíveis
-- `profiles` deixa de ser público para uso geral; ranking usa uma view com campos mínimos
-- Callback de auth sanitiza redirects internos
-- Scrapers admin aceitam apenas hosts permitidos
-- Middleware adiciona headers como `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy` e `Permissions-Policy`
-
-Isso melhora bastante a segurança prática do app, mas não substitui operação de produção responsável: rotação de segredos, monitoramento, backups, política de privacidade e revisão jurídica quando aplicável.
+- Rotas admin exigem sessão, role `admin` e usuário não banido.
+- Rotas cron exigem bearer secret.
+- RLS protege dados privados e ações de usuário.
+- Scrapers aceitam apenas hosts permitidos.
+- Middleware adiciona headers de segurança.
+- A `SUPABASE_SERVICE_ROLE_KEY` só deve ser usada server-side.
 
 ## Estrutura
 
 ```text
 src/
-  app/
-  components/
-  lib/
-  types/
+  app/             rotas Next.js e APIs
+  components/      UI e fluxos client-side
+  lib/             integrações, scraping, helpers e segurança
+  server/          services, repositories, validators e auth server-side
+  stores/          estado client-side compartilhado
+  types/           tipos compartilhados
 supabase/
-  migrations/
-  picks_rls_fix.sql
-  picks_delete_trigger_fix.sql
-  security_hardening.sql
-schema.sql
+  migrations/      migrations incrementais do banco
+docs/              documentação de produto e specs
 ```
 
 ## Scripts
@@ -139,14 +155,25 @@ schema.sql
 npm run dev
 npm run build
 npm run start
+npm run test
+npm run test:e2e
+```
+
+## Verificação Antes De Deploy
+
+```bash
+npx tsc --noEmit
+npm run test
+npm run build
 ```
 
 ## Observações
 
-- Não commite `.env.local` nem chaves do Supabase
-- Se algum segredo já foi exposto, rotacione no painel do provedor
-- Este projeto não possui vínculo oficial com o UFC
+- Não commite `.env.local` nem chaves do Supabase.
+- Se algum segredo já foi exposto, rotacione no provedor.
+- Artefatos como `.next/`, `*.tsbuildinfo`, `.playwright-cli/` e `output/` são ignorados.
+- Este projeto não possui vínculo oficial com o UFC.
 
 ## Licença
 
-MIT. Veja [`LICENSE`](/Users/naassom/Downloads/ufc-fantasy%202/LICENSE).
+MIT. Veja `LICENSE`.

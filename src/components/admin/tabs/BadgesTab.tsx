@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import toast from "react-hot-toast";
 import { adminGet, adminSend, inp, sel, lbl, focus, blur } from "../shared";
 import BadgeIcon from "@/components/badges/BadgeIcon";
-import type { Badge, BadgeCategory } from "@/types";
+import type { Badge, BadgeAwardMode, BadgeCategory } from "@/types";
 
 const ICON_OPTIONS = [
   "target", "calendar", "flame", "crosshair", "star",
@@ -28,12 +28,26 @@ function slugify(text: string) {
     .replace(/^_|_$/g, "");
 }
 
-export default function BadgesTab({ subTab }: { subTab: string }) {
+function getUserLabel(user: any) {
+  const display = user.nickname || [user.first_name, user.last_name].filter(Boolean).join(" ");
+  return display || "Usuário";
+}
+
+export default function BadgesTab({
+  subTab,
+  users = [],
+}: {
+  subTab: string;
+  users?: any[];
+}) {
   const [badges, setBadges] = useState<Badge[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [awardingBadgeId, setAwardingBadgeId] = useState<string | null>(null);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [awarding, setAwarding] = useState(false);
 
   const [form, setForm] = useState({
     name: "",
@@ -43,6 +57,10 @@ export default function BadgesTab({ subTab }: { subTab: string }) {
     icon_name: "target",
     tier: 1,
     sort_order: 0,
+    award_mode: "automatic" as BadgeAwardMode,
+    criteria_description: "",
+    notification_title: "",
+    notification_message: "",
   });
 
   const loadBadges = useCallback(async () => {
@@ -62,7 +80,19 @@ export default function BadgesTab({ subTab }: { subTab: string }) {
   }, [loadBadges]);
 
   function resetForm() {
-    setForm({ name: "", slug: "", description: "", category: "volume", icon_name: "target", tier: 1, sort_order: 0 });
+    setForm({
+      name: "",
+      slug: "",
+      description: "",
+      category: "volume",
+      icon_name: "target",
+      tier: 1,
+      sort_order: 0,
+      award_mode: "automatic",
+      criteria_description: "",
+      notification_title: "",
+      notification_message: "",
+    });
     setEditingId(null);
   }
 
@@ -75,6 +105,10 @@ export default function BadgesTab({ subTab }: { subTab: string }) {
       icon_name: badge.icon_name,
       tier: badge.tier,
       sort_order: badge.sort_order,
+      award_mode: badge.award_mode || "automatic",
+      criteria_description: badge.criteria_description || "",
+      notification_title: badge.notification_title || "",
+      notification_message: badge.notification_message || "",
     });
     setEditingId(badge.id);
   }
@@ -110,6 +144,47 @@ export default function BadgesTab({ subTab }: { subTab: string }) {
       toast.error(e.message);
     } finally {
       setSaving(false);
+    }
+  }
+
+  function toggleSelectedUser(userId: string) {
+    setSelectedUserIds((prev) =>
+      prev.includes(userId)
+        ? prev.filter((id) => id !== userId)
+        : [...prev, userId],
+    );
+  }
+
+  function openAwardPanel(badgeId: string) {
+    setAwardingBadgeId((current) => (current === badgeId ? null : badgeId));
+    setSelectedUserIds([]);
+  }
+
+  async function handleAward(badge: Badge) {
+    if (!selectedUserIds.length) {
+      toast.error("Selecione ao menos um usuário");
+      return;
+    }
+    if (awarding) return;
+
+    setAwarding(true);
+    try {
+      const result = await adminSend<{ awarded: number; alreadyHad: number }>(
+        `/api/admin/badges/${badge.id}/award`,
+        {
+          method: "POST",
+          body: JSON.stringify({ userIds: selectedUserIds }),
+        },
+      );
+      toast.success(
+        `${result.awarded} usuário(s) receberam a badge. ${result.alreadyHad} já tinham.`,
+      );
+      setAwardingBadgeId(null);
+      setSelectedUserIds([]);
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setAwarding(false);
     }
   }
 
@@ -254,6 +329,64 @@ export default function BadgesTab({ subTab }: { subTab: string }) {
               </div>
             </div>
 
+            <div>
+              <label className={lbl}>MODO DE CONCESSÃO</label>
+              <select
+                style={sel}
+                value={form.award_mode}
+                onChange={(e) => setForm((p) => ({ ...p, award_mode: e.target.value as BadgeAwardMode }))}
+                onFocus={focus}
+                onBlur={blur}
+              >
+                <option value="automatic">Automática por meta</option>
+                <option value="manual">Manual pelo admin</option>
+              </select>
+            </div>
+
+            {form.award_mode === "automatic" ? (
+              <div>
+                <label className={lbl}>DESCRIÇÃO DA META</label>
+                <textarea
+                  style={{ ...inp, minHeight: 70, resize: "vertical" }}
+                  value={form.criteria_description}
+                  onChange={(e) => setForm((p) => ({ ...p, criteria_description: e.target.value }))}
+                  onFocus={focus}
+                  onBlur={blur}
+                  placeholder="Ex: Participe de 10 eventos"
+                />
+              </div>
+            ) : (
+              <div className="p-3" style={{ border: "1px solid var(--border)", backgroundColor: "var(--bg-elevated)" }}>
+                <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                  Esta badge não será liberada automaticamente. Depois de criada, use o botão ATRIBUIR na lista.
+                </p>
+              </div>
+            )}
+
+            <div>
+              <label className={lbl}>TÍTULO DA NOTIFICAÇÃO</label>
+              <input
+                style={inp}
+                value={form.notification_title}
+                onChange={(e) => setForm((p) => ({ ...p, notification_title: e.target.value }))}
+                onFocus={focus}
+                onBlur={blur}
+                placeholder="Ex: Badge histórica desbloqueada"
+              />
+            </div>
+
+            <div>
+              <label className={lbl}>MENSAGEM DA NOTIFICAÇÃO</label>
+              <textarea
+                style={{ ...inp, minHeight: 80, resize: "vertical" }}
+                value={form.notification_message}
+                onChange={(e) => setForm((p) => ({ ...p, notification_message: e.target.value }))}
+                onFocus={focus}
+                onBlur={blur}
+                placeholder="Ex: Você participou dos palpites do UFC Casa Branca..."
+              />
+            </div>
+
             <button
               onClick={handleSave}
               disabled={saving}
@@ -283,7 +416,14 @@ export default function BadgesTab({ subTab }: { subTab: string }) {
                 <span>{CATEGORY_OPTIONS.find((o) => o.value === form.category)?.label}</span>
                 <span>·</span>
                 <span>Tier {form.tier}</span>
+                <span>·</span>
+                <span>{form.award_mode === "manual" ? "Manual" : "Automática"}</span>
               </div>
+              {form.notification_title && (
+                <p className="text-[11px] text-center" style={{ color: "var(--text-muted)" }}>
+                  Push: {form.notification_title}
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -316,67 +456,139 @@ export default function BadgesTab({ subTab }: { subTab: string }) {
       ) : (
         <div className="space-y-1">
           {badges.map((badge) => (
-            <div
-              key={badge.id}
-              className="flex items-center gap-3 px-4 py-3"
-              style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}
-            >
-              <div style={{ color: "var(--red)", flexShrink: 0 }}>
-                <BadgeIcon iconName={badge.icon_name} size={20} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-condensed font-700 text-sm uppercase tracking-widest truncate" style={{ color: "var(--text)" }}>
-                  {badge.name}
-                </p>
-                <p className="text-[11px] truncate" style={{ color: "var(--text-muted)" }}>
-                  <span>{badge.slug}</span>
-                  <span className="mx-1">·</span>
-                  <span style={{ color: "var(--text-secondary)" }}>{badge.description}</span>
-                  {badge.archived && (
-                    <span className="ml-2" style={{ color: "var(--red)" }}>[ARQUIVADO]</span>
-                  )}
-                </p>
-                {badge.criteria_description && (
-                  <p className="text-[10px] mt-0.5" style={{ color: "var(--text-secondary)" }}>
-                    Critério: {badge.criteria_description}
+            <div key={badge.id} className="space-y-1">
+              <div
+                className="flex items-center gap-3 px-4 py-3"
+                style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}
+              >
+                <div style={{ color: "var(--red)", flexShrink: 0 }}>
+                  <BadgeIcon iconName={badge.icon_name} size={20} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-condensed font-700 text-sm uppercase tracking-widest truncate" style={{ color: "var(--text)" }}>
+                    {badge.name}
                   </p>
-                )}
-              </div>
-              <div className="flex gap-1 flex-shrink-0">
-                <button
-                  onClick={() => editBadge(badge)}
-                  className="text-[10px] font-condensed font-700 uppercase tracking-widest px-3 py-1.5 transition-all"
-                  style={{ color: "var(--text)", border: "1px solid var(--border)" }}
-                >
-                  EDITAR
-                </button>
-                {deletingId === badge.id ? (
-                  <div className="flex gap-1">
+                  <p className="text-[11px] truncate" style={{ color: "var(--text-muted)" }}>
+                    <span>{badge.slug}</span>
+                    <span className="mx-1">·</span>
+                    <span>{(badge.award_mode || "automatic") === "manual" ? "Manual" : "Automática"}</span>
+                    <span className="mx-1">·</span>
+                    <span style={{ color: "var(--text-secondary)" }}>{badge.description}</span>
+                    {badge.archived && (
+                      <span className="ml-2" style={{ color: "var(--red)" }}>[ARQUIVADO]</span>
+                    )}
+                  </p>
+                  {badge.criteria_description && (
+                    <p className="text-[10px] mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                      Critério: {badge.criteria_description}
+                    </p>
+                  )}
+                  {badge.notification_title && (
+                    <p className="text-[10px] mt-0.5" style={{ color: "var(--text-muted)" }}>
+                      Push: {badge.notification_title}
+                    </p>
+                  )}
+                </div>
+                <div className="flex gap-1 flex-shrink-0">
+                  {(badge.award_mode || "automatic") === "manual" && (
                     <button
-                      onClick={() => handleArchive(badge.id)}
+                      onClick={() => openAwardPanel(badge.id)}
                       className="text-[10px] font-condensed font-700 uppercase tracking-widest px-3 py-1.5 transition-all"
                       style={{ color: "#fff", backgroundColor: "var(--red)" }}
                     >
-                      CONFIRMAR
+                      ATRIBUIR
                     </button>
+                  )}
+                  <button
+                    onClick={() => editBadge(badge)}
+                    className="text-[10px] font-condensed font-700 uppercase tracking-widest px-3 py-1.5 transition-all"
+                    style={{ color: "var(--text)", border: "1px solid var(--border)" }}
+                  >
+                    EDITAR
+                  </button>
+                  {deletingId === badge.id ? (
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => handleArchive(badge.id)}
+                        className="text-[10px] font-condensed font-700 uppercase tracking-widest px-3 py-1.5 transition-all"
+                        style={{ color: "#fff", backgroundColor: "var(--red)" }}
+                      >
+                        CONFIRMAR
+                      </button>
+                      <button
+                        onClick={() => setDeletingId(null)}
+                        className="text-[10px] font-condensed font-700 uppercase tracking-widest px-3 py-1.5 transition-all"
+                        style={{ color: "var(--text-muted)", border: "1px solid var(--border)" }}
+                      >
+                        CANCELAR
+                      </button>
+                    </div>
+                  ) : (
                     <button
-                      onClick={() => setDeletingId(null)}
+                      onClick={() => setDeletingId(badge.id)}
                       className="text-[10px] font-condensed font-700 uppercase tracking-widest px-3 py-1.5 transition-all"
+                      style={{ color: "var(--red)", border: "1px solid var(--red)" }}
+                    >
+                      ARQUIVAR
+                    </button>
+                  )}
+                </div>
+              </div>
+              {awardingBadgeId === badge.id && (
+                <div className="p-4" style={{ backgroundColor: "var(--bg-elevated)", border: "1px solid var(--border)" }}>
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <p className="font-condensed font-900 text-xs uppercase tracking-widest" style={{ color: "var(--text)" }}>
+                      Atribuir badge a usuários
+                    </p>
+                    <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                      {selectedUserIds.length} selecionado(s)
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-px max-h-72 overflow-y-auto" style={{ backgroundColor: "var(--border)" }}>
+                    {users.map((user) => {
+                      const checked = selectedUserIds.includes(user.id);
+                      return (
+                        <label
+                          key={user.id}
+                          className="flex items-center gap-3 px-3 py-2 cursor-pointer"
+                          style={{ backgroundColor: "var(--bg-card)" }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleSelectedUser(user.id)}
+                          />
+                          <span className="min-w-0">
+                            <span className="block font-condensed font-700 text-xs uppercase tracking-widest truncate" style={{ color: user.is_banned ? "var(--text-muted)" : "var(--text)" }}>
+                              {getUserLabel(user)}
+                            </span>
+                            <span className="block text-[10px] truncate" style={{ color: "var(--text-muted)" }}>
+                              {user.id}
+                            </span>
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <div className="flex justify-end gap-2 mt-4">
+                    <button
+                      onClick={() => setAwardingBadgeId(null)}
+                      className="font-condensed font-700 text-xs uppercase tracking-widest px-4 py-2"
                       style={{ color: "var(--text-muted)", border: "1px solid var(--border)" }}
                     >
                       CANCELAR
                     </button>
+                    <button
+                      onClick={() => handleAward(badge)}
+                      disabled={awarding || !selectedUserIds.length}
+                      className="font-condensed font-700 text-xs uppercase tracking-widest px-4 py-2"
+                      style={{ backgroundColor: "var(--red)", color: "#fff", opacity: awarding || !selectedUserIds.length ? 0.6 : 1 }}
+                    >
+                      {awarding ? "ATRIBUINDO..." : "ATRIBUIR BADGE"}
+                    </button>
                   </div>
-                ) : (
-                  <button
-                    onClick={() => setDeletingId(badge.id)}
-                    className="text-[10px] font-condensed font-700 uppercase tracking-widest px-3 py-1.5 transition-all"
-                    style={{ color: "var(--red)", border: "1px solid var(--red)" }}
-                  >
-                    ARQUIVAR
-                  </button>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           ))}
         </div>

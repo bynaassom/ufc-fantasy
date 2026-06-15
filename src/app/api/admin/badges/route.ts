@@ -36,6 +36,10 @@ export async function POST(request: NextRequest) {
       icon_name: body.icon_name,
       tier: body.tier,
       sort_order: body.sort_order,
+      award_mode: body.award_mode,
+      criteria_description: body.criteria_description || null,
+      notification_title: body.notification_title || null,
+      notification_message: body.notification_message || null,
     });
 
     revalidateTag(CACHE_TAGS.badges);

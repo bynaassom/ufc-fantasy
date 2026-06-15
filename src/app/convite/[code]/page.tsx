@@ -1,4 +1,4 @@
-import { redirect, notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import PublicShareHeader from "@/components/share/PublicShareHeader";
 import { processInviteLink } from "@/server/services/app";

@@ -182,7 +182,6 @@ export default function FightCard({
 
           // Corner: vermelho (esquerda) / azul (direita)
           const cornerColor = idx === 0 ? "var(--red)" : "var(--blue)";
-          const cornerActive = !completed && (isSelected || isHovered);
           const traceOpacity = isSelected ? 1 : isHovered ? 0.7 : 0;
           const gradientOpacity = isSelected ? 0.9 : isHovered ? 0.35 : 0;
           const easedTransition = "0.4s cubic-bezier(0.4, 0, 0.2, 1)";

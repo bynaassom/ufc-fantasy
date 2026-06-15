@@ -102,8 +102,6 @@ body {
     -webkit-tap-highlight-color: transparent;
     overscroll-behavior: none;
     overflow-x: hidden;
-    /* Força GPU compositor layer → sem repaints ao scroll */
-    will-change: transform;
 }
 
 /* Grain / noise texture overlay */
@@ -123,7 +121,18 @@ body::before {
 
 /* Safe area para iPhone com notch/home bar */
 .navbar-mobile-safe {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 50;
     padding-bottom: env(safe-area-inset-bottom);
+}
+
+@media (max-width: 767px) {
+    body.has-mobile-nav {
+        padding-bottom: calc(3.5rem + env(safe-area-inset-bottom));
+    }
 }
 
 /* Touch-friendly minimum tap target */

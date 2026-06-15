@@ -10,7 +10,7 @@ export default function ChatFab() {
   return (
     <button
       onClick={open}
-      className="fixed z-50 flex items-center gap-2.5 shadow-lg transition-transform hover:scale-105 active:scale-95"
+      className="fixed z-50 hidden items-center gap-2.5 shadow-lg transition-transform hover:scale-105 active:scale-95 md:flex"
       style={{
         padding: "12px 18px",
         backgroundColor: "var(--red)",

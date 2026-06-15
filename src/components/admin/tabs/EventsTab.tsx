@@ -22,7 +22,7 @@ import {
   WEIGHT_CLASSES,
   CARD_TYPES,
 } from "../shared";
-import type { EventEditForm, SubTab, BulkAction } from "../types";
+import type { EventEditForm, SubTab } from "../types";
 
 // ─── Props ───────────────────────────────────────────────────
 export default function EventsTab({
@@ -795,8 +795,7 @@ function EventoEditar({
   eventFights,
   loadFights,
 }: any) {
-  const [eventData, setEventData] = useState<any>(null);
-    const [editForm, setEditForm] = useState<EventEditForm | null>(null);
+  const [editForm, setEditForm] = useState<EventEditForm | null>(null);
   const [fights, setFights] = useState<any[]>([]);
     const [editFight, setEditFight] = useState<{
       id: string;
@@ -817,7 +816,6 @@ function EventoEditar({
     if (!selectedEventId) return;
     adminGet<{ event: any }>(`/api/admin/events/${selectedEventId}`)
       .then(({ event: data }) => {
-        setEventData(data);
         setEditForm(toEventEditForm(data));
       })
       .catch((error: any) => {
@@ -840,7 +838,6 @@ function EventoEditar({
           body: JSON.stringify(editForm),
         },
       );
-      setEventData(event);
       setEditForm(toEventEditForm(event));
       toast.success("Evento atualizado!");
     } catch (error: any) {
