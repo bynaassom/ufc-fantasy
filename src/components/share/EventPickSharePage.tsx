@@ -121,16 +121,23 @@ export default function EventPickSharePage({ data, shareUrl, bannerDataUrl }: { 
                   height: 380,
                   flexShrink: 0,
                   overflow: "hidden",
-                  backgroundColor: "#141414",
-                  ...(hasBanner && bannerUrl
-                    ? {
-                        backgroundImage: `url(${bannerUrl})`,
-                        backgroundSize: "cover",
-                        backgroundPosition: event.banner_object_position || "center",
-                      }
-                    : {}),
+                  background: "#141414",
                 }}
               >
+                {hasBanner && (
+                  <img
+                    src={bannerDataUrl || event.banner_image_url!}
+                    alt=""
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      objectPosition: event.banner_object_position || "center",
+                    }}
+                  />
+                )}
                 <div
                   style={{
                     position: "absolute",
