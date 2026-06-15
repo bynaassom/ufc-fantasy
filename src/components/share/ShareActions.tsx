@@ -177,10 +177,12 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
 
   async function handleShare() {
     const serverShareBlob = serverShareImageUrl ? await fetchServerBlob(serverShareImageUrl) : null;
-    const serverDownloadBlob = !serverShareBlob && serverImageUrl
-      ? await fetchServerBlob(serverImageUrl)
-      : null;
-    const blob = serverShareBlob || serverDownloadBlob || await captureBlob();
+    if (serverShareImageUrl && !serverShareBlob) {
+      toast.error("Não foi possível carregar a imagem para compartilhar.");
+      return;
+    }
+
+    const blob = serverShareBlob || await captureBlob();
     if (!blob) return;
 
     const isJpeg = blob.type === "image/jpeg";

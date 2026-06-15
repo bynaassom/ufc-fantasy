@@ -1,6 +1,5 @@
 import { ImageResponse } from "next/og";
 import { getPublicEventResultShareData } from "@/server/services/app";
-import { inlineImageDataUrl } from "@/lib/server/inline-image";
 import { pngBufferToJpegBuffer } from "@/lib/server/png-to-jpeg";
 import { renderResultShareCardImage, SHARE_IMAGE_SIZE } from "@/lib/server/share-card-image";
 
@@ -18,9 +17,8 @@ export async function GET(request: Request, { params }: Params) {
   const data = await getPublicEventResultShareData(params.slug, params.nickname);
   if (!data) return new Response("Not found", { status: 404 });
 
-  const bannerDataUrl = await inlineImageDataUrl(data.event.banner_image_url);
   const image = new ImageResponse(
-    renderResultShareCardImage(data, bannerDataUrl || data.event.banner_image_url),
+    renderResultShareCardImage(data, data.event.banner_image_url),
     {
       ...SHARE_IMAGE_SIZE,
     },
