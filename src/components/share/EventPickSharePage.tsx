@@ -114,7 +114,6 @@ export default function EventPickSharePage({ data, shareUrl }: { data: ShareData
                   <img
                     src={event.banner_image_url!}
                     alt=""
-                    crossOrigin="anonymous"
                     style={{
                       position: "absolute",
                       inset: 0,

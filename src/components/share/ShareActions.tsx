@@ -23,9 +23,30 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
     const node = cardRef.current;
     if (!node) return null;
     setCapturing(true);
+    const restored: { img: HTMLImageElement; src: string }[] = [];
+
     try {
       await document.fonts?.ready?.catch(() => undefined);
       await waitForPaint();
+
+      // Pre-fetch external images to blob URLs to avoid CORS canvas taint
+      const imgs = Array.from(node.querySelectorAll<HTMLImageElement>("img[src]"));
+      for (const img of imgs) {
+        const originalSrc = img.src;
+        if (originalSrc.startsWith("data:")) continue;
+        try {
+          const resp = await fetch(originalSrc, { mode: "cors" });
+          if (resp.ok) {
+            const blob = await resp.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            img.src = blobUrl;
+            restored.push({ img, src: originalSrc });
+            await img.decode();
+          }
+        } catch {
+          // Fetch failed — leave img as-is
+        }
+      }
 
       const { toBlob, toPng } = await import("html-to-image");
       const width = node.scrollWidth;
@@ -72,6 +93,9 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
       toast.error("Não foi possível gerar a imagem.");
       return null;
     } finally {
+      for (const { img, src } of restored) {
+        img.src = src;
+      }
       setCapturing(false);
     }
   }
