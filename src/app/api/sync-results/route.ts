@@ -222,18 +222,51 @@ function sourceDiagnostics(sourceSets: ResultSourceSet[]) {
   }));
 }
 
+// ─── Helpers ─────────────────────────────────────────────────
+async function logSyncAttempt(
+  adminSupabase: any,
+  details: Record<string, unknown>,
+) {
+  try {
+    await adminSupabase.from("activity_logs").insert({
+      user_id: null,
+      action: "admin_sync_results",
+      details,
+    });
+  } catch {
+    // não quebra o fluxo
+  }
+}
+
+type Update = ConsensusUpdate;
+
 // ─── Handler ─────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   const adminSupabase = await createAdminClient();
   let adminUserId: string | null = null;
 
-  // Aceita session de admin OU SYNC_SECRET no header (cron-job.org)
   const authHeader = req.headers.get("authorization");
   const syncSecret = process.env.SYNC_SECRET;
   const isExternalCall = syncSecret && authHeader === `Bearer ${syncSecret}`;
 
+  await logSyncAttempt(adminSupabase, {
+    step: "received",
+    is_external: !!isExternalCall,
+    has_auth: !!authHeader,
+    has_secret: !!syncSecret,
+  });
+
   if (!isExternalCall) {
-    assertSameOriginForMutation(req);
+    try {
+      assertSameOriginForMutation(req);
+    } catch {
+      await logSyncAttempt(adminSupabase, {
+        step: "rejected",
+        reason: "cross_origin",
+        is_external: false,
+      });
+      return NextResponse.json({ error: "Cross-origin não permitido" }, { status: 403 });
+    }
   }
 
   if (!isExternalCall) {
@@ -241,15 +274,28 @@ export async function POST(req: NextRequest) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user)
+    if (!user) {
+      await logSyncAttempt(adminSupabase, {
+        step: "rejected",
+        reason: "no_session",
+        is_external: false,
+      });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     const { data: profile } = await adminSupabase
       .from("profiles")
       .select("role, is_banned")
       .eq("id", user.id)
       .single();
-    if (!profile || profile.role !== "admin" || profile.is_banned)
+    if (!profile || profile.role !== "admin" || profile.is_banned) {
+      await logSyncAttempt(adminSupabase, {
+        step: "rejected",
+        reason: "not_admin",
+        user_id: user.id,
+        is_external: false,
+      });
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
     adminUserId = user.id;
   }
 
@@ -283,35 +329,52 @@ export async function POST(req: NextRequest) {
       .limit(1)
       .single();
 
-    if (!activeEvent)
+    if (!activeEvent) {
+      await logSyncAttempt(adminSupabase, {
+        step: "no_active_event",
+        is_external: true,
+      });
       return NextResponse.json({ ok: true, message: "Nenhum evento ativo" });
+    }
 
     const lockAt = new Date(activeEvent.picks_lock_at);
     const endAt = new Date(
       new Date(activeEvent.event_date).getTime() + 6 * 60 * 60 * 1000,
     );
-    if (now < lockAt || now > endAt)
+    if (now < lockAt || now > endAt) {
+      await logSyncAttempt(adminSupabase, {
+        step: "outside_window",
+        is_external: true,
+        event_id: activeEvent.id,
+        picks_lock_at: activeEvent.picks_lock_at,
+        event_date: activeEvent.event_date,
+      });
       return NextResponse.json({
         ok: true,
         message: "Fora da janela do evento",
       });
+    }
 
     event_id = activeEvent.id;
   }
 
-  if (!event_id)
+  if (!event_id) {
+    const diag = resultSyncRequestDiagnostics({
+      body,
+      isExternalCall: !!isExternalCall,
+      authHeader,
+      syncSecret,
+    });
+    await logSyncAttempt(adminSupabase, {
+      step: "no_event_id",
+      is_external: !!isExternalCall,
+      diagnostics: diag,
+    });
     return NextResponse.json(
-      {
-        error: "event_id obrigatório",
-        details: resultSyncRequestDiagnostics({
-          body,
-          isExternalCall: !!isExternalCall,
-          authHeader,
-          syncSecret,
-        }),
-      },
+      { error: "event_id obrigatório", details: diag },
       { status: 400 },
     );
+  }
 
   const { data: event } = await adminSupabase
     .from("events")
@@ -319,11 +382,17 @@ export async function POST(req: NextRequest) {
     .eq("id", event_id)
     .single();
 
-  if (!event)
+  if (!event) {
+    await logSyncAttempt(adminSupabase, {
+      step: "event_not_found",
+      event_id,
+      is_external: !!isExternalCall,
+    });
     return NextResponse.json(
       { error: "Evento não encontrado" },
       { status: 404 },
     );
+  }
 
   const { data: fights } = await adminSupabase
     .from("fights")
@@ -337,11 +406,17 @@ export async function POST(req: NextRequest) {
     )
     .eq("event_id", event_id);
 
-  if (!fights?.length)
+  if (!fights?.length) {
+    await logSyncAttempt(adminSupabase, {
+      step: "no_fights",
+      event_id,
+      is_external: !!isExternalCall,
+    });
     return NextResponse.json(
       { error: "Nenhuma luta encontrada" },
       { status: 404 },
     );
+  }
 
   const resultSources = await collectResultSources(event);
   const diagnostics = sourceDiagnostics(resultSources);
@@ -351,6 +426,13 @@ export async function POST(req: NextRequest) {
   );
 
   if (!scrapedCount) {
+    await logSyncAttempt(adminSupabase, {
+      step: "no_scraped_results",
+      event_id,
+      event_slug: event?.slug || null,
+      is_external: !!isExternalCall,
+      sources: diagnostics,
+    });
     return NextResponse.json({
       ok: true,
       message:
@@ -363,6 +445,15 @@ export async function POST(req: NextRequest) {
   const updates: Update[] = consensus.updates;
 
   if (!updates.length) {
+    await logSyncAttempt(adminSupabase, {
+      step: "no_consensus",
+      event_id,
+      event_slug: event?.slug || null,
+      scraped_count: scrapedCount,
+      conflicts: consensus.conflicts.length,
+      is_external: !!isExternalCall,
+      sources: diagnostics,
+    });
     return NextResponse.json({
       ok: true,
       message: consensus.conflicts.length
@@ -380,6 +471,13 @@ export async function POST(req: NextRequest) {
   }
 
   if (dryRun) {
+    await logSyncAttempt(adminSupabase, {
+      step: "dry_run",
+      event_id,
+      event_slug: event?.slug || null,
+      updates: updates.length,
+      is_external: !!isExternalCall,
+    });
     return NextResponse.json({
       ok: true,
       dry_run: true,
@@ -439,6 +537,7 @@ export async function POST(req: NextRequest) {
         event_slug: event?.slug || null,
         event_completed: lifecycle.completed,
         next_event_id: lifecycle.nextEvent?.id || null,
+        step: "complete",
     },
   });
 
@@ -452,5 +551,3 @@ export async function POST(req: NextRequest) {
     next_event: lifecycle.nextEvent,
   });
 }
-
-type Update = ConsensusUpdate;

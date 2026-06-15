@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { groupAdminEvents } from "@/lib/admin-event-groups";
 import toast from "react-hot-toast";
 
 import {
   adminSend,
+  adminGet,
   inp,
   sel,
   lbl,
@@ -31,18 +32,44 @@ export default function ResultsTab({
   eventFights: any[];
   loadFights: (eventId: string) => void;
 }) {
-  switch (subTab) {
-    case "res-auto":
-      return (
+  const [syncLogs, setSyncLogs] = useState<any[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+
+  async function loadSyncLogs() {
+    setLogsLoading(true);
+    try {
+      const res = await fetch(
+        "/api/admin/audit-logs?action=admin_sync_results",
+      );
+      const data = await res.json();
+      if (data.logs) setSyncLogs(data.logs);
+    } catch {
+      // ignora
+    }
+    setLogsLoading(false);
+  }
+
+  useEffect(() => {
+    loadSyncLogs();
+  }, []);
+
+  return (
+    <div className="space-y-6">
+      <SyncHistory
+        logs={syncLogs}
+        loading={logsLoading}
+        onLoad={loadSyncLogs}
+      />
+      {subTab === "res-auto" && (
         <ResAutoSync
           sortedEvents={sortedEvents}
           selectedEventId={selectedEventId}
           setSelectedEventId={setSelectedEventId}
           loadFights={loadFights}
+          onSyncComplete={loadSyncLogs}
         />
-      );
-    case "res-manual":
-      return (
+      )}
+      {subTab === "res-manual" && (
         <ResManual
           sortedEvents={sortedEvents}
           selectedEventId={selectedEventId}
@@ -50,10 +77,9 @@ export default function ResultsTab({
           eventFights={eventFights}
           loadFights={loadFights}
         />
-      );
-    default:
-      return null;
-  }
+      )}
+    </div>
+  );
 }
 
 // ─── EventSelector (local) ───────────────────────────────────
@@ -100,6 +126,7 @@ function ResAutoSync({
   selectedEventId,
   setSelectedEventId,
   loadFights,
+  onSyncComplete,
 }: any) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
@@ -148,6 +175,7 @@ function ResAutoSync({
       setResult(data);
       toast.success(data.message);
       loadFights(selectedEventId);
+      onSyncComplete?.();
     } catch (err: any) {
       toast.error(err.message);
     }
@@ -418,5 +446,148 @@ function ResManual({
         CONFIRMAR RESULTADO
       </button>
     </form>
+  );
+}
+
+// ─── Histórico de Sync ─────────────────────────────────────
+const STEP_LABELS: Record<string, string> = {
+  received: "Requisição recebida",
+  rejected: "Recusado",
+  no_active_event: "Nenhum evento ativo",
+  outside_window: "Fora da janela do evento",
+  no_event_id: "Nenhum event_id",
+  event_not_found: "Evento não encontrado",
+  no_fights: "Nenhuma luta no evento",
+  no_scraped_results: "Raspagem sem resultados",
+  no_consensus: "Sem consenso entre fontes",
+  dry_run: "Prévia (dry run)",
+  complete: "Sync concluído",
+};
+
+function SyncHistory({
+  logs,
+  loading,
+  onLoad,
+}: {
+  logs: any[];
+  loading: boolean;
+  onLoad: () => void;
+}) {
+  return (
+    <div
+      className="p-4 space-y-3"
+      style={{
+        backgroundColor: "var(--bg-elevated)",
+        border: "1px solid var(--border)",
+      }}
+    >
+      <div className="flex items-center justify-between">
+        <p
+          className="font-condensed font-700 text-sm uppercase tracking-widest"
+          style={{ color: "var(--text)" }}
+        >
+          Últimos syncs (cron + admin)
+        </p>
+        <button
+          onClick={onLoad}
+          disabled={loading}
+          className="text-xs font-condensed font-700 uppercase tracking-widest transition-opacity hover:opacity-70 disabled:opacity-40"
+          style={{ color: "var(--red)" }}
+        >
+          {loading ? "CARREGANDO..." : "ATUALIZAR"}
+        </button>
+      </div>
+
+      {!logs.length && !loading && (
+        <p className="text-xs" style={{ color: "var(--red)" }}>
+          Nenhum sync registrado — a rota /api/sync-results nunca foi chamada
+          (nem pelo cron nem pelo admin).
+        </p>
+      )}
+
+      {loading && (
+        <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+          Carregando...
+        </p>
+      )}
+
+      <div className="space-y-2 max-h-[400px] overflow-y-auto">
+        {logs.slice(0, 20).map((log: any) => {
+          const details = log.details || {};
+          const time = log.created_at
+            ? new Date(log.created_at).toLocaleString("pt-BR")
+            : "—";
+          const step = details.step as string;
+          const stepLabel = STEP_LABELS[step] || step || "Sync";
+          const isExternal = details.is_external === true;
+          const hasSources = Array.isArray(details.sources);
+          const failedSources = hasSources
+            ? details.sources.filter((s: any) => s.error)
+            : [];
+          const showRejected = step === "rejected";
+
+          return (
+            <div
+              key={log.id}
+              className="flex items-start gap-3 text-xs"
+              style={{
+                color: "var(--text-secondary)",
+                borderLeft: `2px solid ${
+                  showRejected
+                    ? "var(--red)"
+                    : step === "complete"
+                      ? "var(--green)"
+                      : "var(--border)"
+                }`,
+                paddingLeft: 8,
+              }}
+            >
+              <span
+                className="shrink-0 font-mono whitespace-nowrap"
+                style={{ color: "var(--text-muted)" }}
+              >
+                {time}
+              </span>
+              <div className="min-w-0 space-y-0.5">
+                <p
+                  className="font-condensed font-700 truncate"
+                  style={{
+                    color: showRejected
+                      ? "var(--red)"
+                      : step === "complete"
+                        ? "var(--green)"
+                        : "var(--text)",
+                  }}
+                >
+                  {isExternal ? "🔁 " : "👤 "}
+                  {stepLabel}
+                </p>
+                {details.reason && (
+                  <p style={{ color: "var(--red)" }}>Motivo: {details.reason}</p>
+                )}
+                {details.scraped_count !== undefined && (
+                  <p style={{ color: "var(--text-muted)" }}>
+                    {details.scraped_count} resultado(s) encontrados
+                    {details.imported_count !== undefined &&
+                      ` · ${details.imported_count} importado(s)`}
+                  </p>
+                )}
+                {details.conflicts > 0 && (
+                  <p style={{ color: "var(--yellow)" }}>
+                    ⚠ {details.conflicts} conflito(s)
+                  </p>
+                )}
+                {failedSources.length > 0 && (
+                  <p style={{ color: "var(--text-muted)" }}>
+                    Fontes com erro:{" "}
+                    {failedSources.map((s: any) => s.label).join(", ")}
+                  </p>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }

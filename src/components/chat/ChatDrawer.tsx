@@ -10,13 +10,21 @@ export default function ChatDrawer() {
   const drawerRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
+  const scrollYRef = useRef(0);
+
   useEffect(() => {
     if (!isOpen) return;
 
     previousFocusRef.current = document.activeElement as HTMLElement;
 
-    const previousOverflow = document.body.style.overflow;
+    scrollYRef.current = window.scrollY;
+    const { overflow, position, top, left, right } = document.body.style;
     document.body.style.overflow = "hidden";
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollYRef.current}px`;
+    document.body.style.left = "0";
+    document.body.style.right = "0";
+
     closeButtonRef.current?.focus();
 
     function handleKey(e: KeyboardEvent) {
@@ -24,7 +32,12 @@ export default function ChatDrawer() {
     }
     document.addEventListener("keydown", handleKey);
     return () => {
-      document.body.style.overflow = previousOverflow;
+      document.body.style.overflow = overflow;
+      document.body.style.position = position;
+      document.body.style.top = top;
+      document.body.style.left = left;
+      document.body.style.right = right;
+      window.scrollTo(0, scrollYRef.current);
       document.removeEventListener("keydown", handleKey);
       previousFocusRef.current?.focus();
     };
@@ -58,13 +71,16 @@ export default function ChatDrawer() {
 
   return (
     <>
-      {isOpen && (
-        <div
-          className="fixed inset-0 z-40"
-          style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
-          onClick={close}
-        />
-      )}
+      <div
+        className="fixed inset-0 z-40"
+        style={{
+          backgroundColor: "rgba(0,0,0,0.6)",
+          opacity: isOpen ? 1 : 0,
+          transition: "opacity 0.25s ease-in-out",
+          pointerEvents: isOpen ? "auto" : "none",
+        }}
+        onClick={close}
+      />
 
       <div
         ref={drawerRef}
@@ -79,8 +95,9 @@ export default function ChatDrawer() {
           height: "100dvh",
           backgroundColor: "var(--bg)",
           borderLeft: "1px solid var(--border)",
-          transform: isOpen ? "translateX(0)" : "translateX(100%)",
+          transform: `translateX(${isOpen ? 0 : "100%"})`,
           transition: "transform 0.25s ease-in-out",
+          willChange: "transform",
           pointerEvents: isOpen ? "auto" : "none",
         }}
       >

@@ -2132,9 +2132,9 @@ export async function getAdminFighters() {
   return listAllFighters(adminSupabase);
 }
 
-export async function getAdminAuditLogs() {
+export async function getAdminAuditLogs(action?: string) {
   const adminSupabase = await getAdminSupabase();
-  return listActivityLogs(adminSupabase, 200);
+  return listActivityLogs(adminSupabase, 200, action);
 }
 
 export async function toggleAdminUserRole(userId: string, currentRole: string) {

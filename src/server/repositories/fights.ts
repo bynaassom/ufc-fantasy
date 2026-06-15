@@ -120,10 +120,16 @@ export async function listAllFighters(client: any) {
   return data || [];
 }
 
-export async function listActivityLogs(client: any, limit = 200) {
-  const { data, error } = await client
+export async function listActivityLogs(client: any, limit = 200, action?: string) {
+  let query = client
     .from("activity_logs")
-    .select("id, user_id, action, details, suspicious, created_at")
+    .select("id, user_id, action, details, suspicious, created_at");
+
+  if (action) {
+    query = query.eq("action", action);
+  }
+
+  const { data, error } = await query
     .order("created_at", { ascending: false })
     .limit(limit);
 
