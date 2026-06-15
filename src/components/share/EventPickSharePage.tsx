@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { formatEventDate } from "@/lib/utils";
 import PublicShareHeader from "@/components/share/PublicShareHeader";
 import ShareActions from "@/components/share/ShareActions";
@@ -13,21 +13,25 @@ function fighterName(fighter: any) {
   return fighter?.name || "";
 }
 
-function methodLabel(method?: string | null) {
-  const labels: Record<string, string> = {
-    decision: "Decisão",
-    submission: "Finalização",
-    knockout: "Nocaute",
-  };
-  return method ? labels[method] || method : "-";
-}
-
 function safeFilenamePart(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "") || "jogador";
 }
 
-function compactFightLabel(name: string) {
+function compactLabel(name: string) {
   return name.length > 28 ? `${name.slice(0, 25)}...` : name;
+}
+
+const METHOD_ABBR: Record<string, string> = { knockout: "KO", submission: "SUB", decision: "DEC" };
+
+function pickMethodAbbr(method?: string | null) {
+  return method ? METHOD_ABBR[method] || method : "";
+}
+
+function formatPickLine(name: string, hasPick: boolean, method?: string | null, round?: number | null) {
+  if (!hasPick) return "Sem pick";
+  const m = pickMethodAbbr(method);
+  const r = round ? `${round}RD` : "";
+  return `${compactLabel(name)} ${m} ${r}`.trim();
 }
 
 const GRID = [
@@ -41,7 +45,20 @@ const HERO_OVERLAY =
 export default function EventPickSharePage({ data, shareUrl }: { data: ShareData; shareUrl: string }) {
   const { event, profile, picks, status } = data;
   const cardRef = useRef<HTMLDivElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [cardScale, setCardScale] = useState(0.65);
   const pickMap = new Map((picks || []).map((pick: any) => [pick.fight_id, pick]));
+
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    const obs = new ResizeObserver(([entry]) => {
+      const w = entry.contentRect.width;
+      setCardScale(Math.min(1, Math.max(0.35, (w - 8) / 540)));
+    });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
   const totalPicks = picks.length;
   const lockedPicks = picks.filter((p: any) => p.is_confirmed).length;
   const whatsappHref = `https://wa.me/?text=${encodeURIComponent(`Veja meus picks para o ${event.name}: ${profile.nickname} no UFC Fantasy ${shareUrl}`)}`;
@@ -56,10 +73,15 @@ export default function EventPickSharePage({ data, shareUrl }: { data: ShareData
     <main className="min-h-[100dvh]" style={{ backgroundColor: "var(--bg)" }}>
       <PublicShareHeader />
       <section className="mx-auto max-w-5xl px-4 py-8">
-        <div className="overflow-x-auto pb-3">
+        <div
+          ref={wrapperRef}
+          className="flex justify-center overflow-hidden pb-3"
+          style={{ maxHeight: "calc(100dvh - 260px)" }}
+        >
+          <div style={{ transform: `scale(${cardScale})`, transformOrigin: "top center" }}>
           <div
             ref={cardRef}
-            className="mx-auto font-condensed"
+            className="font-condensed"
             style={{
               width: 540,
               height: 960,
@@ -240,7 +262,7 @@ export default function EventPickSharePage({ data, shareUrl }: { data: ShareData
                             ? fighterName(fight.fighter_a)
                             : pick?.picked_winner_id === fight.fighter_b_id
                               ? fighterName(fight.fighter_b)
-                              : "Sem pick";
+                              : "";
                         const hasPick = !!pick;
 
                         return (
@@ -265,23 +287,16 @@ export default function EventPickSharePage({ data, shareUrl }: { data: ShareData
                                 {index + 1}
                               </span>
                               <span
-                                className="truncate text-[14px] font-700"
+                                className="truncate text-[13px] font-700"
                                 style={{
                                   color: hasPick ? "#f0f0f0" : "#555",
                                 }}
                               >
-                                {compactFightLabel(pickedName)}
+                                {hasPick
+                                  ? formatPickLine(pickedName, true, pick.picked_method, pick.picked_round)
+                                  : "Sem pick"}
                               </span>
                             </div>
-                            {hasPick && (
-                              <p
-                                className="flex-shrink-0 text-[10px] font-500 uppercase tracking-widest"
-                                style={{ color: "#666" }}
-                              >
-                                {methodLabel(pick.picked_method)} R
-                                {pick.picked_round || "-"}
-                              </p>
-                            )}
                           </div>
                         );
                       })}
@@ -303,6 +318,7 @@ export default function EventPickSharePage({ data, shareUrl }: { data: ShareData
                 )}
               </div>
             </div>
+          </div>
           </div>
         </div>
 
