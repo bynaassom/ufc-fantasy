@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import EventPickSharePage from "@/components/share/EventPickSharePage";
 import { buildPublicUrl, normalizePublicOrigin } from "@/lib/public-url";
 import { getPublicEventPickShareData } from "@/server/services/app";
+import { inlineImageDataUrl } from "@/lib/server/inline-image";
 
 type Params = {
   params: {
@@ -39,6 +40,7 @@ export default async function SharePicksPage({ params }: Params) {
     `/share/picks/${params.slug}/${params.nickname}`,
     baseUrl,
   );
+  const bannerDataUrl = await inlineImageDataUrl(data.event.banner_image_url);
 
-  return <EventPickSharePage data={data} shareUrl={shareUrl} />;
+  return <EventPickSharePage data={data} shareUrl={shareUrl} bannerDataUrl={bannerDataUrl} />;
 }

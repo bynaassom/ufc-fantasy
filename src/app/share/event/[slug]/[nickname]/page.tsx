@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import EventResultSharePage from "@/components/share/EventResultSharePage";
 import { buildPublicUrl, normalizePublicOrigin } from "@/lib/public-url";
 import { getPublicEventResultShareData } from "@/server/services/app";
+import { inlineImageDataUrl } from "@/lib/server/inline-image";
 
 type Params = {
   params: {
@@ -39,6 +40,7 @@ export default async function ShareEventResultPage({ params }: Params) {
     `/share/event/${params.slug}/${params.nickname}`,
     baseUrl,
   );
+  const bannerDataUrl = await inlineImageDataUrl(data.event.banner_image_url);
 
-  return <EventResultSharePage data={data} shareUrl={shareUrl} />;
+  return <EventResultSharePage data={data} shareUrl={shareUrl} bannerDataUrl={bannerDataUrl} />;
 }
