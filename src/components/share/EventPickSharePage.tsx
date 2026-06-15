@@ -42,7 +42,7 @@ const GRID = [
 const HERO_OVERLAY =
   "linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(13,13,13,0.45) 40%, rgba(13,13,13,0.95) 100%)";
 
-export default function EventPickSharePage({ data, shareUrl, bannerDataUrl }: { data: ShareData; shareUrl: string; bannerDataUrl?: string | null }) {
+export default function EventPickSharePage({ data, shareUrl, bannerDataUrl, shareImageUrl }: { data: ShareData; shareUrl: string; bannerDataUrl?: string | null; shareImageUrl?: string }) {
   const { event, profile, picks, status } = data;
   const cardRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -345,6 +345,7 @@ export default function EventPickSharePage({ data, shareUrl, bannerDataUrl }: { 
             shareCaption={shareCaption}
             whatsappTextUrl={whatsappHref}
             bannerLoaded={bannerLoaded}
+            serverImageUrl={shareImageUrl}
           />
         </div>
       )}

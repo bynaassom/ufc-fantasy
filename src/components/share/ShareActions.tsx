@@ -9,11 +9,12 @@ type Props = {
   shareCaption: string;
   whatsappTextUrl: string;
   bannerLoaded?: boolean;
+  serverImageUrl?: string;
 };
 
-export default function ShareActions({ cardRef, filename, shareCaption, whatsappTextUrl, bannerLoaded = true }: Props) {
+export default function ShareActions({ cardRef, filename, shareCaption, whatsappTextUrl, bannerLoaded = true, serverImageUrl }: Props) {
   const [capturing, setCapturing] = useState(false);
-  const canCapture = bannerLoaded && !capturing;
+  const canCapture = (!!serverImageUrl || bannerLoaded) && !capturing;
 
   function waitForPaint() {
     return new Promise<void>((resolve) => {
@@ -48,6 +49,15 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
     const CARD_H = 960;
 
     try {
+      if (serverImageUrl) {
+        try {
+          const response = await fetch(serverImageUrl, { cache: "no-store" });
+          if (response.ok) return response.blob();
+        } catch (err) {
+          console.warn("Server share image failed, trying DOM capture", err);
+        }
+      }
+
       await document.fonts?.ready?.catch(() => undefined);
       await waitForImages(node);
       await waitForPaint();
@@ -174,7 +184,7 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
           backgroundColor: "var(--bg-card)",
         }}
       >
-        {!bannerLoaded ? "Carregando..." : capturing ? "Gerando..." : "Baixar imagem"}
+        {!serverImageUrl && !bannerLoaded ? "Carregando..." : capturing ? "Gerando..." : "Baixar imagem"}
       </button>
       <button
         onClick={handleShare}
@@ -182,7 +192,7 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
         className="px-5 py-3 text-center font-condensed text-sm font-900 uppercase tracking-widest text-white disabled:opacity-60"
         style={{ backgroundColor: "var(--red)" }}
       >
-        {!bannerLoaded ? "Carregando..." : capturing ? "Gerando..." : "Compartilhar imagem"}
+        {!serverImageUrl && !bannerLoaded ? "Carregando..." : capturing ? "Gerando..." : "Compartilhar imagem"}
       </button>
       <a
         href={whatsappTextUrl}

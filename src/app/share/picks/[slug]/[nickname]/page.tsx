@@ -40,7 +40,8 @@ export default async function SharePicksPage({ params }: Params) {
     `/share/picks/${params.slug}/${params.nickname}`,
     baseUrl,
   );
+  const shareImageUrl = `/api/share/picks/${encodeURIComponent(params.slug)}/${encodeURIComponent(params.nickname)}/image`;
   const bannerDataUrl = await inlineImageDataUrl(data.event.banner_image_url);
 
-  return <EventPickSharePage data={data} shareUrl={shareUrl} bannerDataUrl={bannerDataUrl} />;
+  return <EventPickSharePage data={data} shareUrl={shareUrl} bannerDataUrl={bannerDataUrl} shareImageUrl={shareImageUrl} />;
 }
