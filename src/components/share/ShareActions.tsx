@@ -51,6 +51,9 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
         },
       });
       if (!blob) throw new Error("html-to-image returned an empty image");
+      if (!blob.type.includes("png")) {
+        return new Blob([blob], { type: "image/png" });
+      }
       return blob;
     } catch (error) {
       console.error("Share image generation failed", error);
