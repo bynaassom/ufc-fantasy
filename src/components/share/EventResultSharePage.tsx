@@ -70,45 +70,59 @@ export default function EventResultSharePage({ data, shareUrl, bannerDataUrl }: 
   const perfectPicks = Number((score as any)?.perfect_picks ?? (picks.filter((pick: any) => pick.total_points === 3).length || 0));
   const winnersHit = picks.filter((pick: any) => Number(pick.points_winner || 0) > 0).length;
   const totalPicks = picks.length;
+  const hasBanner = !!event.banner_image_url;
+  const [bannerLoaded, setBannerLoaded] = useState(!hasBanner);
+  const bannerUrl = bannerDataUrl || event.banner_image_url;
+
+  useEffect(() => {
+    if (!bannerUrl) { setBannerLoaded(true); return; }
+    setBannerLoaded(false);
+    const img = new Image();
+    img.onload = () => setBannerLoaded(true);
+    img.onerror = () => setBannerLoaded(true);
+    img.src = bannerUrl;
+  }, [bannerUrl]);
   const whatsappHref = `https://wa.me/?text=${encodeURIComponent(`Veja meu resultado no ${event.name}: ${profile.nickname} fez ${totalPoints} pts no UFC Fantasy ${shareUrl}`)}`;
   const shareCaption = `${profile.nickname} fez ${totalPoints} pontos no ${event.name} pelo UFC Fantasy. Veja o resultado e entre no jogo: ${shareUrl}`;
   const filename = `ufc-fantasy-result-${event.slug}-${safeFilenamePart(profile.nickname)}.png`;
   const sortedFights = (event.fights || [])
     .slice()
     .sort((a: any, b: any) => a.fight_order - b.fight_order);
-  const hasBanner = !!event.banner_image_url;
 
   return (
     <main className="min-h-[100dvh]" style={{ backgroundColor: "var(--bg)" }}>
       <PublicShareHeader />
-      <section className="mx-auto max-w-5xl px-4 py-8">
-        <div
-          ref={wrapperRef}
-          className="flex justify-center overflow-hidden pb-3"
-          style={{ maxHeight: "calc(100dvh - 260px)" }}
-        >
-          <div style={{ transform: `scale(${cardScale})`, transformOrigin: "top center" }}>
+      <section className="mx-auto max-w-5xl px-4 py-8 flex flex-col items-center">
+        <div ref={wrapperRef} className="w-full">
           <div
-            ref={cardRef}
-            className="font-condensed"
+            className="mx-auto overflow-hidden"
             style={{
-              width: 540,
-              height: 960,
-              background: "#0d0d0d",
-              color: "#f0f0f0",
-              padding: 16,
-              boxShadow: "0 28px 70px rgba(0,0,0,0.28)",
+              width: 540 * cardScale,
+              height: 960 * cardScale,
             }}
           >
-            <div
-              style={{
-                height: "100%",
-                border: "1px solid #2a2a2a",
-                display: "flex",
-                flexDirection: "column",
-                overflow: "hidden",
-              }}
-            >
+            <div style={{ transform: `scale(${cardScale})`, transformOrigin: "top left" }}>
+              <div
+                ref={cardRef}
+                className="font-condensed"
+                style={{
+                  width: 540,
+                  height: 960,
+                  background: "#0d0d0d",
+                  color: "#f0f0f0",
+                  padding: 16,
+                  boxShadow: "0 28px 70px rgba(0,0,0,0.28)",
+                }}
+              >
+                <div
+                  style={{
+                    height: "100%",
+                    border: "1px solid #2a2a2a",
+                    display: "flex",
+                    flexDirection: "column",
+                    overflow: "hidden",
+                  }}
+                >
               {/* ── Hero section ── */}
               <div
                 style={{
@@ -116,23 +130,16 @@ export default function EventResultSharePage({ data, shareUrl, bannerDataUrl }: 
                   height: 380,
                   flexShrink: 0,
                   overflow: "hidden",
-                  background: "#141414",
+                  backgroundColor: "#141414",
+                  ...(hasBanner && bannerUrl
+                    ? {
+                        backgroundImage: `url(${bannerUrl})`,
+                        backgroundSize: "cover",
+                        backgroundPosition: event.banner_object_position || "center",
+                      }
+                    : {}),
                 }}
               >
-                {hasBanner && (
-                  <img
-                    src={bannerDataUrl || event.banner_image_url!}
-                    alt=""
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                      objectPosition: event.banner_object_position || "center",
-                    }}
-                  />
-                )}
                 <div
                   style={{
                     position: "absolute",
@@ -442,30 +449,32 @@ export default function EventResultSharePage({ data, shareUrl, bannerDataUrl }: 
                       >
                         ufc-fantasy.vercel.app · monte o seu
                       </p>
-                    </div>
+</div>
                   </>
                 )}
               </div>
             </div>
           </div>
-          </div>
         </div>
+      </div>
+    </div>
 
-        {status === "public" && (
-          <div className="mt-8">
-            <ShareActions
-              cardRef={cardRef}
-              filename={filename}
-              shareCaption={shareCaption}
-              whatsappTextUrl={whatsappHref}
-            />
-          </div>
-        )}
-
-        <div className="mt-4 flex justify-center">
-          <ShareCta />
+      {status === "public" && (
+        <div className="mt-8">
+          <ShareActions
+            cardRef={cardRef}
+            filename={filename}
+            shareCaption={shareCaption}
+            whatsappTextUrl={whatsappHref}
+            bannerLoaded={bannerLoaded}
+          />
         </div>
-      </section>
-    </main>
+      )}
+
+      <div className="mt-4 flex justify-center">
+        <ShareCta />
+      </div>
+    </section>
+  </main>
   );
 }

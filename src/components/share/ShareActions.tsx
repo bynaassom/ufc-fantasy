@@ -3,18 +3,17 @@
 import { useState } from "react";
 import toast from "react-hot-toast";
 
-const FALLBACK_PIXEL =
-  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
-
 type Props = {
   cardRef: React.RefObject<HTMLDivElement | null>;
   filename: string;
   shareCaption: string;
   whatsappTextUrl: string;
+  bannerLoaded?: boolean;
 };
 
-export default function ShareActions({ cardRef, filename, shareCaption, whatsappTextUrl }: Props) {
+export default function ShareActions({ cardRef, filename, shareCaption, whatsappTextUrl, bannerLoaded = true }: Props) {
   const [capturing, setCapturing] = useState(false);
+  const canCapture = bannerLoaded && !capturing;
 
   function waitForPaint() {
     return new Promise<void>((resolve) => {
@@ -50,35 +49,61 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
       await waitForImages(node);
       await waitForPaint();
 
-      const { toBlob, toPng } = await import("html-to-image");
-      const width = node.scrollWidth;
-      const height = node.scrollHeight;
-      const bgColor = getComputedStyle(node).backgroundColor || "#0d0d0d";
-      const opts = {
-        pixelRatio: 2,
-        cacheBust: true,
-        width,
-        height,
-        backgroundColor: bgColor,
-        imagePlaceholder: FALLBACK_PIXEL,
-        style: {
-          width: `${width}px`,
-          height: `${height}px`,
-          maxWidth: "none",
-          transform: "none",
-        },
-      };
-
+      // Primary: html2canvas (no foreignObject — works on iOS PWA)
       try {
-        const blob = await toBlob(node, opts);
+        const html2canvas = (await import("html2canvas")).default;
+        const canvas = await html2canvas(node, {
+          scale: 2,
+          useCORS: true,
+          allowTaint: false,
+          backgroundColor: "#0d0d0d",
+          logging: false,
+          width: node.scrollWidth,
+          height: node.scrollHeight,
+        });
+        const blob = await new Promise<Blob | null>((resolve) =>
+          canvas.toBlob(resolve, "image/png"),
+        );
         if (blob) return blob;
       } catch (err) {
-        console.warn("toBlob failed, fallback to toPng", err);
+        console.warn("html2canvas failed, trying html-to-image", err);
       }
 
-      const dataUrl = await toPng(node, opts);
-      const res = await fetch(dataUrl);
-      return res.blob();
+      // Fallback: html-to-image
+      try {
+        const { toBlob, toPng } = await import("html-to-image");
+        const width = node.scrollWidth;
+        const height = node.scrollHeight;
+        const bgColor = getComputedStyle(node).backgroundColor || "#0d0d0d";
+
+        try {
+          const blob = await toBlob(node, {
+            pixelRatio: 2,
+            cacheBust: true,
+            width,
+            height,
+            backgroundColor: bgColor,
+            style: { width: `${width}px`, height: `${height}px`, maxWidth: "none", transform: "none" },
+          });
+          if (blob) return blob;
+        } catch {}
+
+        const dataUrl = await toPng(node, {
+          pixelRatio: 2,
+          cacheBust: true,
+          width,
+          height,
+          backgroundColor: bgColor,
+          style: { width: `${width}px`, height: `${height}px`, maxWidth: "none", transform: "none" },
+        });
+        const res = await fetch(dataUrl);
+        return res.blob();
+      } catch (err) {
+        console.warn("html-to-image fallback also failed", err);
+      }
+
+      toast.error("Não foi possível gerar a imagem.");
+      return null;
     } catch (error) {
       console.error("Share image generation failed", error);
       toast.error("Não foi possível gerar a imagem.");
@@ -139,7 +164,7 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
     <div className="flex flex-col gap-3 sm:flex-row">
       <button
         onClick={handleDownload}
-        disabled={capturing}
+        disabled={!canCapture}
         className="px-5 py-3 text-center font-condensed text-sm font-900 uppercase tracking-widest disabled:opacity-60"
         style={{
           border: "1px solid var(--border)",
@@ -147,15 +172,15 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
           backgroundColor: "var(--bg-card)",
         }}
       >
-        {capturing ? "Gerando..." : "Baixar imagem"}
+        {!bannerLoaded ? "Carregando..." : capturing ? "Gerando..." : "Baixar imagem"}
       </button>
       <button
         onClick={handleShare}
-        disabled={capturing}
+        disabled={!canCapture}
         className="px-5 py-3 text-center font-condensed text-sm font-900 uppercase tracking-widest text-white disabled:opacity-60"
         style={{ backgroundColor: "var(--red)" }}
       >
-        {capturing ? "Gerando..." : "Compartilhar imagem"}
+        {!bannerLoaded ? "Carregando..." : capturing ? "Gerando..." : "Compartilhar imagem"}
       </button>
       <a
         href={whatsappTextUrl}
