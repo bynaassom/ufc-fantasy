@@ -27,13 +27,6 @@ function pickMethodAbbr(method?: string | null) {
   return method ? METHOD_ABBR[method] || method : "";
 }
 
-function formatPickLine(name: string, hasPick: boolean, method?: string | null, round?: number | null) {
-  if (!hasPick) return "Sem pick";
-  const m = pickMethodAbbr(method);
-  const r = round ? `${round}RD` : "";
-  return `${compactLabel(name)} ${m} ${r}`.trim();
-}
-
 function getWinnerName(fight: any) {
   if (!fight.winner_id) return "";
   if (fight.fighter_a?.id === fight.winner_id) return fighterName(fight.fighter_a);
@@ -41,11 +34,11 @@ function getWinnerName(fight: any) {
   return "";
 }
 
-function formatResultLine(name: string, method?: string | null, round?: number | null) {
-  if (!name) return "-";
-  const m = pickMethodAbbr(method);
-  const r = round ? `${round}RD` : "";
-  return `${compactLabel(name)} ${m} ${r}`.trim();
+function formatMr(method?: string | null, round?: number | null) {
+  const a = pickMethodAbbr(method);
+  if (!a) return "";
+  if (method === "decision") return a;
+  return round ? `${a} ${round}RD` : a;
 }
 
 const GRID = [
@@ -296,18 +289,36 @@ export default function EventResultSharePage({ data, shareUrl }: { data: ShareDa
 
                     {/* Column headers */}
                     <div
-                      className="mb-2 flex items-center gap-2 px-[27px]"
-                      style={{ borderBottom: "1px solid #2a2a2a", paddingBottom: 6 }}
+                      className="flex items-center gap-2"
+                      style={{
+                        paddingLeft: 9,
+                        paddingRight: 10,
+                        borderBottom: "1px solid #2a2a2a",
+                        paddingBottom: 7,
+                      }}
                     >
-                      <span className="min-w-0 flex-[3] text-[9px] font-500 uppercase tracking-[0.18em]" style={{ color: "#555" }}>
+                      <span
+                        className="w-[18px] shrink-0 text-right text-[9px] font-500 uppercase tracking-[0.18em]"
+                        style={{ color: "#555" }}
+                      />
+                      <span
+                        className="min-w-0 flex-[3] text-[9px] font-500 uppercase tracking-[0.18em]"
+                        style={{ color: "#555" }}
+                      >
                         Meu pick
                       </span>
-                      <span className="w-px shrink-0 self-stretch" style={{ background: "#2a2a2a" }} />
-                      <span className="min-w-0 flex-[2] pl-2 text-[9px] font-500 uppercase tracking-[0.18em]" style={{ color: "#555" }}>
+                      <span className="w-px shrink-0 self-stretch" style={{ background: "#333" }} />
+                      <span
+                        className="min-w-0 flex-[2] pl-3 text-[9px] font-500 uppercase tracking-[0.18em]"
+                        style={{ color: "#555" }}
+                      >
                         Resultado
                       </span>
-                      <span className="w-px shrink-0 self-stretch" style={{ background: "#2a2a2a" }} />
-                      <span className="shrink-0 pl-2 text-[9px] font-500 uppercase tracking-[0.18em]" style={{ color: "#555" }}>
+                      <span className="w-px shrink-0 self-stretch" style={{ background: "#333" }} />
+                      <span
+                        className="w-[60px] shrink-0 pl-3 text-[9px] font-500 uppercase tracking-[0.18em]"
+                        style={{ color: "#555" }}
+                      >
                         Pts
                       </span>
                     </div>
@@ -326,13 +337,15 @@ export default function EventResultSharePage({ data, shareUrl }: { data: ShareDa
                         const winnerName = getWinnerName(fight);
                         const isCorrect = hasPick && pick?.picked_winner_id === fight.winner_id;
                         const totalPts = Number(pick?.total_points || 0);
+                        const pickMr = hasPick ? formatMr(pick.picked_method, pick.picked_round) : "";
+                        const resultMr = winnerName ? formatMr(fight.result_method, fight.result_round) : "";
 
                         return (
                           <div
                             key={fight.id}
                             className="flex items-center gap-2"
                             style={{
-                              height: 32,
+                              height: 34,
                               background: "#1a1a1a",
                               borderLeft: hasPick
                                 ? "3px solid #e8001a"
@@ -341,53 +354,65 @@ export default function EventResultSharePage({ data, shareUrl }: { data: ShareDa
                               paddingRight: 10,
                             }}
                           >
-                            {/* Number */}
+                            {/* # */}
                             <span
-                              className="w-[18px] shrink-0 text-right text-[11px] font-700"
-                              style={{ color: "#555" }}
+                              className="w-[18px] shrink-0 self-start text-right text-[11px] font-700"
+                              style={{ color: "#555", marginTop: 9 }}
                             >
                               {index + 1}
                             </span>
 
                             {/* Meu Pick */}
-                            <span
-                              className="min-w-0 flex-[3] truncate text-[12px] font-700"
-                              style={{ color: hasPick ? "#f0f0f0" : "#555" }}
-                            >
-                              {hasPick
-                                ? formatPickLine(pickedName, true, pick.picked_method, pick.picked_round)
-                                : "Sem pick"}
-                            </span>
+                            <div className="flex min-w-0 flex-[3] items-baseline justify-between gap-3">
+                              <span
+                                className="truncate text-[12px] font-700"
+                                style={{ color: hasPick ? "#f0f0f0" : "#555" }}
+                              >
+                                {hasPick ? compactLabel(pickedName) : "Sem pick"}
+                              </span>
+                              {pickMr && (
+                                <span
+                                  className="shrink-0 text-[9px] font-500"
+                                  style={{ color: "#666" }}
+                                >
+                                  {pickMr}
+                                </span>
+                              )}
+                            </div>
 
                             {/* Divider */}
                             <span
                               className="w-px shrink-0 self-stretch"
-                              style={{ background: "#2a2a2a" }}
+                              style={{ background: "#333" }}
                             />
 
                             {/* Resultado */}
-                            <span
-                              className="min-w-0 flex-[2] truncate text-[12px] font-700"
-                              style={{
-                                color: isCorrect
-                                  ? "#22c55e"
-                                  : "rgba(255,255,255,0.4)",
-                              }}
-                            >
-                              {winnerName
-                                ? formatResultLine(winnerName, fight.result_method, fight.result_round)
-                                : "-"}
-                            </span>
+                            <div className="flex min-w-0 flex-[2] items-baseline justify-between gap-3 pl-3">
+                              <span
+                                className="truncate text-[12px] font-700"
+                                style={{ color: isCorrect ? "#22c55e" : "#555" }}
+                              >
+                                {winnerName ? compactLabel(winnerName) : "-"}
+                              </span>
+                              {resultMr && (
+                                <span
+                                  className="shrink-0 text-[9px] font-500"
+                                  style={{ color: isCorrect ? "#22c55e" : "#555" }}
+                                >
+                                  {resultMr}
+                                </span>
+                              )}
+                            </div>
 
                             {/* Divider */}
                             <span
                               className="w-px shrink-0 self-stretch"
-                              style={{ background: "#2a2a2a" }}
+                              style={{ background: "#333" }}
                             />
 
                             {/* Pontos */}
                             <span
-                              className="shrink-0 pl-2 text-[13px] font-900"
+                              className="w-[60px] shrink-0 pl-3 text-right text-[13px] font-900"
                               style={{
                                 color: totalPts > 0 ? "#e8001a" : "#555",
                               }}
@@ -397,7 +422,7 @@ export default function EventResultSharePage({ data, shareUrl }: { data: ShareDa
                                 className="ml-[1px] text-[9px] font-500"
                                 style={{ color: totalPts > 0 ? "#e8001a" : "#555" }}
                               >
-                                pts
+                              pts
                               </span>
                             </span>
                           </div>
