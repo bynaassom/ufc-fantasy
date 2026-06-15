@@ -22,7 +22,7 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
     });
   }
 
-  // Inline external images so they don't taint the canvas
+  // Inline external images via our CORS proxy so they don't taint the canvas
   async function inlineImages(node: HTMLElement): Promise<() => void> {
     const imgs = Array.from(node.querySelectorAll<HTMLImageElement>("img[src]"));
     const restored: { img: HTMLImageElement; src: string }[] = [];
@@ -30,7 +30,8 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
       const originalSrc = img.src;
       if (originalSrc.startsWith("data:")) continue;
       try {
-        const resp = await fetch(originalSrc, { mode: "cors" });
+        const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(originalSrc)}`;
+        const resp = await fetch(proxyUrl);
         if (!resp.ok) continue;
         const blob = await resp.blob();
         const dataUrl = await new Promise<string>((resolve, reject) => {
