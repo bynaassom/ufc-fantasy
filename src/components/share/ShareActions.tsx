@@ -22,6 +22,24 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
     });
   }
 
+  async function waitForImages(node: HTMLElement) {
+    const imgs = Array.from(node.querySelectorAll<HTMLImageElement>("img"));
+    await Promise.all(
+      imgs.map(
+        (img) =>
+          new Promise<void>((resolve) => {
+            if (img.complete && img.naturalWidth > 0) {
+              resolve();
+            } else {
+              img.onload = () => resolve();
+              img.onerror = () => resolve();
+            }
+          }),
+      ),
+    );
+    await Promise.all(imgs.map((img) => img.decode().catch(() => {})));
+  }
+
   async function captureBlob(): Promise<Blob | null> {
     const node = cardRef.current;
     if (!node) return null;
@@ -29,6 +47,7 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
 
     try {
       await document.fonts?.ready?.catch(() => undefined);
+      await waitForImages(node);
       await waitForPaint();
 
       const { toBlob, toPng } = await import("html-to-image");
