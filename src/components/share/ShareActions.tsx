@@ -3,6 +3,9 @@
 import { useState } from "react";
 import toast from "react-hot-toast";
 
+const TRANSPARENT_PIXEL =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+
 type Props = {
   cardRef: React.RefObject<HTMLDivElement | null>;
   filename: string;
@@ -19,48 +22,62 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
     });
   }
 
+  // Inline external images so they don't taint the canvas
+  async function inlineImages(node: HTMLElement): Promise<() => void> {
+    const imgs = Array.from(node.querySelectorAll<HTMLImageElement>("img[src]"));
+    const restored: { img: HTMLImageElement; src: string }[] = [];
+    for (const img of imgs) {
+      const originalSrc = img.src;
+      if (originalSrc.startsWith("data:")) continue;
+      try {
+        const resp = await fetch(originalSrc, { mode: "cors" });
+        if (!resp.ok) continue;
+        const blob = await resp.blob();
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+        img.src = dataUrl;
+        restored.push({ img, src: originalSrc });
+        await img.decode();
+      } catch {
+        // skip — will be handled by imagePlaceholder
+      }
+    }
+    return () => {
+      for (const { img, src } of restored) {
+        img.src = src;
+      }
+    };
+  }
+
   async function captureBlob(): Promise<Blob | null> {
     const node = cardRef.current;
     if (!node) return null;
     setCapturing(true);
-    const restored: { img: HTMLImageElement; src: string }[] = [];
+    let restore: (() => void) | null = null;
 
     try {
       await document.fonts?.ready?.catch(() => undefined);
       await waitForPaint();
-
-      // Pre-fetch external images to blob URLs to avoid CORS canvas taint
-      const imgs = Array.from(node.querySelectorAll<HTMLImageElement>("img[src]"));
-      for (const img of imgs) {
-        const originalSrc = img.src;
-        if (originalSrc.startsWith("data:")) continue;
-        try {
-          const resp = await fetch(originalSrc, { mode: "cors" });
-          if (resp.ok) {
-            const blob = await resp.blob();
-            const blobUrl = URL.createObjectURL(blob);
-            img.src = blobUrl;
-            restored.push({ img, src: originalSrc });
-            await img.decode();
-          }
-        } catch {
-          // Fetch failed — leave img as-is
-        }
-      }
+      restore = await inlineImages(node);
 
       const { toBlob, toPng } = await import("html-to-image");
       const width = node.scrollWidth;
       const height = node.scrollHeight;
-      const backgroundColor =
-        getComputedStyle(node).backgroundColor || "#0d0d0d";
+      const bgColor = getComputedStyle(node).backgroundColor || "#0d0d0d";
 
+      // Try toBlob first, then toPng + fetch
       try {
         const blob = await toBlob(node, {
           pixelRatio: 2,
           cacheBust: true,
           width,
           height,
-          backgroundColor,
+          backgroundColor: bgColor,
+          imagePlaceholder: TRANSPARENT_PIXEL,
           style: {
             width: `${width}px`,
             height: `${height}px`,
@@ -70,7 +87,7 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
         });
         if (blob) return blob;
       } catch (err) {
-        console.warn("toBlob failed, trying toPng fallback", err);
+        console.warn("toBlob failed, fallback to toPng", err);
       }
 
       const dataUrl = await toPng(node, {
@@ -78,7 +95,8 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
         cacheBust: true,
         width,
         height,
-        backgroundColor,
+        backgroundColor: bgColor,
+        imagePlaceholder: TRANSPARENT_PIXEL,
         style: {
           width: `${width}px`,
           height: `${height}px`,
@@ -93,9 +111,7 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
       toast.error("Não foi possível gerar a imagem.");
       return null;
     } finally {
-      for (const { img, src } of restored) {
-        img.src = src;
-      }
+      restore?.();
       setCapturing(false);
     }
   }
