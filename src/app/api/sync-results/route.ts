@@ -287,7 +287,14 @@ async function checkSyncFailures(adminSupabase: any, currentStep: string, eventI
   } catch { /* silent */ }
 }
 
-// ─── Handler ─────────────────────────────────────────────────
+// ─── Handlers ─────────────────────────────────────────────────
+export async function GET() {
+  return NextResponse.json(
+    { error: "Use POST com SYNC_SECRET no header Authorization" },
+    { status: 405 },
+  );
+}
+
 export async function POST(req: NextRequest) {
   const adminSupabase = await createAdminClient();
   let adminUserId: string | null = null;
@@ -547,7 +554,7 @@ export async function POST(req: NextRequest) {
 
   const { data: rpcResult, error: rpcError } = await adminSupabase.rpc(
     "sync_fight_results_batch",
-    { results: JSON.stringify(resultsBatch) },
+    { results: resultsBatch },
   );
 
   if (rpcError) {
