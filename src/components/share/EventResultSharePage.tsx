@@ -34,6 +34,20 @@ function formatPickLine(name: string, hasPick: boolean, method?: string | null, 
   return `${compactLabel(name)} ${m} ${r}`.trim();
 }
 
+function getWinnerName(fight: any) {
+  if (!fight.winner_id) return "";
+  if (fight.fighter_a?.id === fight.winner_id) return fighterName(fight.fighter_a);
+  if (fight.fighter_b?.id === fight.winner_id) return fighterName(fight.fighter_b);
+  return "";
+}
+
+function formatResultLine(name: string, method?: string | null, round?: number | null) {
+  if (!name) return "-";
+  const m = pickMethodAbbr(method);
+  const r = round ? `${round}RD` : "";
+  return `${compactLabel(name)} ${m} ${r}`.trim();
+}
+
 const GRID = [
   "repeating-linear-gradient(45deg, transparent, transparent 39px, rgba(42,42,42,0.08) 39px, rgba(42,42,42,0.08) 40px)",
   "repeating-linear-gradient(-45deg, transparent, transparent 39px, rgba(42,42,42,0.08) 39px, rgba(42,42,42,0.08) 40px)",
@@ -280,6 +294,24 @@ export default function EventResultSharePage({ data, shareUrl }: { data: ShareDa
                       </div>
                     )}
 
+                    {/* Column headers */}
+                    <div
+                      className="mb-2 flex items-center gap-2 px-[27px]"
+                      style={{ borderBottom: "1px solid #2a2a2a", paddingBottom: 6 }}
+                    >
+                      <span className="min-w-0 flex-[3] text-[9px] font-500 uppercase tracking-[0.18em]" style={{ color: "#555" }}>
+                        Meu pick
+                      </span>
+                      <span className="w-px shrink-0 self-stretch" style={{ background: "#2a2a2a" }} />
+                      <span className="min-w-0 flex-[2] pl-2 text-[9px] font-500 uppercase tracking-[0.18em]" style={{ color: "#555" }}>
+                        Resultado
+                      </span>
+                      <span className="w-px shrink-0 self-stretch" style={{ background: "#2a2a2a" }} />
+                      <span className="shrink-0 pl-2 text-[9px] font-500 uppercase tracking-[0.18em]" style={{ color: "#555" }}>
+                        Pts
+                      </span>
+                    </div>
+
                     {/* Fight rows */}
                     <div className="flex-1 space-y-[5px] overflow-hidden">
                       {sortedFights.map((fight: any, index: number) => {
@@ -291,14 +323,16 @@ export default function EventResultSharePage({ data, shareUrl }: { data: ShareDa
                               ? fighterName(fight.fighter_b)
                               : "";
                         const hasPick = !!pick;
-                        const isPerfect = Number(pick?.total_points || 0) === 3;
+                        const winnerName = getWinnerName(fight);
+                        const isCorrect = hasPick && pick?.picked_winner_id === fight.winner_id;
+                        const totalPts = Number(pick?.total_points || 0);
 
                         return (
                           <div
                             key={fight.id}
-                            className="flex items-center justify-between gap-3"
+                            className="flex items-center gap-2"
                             style={{
-                              height: 30,
+                              height: 32,
                               background: "#1a1a1a",
                               borderLeft: hasPick
                                 ? "3px solid #e8001a"
@@ -307,40 +341,65 @@ export default function EventResultSharePage({ data, shareUrl }: { data: ShareDa
                               paddingRight: 10,
                             }}
                           >
-                            <div className="flex min-w-0 items-center gap-2.5">
+                            {/* Number */}
+                            <span
+                              className="w-[18px] shrink-0 text-right text-[11px] font-700"
+                              style={{ color: "#555" }}
+                            >
+                              {index + 1}
+                            </span>
+
+                            {/* Meu Pick */}
+                            <span
+                              className="min-w-0 flex-[3] truncate text-[12px] font-700"
+                              style={{ color: hasPick ? "#f0f0f0" : "#555" }}
+                            >
+                              {hasPick
+                                ? formatPickLine(pickedName, true, pick.picked_method, pick.picked_round)
+                                : "Sem pick"}
+                            </span>
+
+                            {/* Divider */}
+                            <span
+                              className="w-px shrink-0 self-stretch"
+                              style={{ background: "#2a2a2a" }}
+                            />
+
+                            {/* Resultado */}
+                            <span
+                              className="min-w-0 flex-[2] truncate text-[12px] font-700"
+                              style={{
+                                color: isCorrect
+                                  ? "#22c55e"
+                                  : "rgba(255,255,255,0.4)",
+                              }}
+                            >
+                              {winnerName
+                                ? formatResultLine(winnerName, fight.result_method, fight.result_round)
+                                : "-"}
+                            </span>
+
+                            {/* Divider */}
+                            <span
+                              className="w-px shrink-0 self-stretch"
+                              style={{ background: "#2a2a2a" }}
+                            />
+
+                            {/* Pontos */}
+                            <span
+                              className="shrink-0 pl-2 text-[13px] font-900"
+                              style={{
+                                color: totalPts > 0 ? "#e8001a" : "#555",
+                              }}
+                            >
+                              {totalPts}
                               <span
-                                className="w-[18px] text-right text-[12px] font-700"
-                                style={{ color: "#555" }}
+                                className="ml-[1px] text-[9px] font-500"
+                                style={{ color: totalPts > 0 ? "#e8001a" : "#555" }}
                               >
-                                {index + 1}
+                                pts
                               </span>
-                              <span
-                                className="truncate text-[13px] font-700"
-                                style={{
-                                  color: hasPick ? "#f0f0f0" : "#555",
-                                }}
-                              >
-                                {hasPick
-                                  ? formatPickLine(pickedName, true, pick.picked_method, pick.picked_round)
-                                  : "Sem pick"}
-                              </span>
-                            </div>
-                            {hasPick && (
-                              <p
-                                className="flex-shrink-0 text-[13px] font-900"
-                                style={{
-                                  color: isPerfect ? "#e8001a" : "#555",
-                                }}
-                              >
-                                {Number(pick?.total_points || 0)}
-                                <span
-                                  className="ml-[1px] text-[9px] font-500"
-                                  style={{ color: isPerfect ? "#e8001a" : "#555" }}
-                                >
-                                  pts
-                                </span>
-                              </p>
-                            )}
+                            </span>
                           </div>
                         );
                       })}
