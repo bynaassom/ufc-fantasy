@@ -18,13 +18,19 @@ export async function GET(_request: Request, { params }: Params) {
   if (!data) return new Response("Not found", { status: 404 });
 
   const bannerDataUrl = await inlineImageDataUrl(data.event.banner_image_url);
-  return new ImageResponse(
+  const image = new ImageResponse(
     renderPickShareCardImage(data, bannerDataUrl || data.event.banner_image_url),
     {
       ...SHARE_IMAGE_SIZE,
-      headers: {
-        "Cache-Control": "public, max-age=300, s-maxage=300",
-      },
     },
   );
+
+  const png = await image.arrayBuffer();
+  return new Response(png, {
+    headers: {
+      "Content-Type": "image/png",
+      "Content-Length": String(png.byteLength),
+      "Cache-Control": "public, max-age=300, s-maxage=300",
+    },
+  });
 }

@@ -144,8 +144,16 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
   async function fetchServerBlob(url: string) {
     try {
       const response = await fetch(url, { cache: "no-store" });
-      if (!response.ok) return null;
-      return response.blob();
+      if (!response.ok) {
+        console.warn("Server share image returned non-OK status", response.status, response.statusText);
+        return null;
+      }
+      const blob = await response.blob();
+      if (!blob.size) {
+        console.warn("Server share image returned empty blob", response.status, response.type);
+        return null;
+      }
+      return blob;
     } catch (err) {
       console.warn("Server share image fetch failed", err);
       return null;
@@ -170,7 +178,8 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
   async function handleShare() {
     const serverShareBlob = serverShareImageUrl ? await fetchServerBlob(serverShareImageUrl) : null;
     if (serverShareImageUrl && !serverShareBlob) {
-      toast.error("Não foi possível carregar a imagem para compartilhar.");
+      window.open(serverShareImageUrl, "_blank", "noopener,noreferrer");
+      toast.error("Não foi possível anexar automaticamente. A imagem foi aberta para salvar/compartilhar manualmente.");
       return;
     }
 
