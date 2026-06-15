@@ -44,46 +44,28 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
     if (!node) return null;
     setCapturing(true);
 
+    const CARD_W = 540;
+    const CARD_H = 960;
+
     try {
       await document.fonts?.ready?.catch(() => undefined);
       await waitForImages(node);
       await waitForPaint();
 
-      // Primary: html2canvas (no foreignObject — works on iOS PWA)
-      try {
-        const html2canvas = (await import("html2canvas")).default;
-        const canvas = await html2canvas(node, {
-          scale: 2,
-          useCORS: true,
-          allowTaint: false,
-          backgroundColor: "#0d0d0d",
-          logging: false,
-          width: node.scrollWidth,
-          height: node.scrollHeight,
-        });
-        const blob = await new Promise<Blob | null>((resolve) =>
-          canvas.toBlob(resolve, "image/png"),
-        );
-        if (blob) return blob;
-      } catch (err) {
-        console.warn("html2canvas failed, trying html-to-image", err);
-      }
+      const bgColor = getComputedStyle(node).backgroundColor || "#0d0d0d";
 
-      // Fallback: html-to-image
+      // Primary: html-to-image (more reliable layout rendering)
       try {
         const { toBlob, toPng } = await import("html-to-image");
-        const width = node.scrollWidth;
-        const height = node.scrollHeight;
-        const bgColor = getComputedStyle(node).backgroundColor || "#0d0d0d";
 
         try {
           const blob = await toBlob(node, {
             pixelRatio: 2,
             cacheBust: true,
-            width,
-            height,
+            width: CARD_W,
+            height: CARD_H,
             backgroundColor: bgColor,
-            style: { width: `${width}px`, height: `${height}px`, maxWidth: "none", transform: "none" },
+            style: { width: `${CARD_W}px`, height: `${CARD_H}px`, maxWidth: "none", transform: "none" },
           });
           if (blob) return blob;
         } catch {}
@@ -91,15 +73,35 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
         const dataUrl = await toPng(node, {
           pixelRatio: 2,
           cacheBust: true,
-          width,
-          height,
+          width: CARD_W,
+          height: CARD_H,
           backgroundColor: bgColor,
-          style: { width: `${width}px`, height: `${height}px`, maxWidth: "none", transform: "none" },
+          style: { width: `${CARD_W}px`, height: `${CARD_H}px`, maxWidth: "none", transform: "none" },
         });
         const res = await fetch(dataUrl);
         return res.blob();
       } catch (err) {
-        console.warn("html-to-image fallback also failed", err);
+        console.warn("html-to-image failed, trying html2canvas", err);
+      }
+
+      // Fallback: html2canvas
+      try {
+        const html2canvas = (await import("html2canvas")).default;
+        const canvas = await html2canvas(node, {
+          scale: 2,
+          useCORS: true,
+          allowTaint: false,
+          backgroundColor: bgColor,
+          logging: false,
+          width: CARD_W,
+          height: CARD_H,
+        });
+        const blob = await new Promise<Blob | null>((resolve) =>
+          canvas.toBlob(resolve, "image/png"),
+        );
+        if (blob) return blob;
+      } catch (err) {
+        console.warn("html2canvas fallback also failed", err);
       }
 
       toast.error("Não foi possível gerar a imagem.");
