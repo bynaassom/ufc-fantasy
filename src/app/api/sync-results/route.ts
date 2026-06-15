@@ -558,8 +558,26 @@ export async function POST(req: NextRequest) {
   );
 
   if (rpcError) {
+    await logSyncAttempt(adminSupabase, {
+      step: "transaction_failed",
+      event_id,
+      event_slug: event?.slug || null,
+      is_external: !!isExternalCall,
+      updates: resultsBatch.length,
+      error: {
+        message: rpcError.message,
+        details: rpcError.details || null,
+        hint: rpcError.hint || null,
+        code: rpcError.code || null,
+      },
+    });
     return NextResponse.json(
-      { error: `Falha na transação: ${rpcError.message}` },
+      {
+        error: `Falha na transação: ${rpcError.message}`,
+        details: rpcError.details || null,
+        hint: rpcError.hint || null,
+        code: rpcError.code || null,
+      },
       { status: 500 },
     );
   }
