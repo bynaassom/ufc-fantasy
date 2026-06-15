@@ -41,7 +41,8 @@ export default async function ShareEventResultPage({ params }: Params) {
     baseUrl,
   );
   const shareImageUrl = `/api/share/event/${encodeURIComponent(params.slug)}/${encodeURIComponent(params.nickname)}/image`;
+  const shareJpegUrl = `${shareImageUrl}?format=jpg`;
   const bannerDataUrl = await inlineImageDataUrl(data.event.banner_image_url);
 
-  return <EventResultSharePage data={data} shareUrl={shareUrl} bannerDataUrl={bannerDataUrl} shareImageUrl={shareImageUrl} />;
+  return <EventResultSharePage data={data} shareUrl={shareUrl} bannerDataUrl={bannerDataUrl} shareImageUrl={shareImageUrl} shareJpegUrl={shareJpegUrl} />;
 }

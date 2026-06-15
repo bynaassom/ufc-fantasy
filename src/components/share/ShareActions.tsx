@@ -10,9 +10,10 @@ type Props = {
   whatsappTextUrl: string;
   bannerLoaded?: boolean;
   serverImageUrl?: string;
+  serverShareImageUrl?: string;
 };
 
-export default function ShareActions({ cardRef, filename, shareCaption, whatsappTextUrl, bannerLoaded = true, serverImageUrl }: Props) {
+export default function ShareActions({ cardRef, filename, shareCaption, whatsappTextUrl, bannerLoaded = true, serverImageUrl, serverShareImageUrl }: Props) {
   const [capturing, setCapturing] = useState(false);
   const canCapture = (!!serverImageUrl || bannerLoaded) && !capturing;
 
@@ -140,38 +141,14 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
     return value.replace(/\.png$/i, ".jpg");
   }
 
-  async function flattenForShare(blob: Blob): Promise<Blob | null> {
-    const url = URL.createObjectURL(blob);
+  async function fetchServerBlob(url: string) {
     try {
-      const img = new Image();
-      const loaded = new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve();
-        img.onerror = () => reject(new Error("Could not load share image for JPEG conversion"));
-      });
-      img.src = url;
-      await loaded;
-      await img.decode?.().catch(() => undefined);
-
-      const width = img.naturalWidth || 1080;
-      const height = img.naturalHeight || 1920;
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return null;
-
-      ctx.fillStyle = "#0d0d0d";
-      ctx.fillRect(0, 0, width, height);
-      ctx.drawImage(img, 0, 0, width, height);
-
-      return await new Promise<Blob | null>((resolve) =>
-        canvas.toBlob(resolve, "image/jpeg", 0.94),
-      );
+      const response = await fetch(url, { cache: "no-store" });
+      if (!response.ok) return null;
+      return response.blob();
     } catch (err) {
-      console.warn("JPEG share conversion failed", err);
+      console.warn("Server share image fetch failed", err);
       return null;
-    } finally {
-      URL.revokeObjectURL(url);
     }
   }
 
@@ -191,13 +168,14 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
   }
 
   async function handleShare() {
-    const blob = await captureBlob();
+    const serverShareBlob = serverShareImageUrl ? await fetchServerBlob(serverShareImageUrl) : null;
+    const blob = serverShareBlob || await captureBlob();
     if (!blob) return;
 
-    const shareBlob = await flattenForShare(blob);
-    const file = shareBlob
-      ? new File([shareBlob], jpegFilename(filename), { type: "image/jpeg" })
-      : new File([blob], filename, { type: "image/png" });
+    const isJpeg = blob.type === "image/jpeg" || !!serverShareBlob;
+    const file = new File([blob], isJpeg ? jpegFilename(filename) : filename, {
+      type: isJpeg ? "image/jpeg" : "image/png",
+    });
 
     if (navigator.share && navigator.canShare?.({ files: [file] })) {
       try {
