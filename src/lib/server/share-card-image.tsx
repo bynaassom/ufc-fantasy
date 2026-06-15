@@ -84,6 +84,7 @@ const heroStyle: CSSProperties = {
 const heroOverlayStyle: CSSProperties = {
   position: "absolute",
   inset: 0,
+  display: "flex",
   background: "linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(13,13,13,0.45) 40%, rgba(13,13,13,0.95) 100%)",
 };
 
@@ -141,34 +142,34 @@ function Hero({
       <div style={heroContentStyle}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", width: "100%" }}>
           <div style={{ display: "flex", flexDirection: "column" }}>
-            <div style={{ color: RED, fontSize: 24, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.2em" }}>
+            <div style={{ display: "flex", color: RED, fontSize: 24, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.2em" }}>
               UFC Fantasy
             </div>
-            <div style={{ marginTop: 8, color: "rgba(255,255,255,0.45)", fontSize: 24, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.18em" }}>
+            <div style={{ display: "flex", marginTop: 8, color: "rgba(255,255,255,0.45)", fontSize: 24, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.18em" }}>
               {formatEventDate(event.event_date)}
             </div>
           </div>
-          <div style={{ maxWidth: 360, color: "rgba(255,255,255,0.7)", fontSize: 26, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", lineHeight: 1.1, textAlign: "right" }}>
+          <div style={{ display: "flex", maxWidth: 360, color: "rgba(255,255,255,0.7)", fontSize: 26, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", lineHeight: 1.1, textAlign: "right" }}>
             {event.name}
           </div>
         </div>
 
         {status === "not_public_yet" ? (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
-            <div style={{ fontSize: 68, fontWeight: 900, textTransform: "uppercase", lineHeight: 0.9, letterSpacing: "0.04em" }}>
+            <div style={{ display: "flex", fontSize: 68, fontWeight: 900, textTransform: "uppercase", lineHeight: 0.9, letterSpacing: "0.04em" }}>
               {title}
             </div>
-            <div style={{ marginTop: 28, maxWidth: 480, color: "rgba(255,255,255,0.45)", fontSize: 30, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.12em", lineHeight: 1.15 }}>
+            <div style={{ display: "flex", marginTop: 28, maxWidth: 480, color: "rgba(255,255,255,0.45)", fontSize: 30, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.12em", lineHeight: 1.15 }}>
               {subtitle}
             </div>
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
-              <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 40, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.18em" }}>
+              <div style={{ display: "flex", color: "rgba(255,255,255,0.5)", fontSize: 40, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.18em" }}>
                 {title}
               </div>
-              <div style={{ marginTop: -2, fontSize: 132, fontWeight: 900, textTransform: "uppercase", lineHeight: 0.88, letterSpacing: "-0.02em" }}>
+              <div style={{ display: "flex", marginTop: -2, fontSize: 132, fontWeight: 900, textTransform: "uppercase", lineHeight: 0.88, letterSpacing: "-0.02em" }}>
                 {subtitle}
               </div>
             </div>
@@ -184,8 +185,8 @@ function Hero({
                     borderLeft: index ? "2px solid rgba(255,255,255,0.08)" : "none",
                   }}
                 >
-                  <div style={{ color: stat.highlight ? RED : TEXT, fontSize: 68, fontWeight: 900, lineHeight: 1 }}>{stat.value}</div>
-                  <div style={{ marginTop: 8, color: "rgba(255,255,255,0.35)", fontSize: 20, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.18em" }}>
+                  <div style={{ display: "flex", color: stat.highlight ? RED : TEXT, fontSize: 68, fontWeight: 900, lineHeight: 1 }}>{stat.value}</div>
+                  <div style={{ display: "flex", marginTop: 8, color: "rgba(255,255,255,0.35)", fontSize: 20, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.18em" }}>
                     {stat.label}
                   </div>
                 </div>
@@ -201,7 +202,7 @@ function Hero({
 function Footer({ text }: { text: string }) {
   return (
     <div style={{ marginTop: 32, paddingTop: 32, display: "flex", justifyContent: "center", borderTop: `2px solid ${BORDER}` }}>
-      <div style={{ color: MUTED, fontSize: 26, fontWeight: 500, letterSpacing: "0.12em" }}>{text}</div>
+      <div style={{ display: "flex", color: MUTED, fontSize: 26, fontWeight: 500, letterSpacing: "0.12em" }}>{text}</div>
     </div>
   );
 }
@@ -243,8 +244,8 @@ export function renderPickShareCardImage(data: PickShareData, bannerUrl?: string
                   const hasPick = !!pick;
                   return (
                     <div key={fight.id} style={{ height: 60, display: "flex", alignItems: "center", gap: 20, backgroundColor: ROW, borderLeft: hasPick ? `6px solid ${RED}` : "6px solid transparent", padding: "0 20px 0 18px" }}>
-                      <div style={{ width: 36, color: MUTED, fontSize: 24, fontWeight: 700, textAlign: "right" }}>{index + 1}</div>
-                      <div style={{ flex: 1, color: hasPick ? TEXT : MUTED, fontSize: 26, fontWeight: 700 }}>{hasPick ? pickLine(pickedName, true, pick.picked_method, pick.picked_round) : "Sem pick"}</div>
+                      <div style={{ display: "flex", width: 36, color: MUTED, fontSize: 24, fontWeight: 700, textAlign: "right" }}>{index + 1}</div>
+                      <div style={{ display: "flex", flex: 1, color: hasPick ? TEXT : MUTED, fontSize: 26, fontWeight: 700 }}>{hasPick ? pickLine(pickedName, true, pick.picked_method, pick.picked_round) : "Sem pick"}</div>
                     </div>
                   );
                 })}
@@ -291,12 +292,12 @@ export function renderResultShareCardImage(data: ResultShareData, bannerUrl?: st
               ) : null}
 
               <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "0 20px 14px 18px", borderBottom: `2px solid ${BORDER}`, borderLeft: "6px solid transparent" }}>
-                <div style={{ width: 36 }} />
-                <div style={{ flex: 3, color: MUTED, fontSize: 18, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.18em" }}>Meu pick</div>
+                <div style={{ display: "flex", width: 36 }} />
+                <div style={{ display: "flex", flex: 3, color: MUTED, fontSize: 18, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.18em" }}>Meu pick</div>
                 <div style={{ width: 2, alignSelf: "stretch", backgroundColor: "#333" }} />
-                <div style={{ flex: 2, color: MUTED, fontSize: 18, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.18em", paddingLeft: 24 }}>Resultado</div>
+                <div style={{ display: "flex", flex: 2, color: MUTED, fontSize: 18, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.18em", paddingLeft: 24 }}>Resultado</div>
                 <div style={{ width: 2, alignSelf: "stretch", backgroundColor: "#333" }} />
-                <div style={{ width: 120, color: MUTED, fontSize: 18, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.18em", paddingLeft: 24 }}>Pts</div>
+                <div style={{ display: "flex", width: 120, color: MUTED, fontSize: 18, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.18em", paddingLeft: 24 }}>Pts</div>
               </div>
 
               <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10, overflow: "hidden", marginTop: 10 }}>
@@ -316,15 +317,15 @@ export function renderResultShareCardImage(data: ResultShareData, bannerUrl?: st
                   const resultMr = winnerName ? formatMr(fight.result_method, fight.result_round) : "";
                   return (
                     <div key={fight.id} style={{ height: 68, display: "flex", alignItems: "center", gap: 16, backgroundColor: ROW, borderLeft: hasPick ? `6px solid ${RED}` : "6px solid transparent", padding: "0 20px 0 18px" }}>
-                      <div style={{ width: 36, color: MUTED, fontSize: 22, fontWeight: 700, textAlign: "right" }}>{index + 1}</div>
+                      <div style={{ display: "flex", width: 36, color: MUTED, fontSize: 22, fontWeight: 700, textAlign: "right" }}>{index + 1}</div>
                       <div style={{ flex: 3, display: "flex", justifyContent: "space-between", gap: 16, alignItems: "baseline" }}>
-                        <div style={{ color: hasPick ? TEXT : MUTED, fontSize: 24, fontWeight: 700 }}>{hasPick ? compactLabel(pickedName, 18) : "Sem pick"}</div>
-                        {pickMr ? <div style={{ color: "#666", fontSize: 18, fontWeight: 500 }}>{pickMr}</div> : null}
+                        <div style={{ display: "flex", color: hasPick ? TEXT : MUTED, fontSize: 24, fontWeight: 700 }}>{hasPick ? compactLabel(pickedName, 18) : "Sem pick"}</div>
+                        {pickMr ? <div style={{ display: "flex", color: "#666", fontSize: 18, fontWeight: 500 }}>{pickMr}</div> : null}
                       </div>
                       <div style={{ width: 2, alignSelf: "stretch", backgroundColor: "#333" }} />
                       <div style={{ flex: 2, display: "flex", justifyContent: "space-between", gap: 16, alignItems: "baseline", paddingLeft: 24 }}>
-                        <div style={{ color: isCorrect ? "#22c55e" : MUTED, fontSize: 24, fontWeight: 700 }}>{winnerName ? compactLabel(winnerName, 14) : "-"}</div>
-                        {resultMr ? <div style={{ color: isCorrect ? "#22c55e" : MUTED, fontSize: 18, fontWeight: 500 }}>{resultMr}</div> : null}
+                        <div style={{ display: "flex", color: isCorrect ? "#22c55e" : MUTED, fontSize: 24, fontWeight: 700 }}>{winnerName ? compactLabel(winnerName, 14) : "-"}</div>
+                        {resultMr ? <div style={{ display: "flex", color: isCorrect ? "#22c55e" : MUTED, fontSize: 18, fontWeight: 500 }}>{resultMr}</div> : null}
                       </div>
                       <div style={{ width: 2, alignSelf: "stretch", backgroundColor: "#333" }} />
                       <div style={{ width: 120, display: "flex", justifyContent: "flex-end", alignItems: "baseline", color: totalPts > 0 ? RED : MUTED, fontSize: 26, fontWeight: 900, paddingLeft: 24 }}>
