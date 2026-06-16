@@ -2,6 +2,7 @@ import { ImageResponse } from "next/og";
 import { getPublicEventPickShareData } from "@/server/services/app";
 import { pngBufferToJpegBuffer } from "@/lib/server/png-to-jpeg";
 import { renderPickShareCardImage, SHARE_IMAGE_SIZE } from "@/lib/server/share-card-image";
+import { inlineImageDataUrl } from "@/lib/server/inline-image";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,8 +18,9 @@ export async function GET(request: Request, { params }: Params) {
   const data = await getPublicEventPickShareData(params.slug, params.nickname);
   if (!data) return new Response("Not found", { status: 404 });
 
+  const bannerDataUrl = await inlineImageDataUrl(data.event.banner_image_url);
   const image = new ImageResponse(
-    renderPickShareCardImage(data, data.event.banner_image_url),
+    renderPickShareCardImage(data, bannerDataUrl),
     {
       ...SHARE_IMAGE_SIZE,
     },

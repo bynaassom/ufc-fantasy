@@ -10,15 +10,24 @@ type Props = {
   whatsappTextUrl: string;
   bannerLoaded?: boolean;
   serverImageUrl?: string;
+  bannerImageUrl?: string;
 };
 
-export default function ShareActions({ cardRef, filename, shareCaption, whatsappTextUrl, bannerLoaded = true, serverImageUrl }: Props) {
+export default function ShareActions({ cardRef, filename, shareCaption, whatsappTextUrl, bannerLoaded = true, serverImageUrl, bannerImageUrl }: Props) {
   const [capturing, setCapturing] = useState(false);
   const canCapture = (!!serverImageUrl || bannerLoaded) && !capturing;
 
+  const bannerProxyUrl = bannerImageUrl
+    ? `/api/image-proxy?url=${encodeURIComponent(bannerImageUrl)}`
+    : null;
+
   function waitForPaint() {
     return new Promise<void>((resolve) => {
-      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setTimeout(resolve, 200);
+        });
+      });
     });
   }
 
@@ -38,6 +47,34 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
       ),
     );
     await Promise.all(imgs.map((img) => img.decode().catch(() => {})));
+  }
+
+  async function swapBannerToProxy(): Promise<boolean> {
+    if (!bannerProxyUrl) return true;
+    const el = cardRef.current?.querySelector("[data-banner]") as HTMLElement | null;
+    if (!el) return true;
+
+    const original = el.style.backgroundImage;
+    el.dataset.originalBg = original;
+    el.style.backgroundImage = `url("${bannerProxyUrl}")`;
+
+    return new Promise<boolean>((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve(true);
+      img.onerror = () => {
+        el.style.backgroundImage = original;
+        delete el.dataset.originalBg;
+        resolve(false);
+      };
+      img.src = bannerProxyUrl;
+    });
+  }
+
+  function restoreBanner() {
+    const el = cardRef.current?.querySelector("[data-banner]") as HTMLElement | null;
+    if (!el?.dataset.originalBg) return;
+    el.style.backgroundImage = el.dataset.originalBg;
+    delete el.dataset.originalBg;
   }
 
   async function fetchServerImageBlob() {
@@ -62,13 +99,17 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
     const CARD_H = 960;
 
     try {
+      let swapped = false;
+      try {
+        swapped = await swapBannerToProxy();
+      } catch {}
+
       await document.fonts?.ready?.catch(() => undefined);
-      await waitForImages(node);
+      if (swapped) await waitForImages(node);
       await waitForPaint();
 
       const bgColor = getComputedStyle(node).backgroundColor || "#0d0d0d";
 
-      // Primary: html-to-image (more reliable layout rendering)
       try {
         const { toBlob, toPng } = await import("html-to-image");
 
@@ -98,7 +139,6 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
         console.warn("html-to-image failed, trying html2canvas", err);
       }
 
-      // Fallback: html2canvas
       try {
         const html2canvas = (await import("html2canvas")).default;
         const canvas = await html2canvas(node, {
@@ -128,6 +168,7 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
       toast.error("Não foi possível gerar a imagem.");
       return null;
     } finally {
+      restoreBanner();
       setCapturing(false);
     }
   }

@@ -72,16 +72,19 @@ export default function EventResultSharePage({ data, shareUrl, bannerDataUrl, sh
   const totalPicks = picks.length;
   const hasBanner = !!event.banner_image_url;
   const [bannerLoaded, setBannerLoaded] = useState(!hasBanner);
-  const bannerUrl = bannerDataUrl || event.banner_image_url;
+  const proxyUrl = event.banner_image_url
+    ? `/api/image-proxy?url=${encodeURIComponent(event.banner_image_url)}`
+    : undefined;
+  const bannerSrc = bannerDataUrl || proxyUrl;
 
   useEffect(() => {
-    if (!bannerUrl) { setBannerLoaded(true); return; }
+    if (!bannerSrc) { setBannerLoaded(true); return; }
     setBannerLoaded(false);
     const img = new Image();
     img.onload = () => setBannerLoaded(true);
     img.onerror = () => setBannerLoaded(true);
-    img.src = bannerUrl;
-  }, [bannerUrl]);
+    img.src = bannerSrc;
+  }, [bannerSrc]);
   const whatsappHref = `https://wa.me/?text=${encodeURIComponent(`Veja meu resultado no ${event.name}: ${profile.nickname} fez ${totalPoints} pts no UFC Fantasy ${shareUrl}`)}`;
   const shareCaption = `${profile.nickname} fez ${totalPoints} pontos no ${event.name} pelo UFC Fantasy. Veja o resultado e entre no jogo: ${shareUrl}`;
   const filename = `ufc-fantasy-result-${event.slug}-${safeFilenamePart(profile.nickname)}.png`;
@@ -133,17 +136,15 @@ export default function EventResultSharePage({ data, shareUrl, bannerDataUrl, sh
                   background: "#141414",
                 }}
               >
-                {hasBanner && (
-                  <img
-                    src={bannerDataUrl || event.banner_image_url!}
-                    alt=""
+                {hasBanner && bannerSrc && (
+                  <div
+                    data-banner
                     style={{
                       position: "absolute",
                       inset: 0,
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                      objectPosition: event.banner_object_position || "center",
+                      backgroundImage: `url("${bannerSrc}")`,
+                      backgroundSize: "cover",
+                      backgroundPosition: event.banner_object_position || "center",
                     }}
                   />
                 )}
@@ -475,6 +476,7 @@ export default function EventResultSharePage({ data, shareUrl, bannerDataUrl, sh
             whatsappTextUrl={whatsappHref}
             bannerLoaded={bannerLoaded}
             serverImageUrl={shareImageUrl}
+            bannerImageUrl={event.banner_image_url || undefined}
           />
         </div>
       )}
