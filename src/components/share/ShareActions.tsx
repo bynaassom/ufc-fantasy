@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 
 type Props = {
@@ -20,12 +20,21 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
   const bannerProxyUrl = bannerImageUrl
     ? `/api/image-proxy?url=${encodeURIComponent(bannerImageUrl)}`
     : null;
+  const proxyLoadedRef = useRef(false);
+
+  useEffect(() => {
+    if (!bannerProxyUrl) return;
+    const img = new Image();
+    img.onload = () => { proxyLoadedRef.current = true; };
+    img.onerror = () => { proxyLoadedRef.current = false; };
+    img.src = bannerProxyUrl;
+  }, [bannerProxyUrl]);
 
   function waitForPaint() {
     return new Promise<void>((resolve) => {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          setTimeout(resolve, 200);
+          setTimeout(resolve, 300);
         });
       });
     });
@@ -58,9 +67,17 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
     el.dataset.originalBg = original;
     el.style.backgroundImage = `url("${bannerProxyUrl}")`;
 
+    if (proxyLoadedRef.current) {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+      return true;
+    }
+
     return new Promise<boolean>((resolve) => {
       const img = new Image();
-      img.onload = () => resolve(true);
+      img.onload = () => {
+        proxyLoadedRef.current = true;
+        resolve(true);
+      };
       img.onerror = () => {
         el.style.backgroundImage = original;
         delete el.dataset.originalBg;
