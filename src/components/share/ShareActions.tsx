@@ -15,7 +15,8 @@ type Props = {
 
 export default function ShareActions({ cardRef, filename, shareCaption, whatsappTextUrl, bannerLoaded = true, serverImageUrl, bannerImageUrl }: Props) {
   const [capturing, setCapturing] = useState(false);
-  const canCapture = (!!serverImageUrl || bannerLoaded) && !capturing;
+  const [imageBlob, setImageBlob] = useState<Blob | null>(null);
+  const canGenerate = (!!serverImageUrl || bannerLoaded) && !capturing;
 
   const bannerProxyUrl = bannerImageUrl
     ? `/api/image-proxy?url=${encodeURIComponent(bannerImageUrl)}`
@@ -190,6 +191,11 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
     }
   }
 
+  async function handleGenerate() {
+    const blob = await captureBlob();
+    if (blob) setImageBlob(blob);
+  }
+
   function downloadBlob(blob: Blob) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -238,16 +244,14 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
   }
 
   async function handleDownload() {
-    const blob = await captureBlob();
-    if (!blob) return;
-    downloadBlob(blob);
+    if (!imageBlob) return;
+    downloadBlob(imageBlob);
   }
 
   async function handleShare() {
-    const blob = await captureBlob();
-    if (!blob) return;
+    if (!imageBlob) return;
 
-    const shareBlob = blob.type === "image/png" ? await convertPngToJpeg(blob) : blob;
+    const shareBlob = imageBlob.type === "image/png" ? await convertPngToJpeg(imageBlob) : imageBlob;
     if (!shareBlob) {
       toast.error("Não foi possível preparar a imagem para compartilhar.");
       return;
@@ -260,47 +264,79 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
 
     if (navigator.share && navigator.canShare?.({ files: [file] })) {
       try {
-        await navigator.share({ files: [file] });
-        await copyCaption();
+        await navigator.share({ files: [file], text: shareCaption });
       } catch (error: any) {
         if (error?.name !== "AbortError") {
-          downloadBlob(blob);
+          downloadBlob(imageBlob);
           await copyCaption();
         }
       }
     } else {
-      downloadBlob(blob);
+      downloadBlob(imageBlob);
       await copyCaption();
     }
+  }
+
+  const btnBase = "px-5 py-3 text-center font-condensed text-sm font-900 uppercase tracking-widest";
+  const btnDisabled = "disabled:opacity-60";
+
+  if (!imageBlob) {
+    return (
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <button
+          onClick={handleGenerate}
+          disabled={!canGenerate}
+          className={`${btnBase} ${btnDisabled}`}
+          style={
+            capturing
+              ? { border: "1px solid var(--border)", color: "var(--text)", backgroundColor: "var(--bg-card)" }
+              : { backgroundColor: "var(--red)", color: "#fff" }
+          }
+        >
+          {!canGenerate ? "Carregando..." : capturing ? "Gerando..." : "Gerar imagem"}
+        </button>
+        <a
+          href={whatsappTextUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={btnBase}
+          style={{
+            border: "1px solid var(--border)",
+            color: "var(--text)",
+            backgroundColor: "var(--bg-card)",
+          }}
+        >
+          Compartilhar texto
+        </a>
+      </div>
+    );
   }
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row">
       <button
         onClick={handleDownload}
-        disabled={!canCapture}
-        className="px-5 py-3 text-center font-condensed text-sm font-900 uppercase tracking-widest disabled:opacity-60"
+        className={`${btnBase} ${btnDisabled}`}
         style={{
           border: "1px solid var(--border)",
           color: "var(--text)",
           backgroundColor: "var(--bg-card)",
         }}
       >
-        {!serverImageUrl && !bannerLoaded ? "Carregando..." : capturing ? "Gerando..." : "Baixar imagem"}
+        Baixar imagem
       </button>
       <button
         onClick={handleShare}
-        disabled={!canCapture}
-        className="px-5 py-3 text-center font-condensed text-sm font-900 uppercase tracking-widest text-white disabled:opacity-60"
-        style={{ backgroundColor: "var(--red)" }}
+        className={`${btnBase} ${btnDisabled}`}
+        style={{ backgroundColor: "var(--red)", color: "#fff" }}
       >
-        {!serverImageUrl && !bannerLoaded ? "Carregando..." : capturing ? "Gerando..." : "Compartilhar imagem"}
+        Compartilhar imagem
       </button>
       <a
         href={whatsappTextUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="px-5 py-3 text-center font-condensed text-sm font-900 uppercase tracking-widest"
+        className={btnBase}
         style={{
           border: "1px solid var(--border)",
           color: "var(--text)",
