@@ -16,7 +16,8 @@ export type UfcNotificationType =
   | "fight_removed"
   | "fight_added"
   | "card_updated"
-  | "perfect_pick";
+  | "perfect_pick"
+  | "event_completed";
 
 export type PickReminderType = Extract<
   UfcNotificationType,
@@ -42,6 +43,7 @@ export function getNotificationPreferenceKey(
     fight_removed: "card_updated",
     fight_added: "card_updated",
     perfect_pick: "perfect_pick",
+    event_completed: "event_completed",
     challenge_received: "challenge_received",
     challenge_accepted: "challenge_accepted",
     challenge_declined: "challenge_declined",
@@ -332,6 +334,11 @@ export function buildNotificationContent({
         message: [baseMessage, rarityCopy].filter(Boolean).join(" "),
       };
     }
+    case "event_completed":
+      return {
+        title: "Evento encerrado",
+        message: `O ${eventName} acabou. Confira os resultados no historico.`,
+      };
     default:
       return {
         title: "Notificacao",

@@ -36,12 +36,14 @@ describe("event lifecycle", () => {
     ).toBe(false);
   });
 
-  it("opens picks on the day after completion at 15 UTC", () => {
-    expect(getNextPicksOpenAt(new Date("2026-06-07T03:42:00.000Z"))).toBe(
-      "2026-06-08T15:00:00.000Z",
+  it("opens picks 6 days before the next event at 15h UTC", () => {
+    // Event on June 12 at 22:00 UTC → picks open on June 6 at 15:00 UTC
+    expect(getNextPicksOpenAt("2026-06-12T22:00:00.000Z")).toBe(
+      "2026-06-06T15:00:00.000Z",
     );
-    expect(getNextPicksOpenAt(new Date("2026-12-31T23:59:00.000Z"))).toBe(
-      "2027-01-01T15:00:00.000Z",
+    // Event on Jan 1 at 00:00 UTC → picks open on Dec 26 at 15:00 UTC
+    expect(getNextPicksOpenAt("2027-01-01T00:00:00.000Z")).toBe(
+      "2026-12-26T15:00:00.000Z",
     );
   });
 });

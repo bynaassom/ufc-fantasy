@@ -3,7 +3,7 @@ import { formatEventDate } from "@/lib/utils";
 import type { EventRecapData } from "@/types";
 
 export default function EventRecapContent({ data }: { data: EventRecapData }) {
-  const { event, ranking, aggregateStats, fightStats } = data;
+  const { event, ranking, aggregateStats, fightStats, nextEventSlug } = data;
 
   return (
     <main className="min-h-[100dvh]" style={{ backgroundColor: "var(--bg)" }}>
@@ -139,13 +139,23 @@ export default function EventRecapContent({ data }: { data: EventRecapData }) {
 
         {/* CTA */}
         <div className="mt-8 text-center">
-          <Link
-            href={`/event/${event.slug}`}
-            className="inline-block px-6 py-3 font-condensed text-sm font-900 uppercase tracking-widest text-white"
-            style={{ backgroundColor: "var(--red)" }}
-          >
-            Ver próximo evento
-          </Link>
+          {nextEventSlug ? (
+            <Link
+              href={`/event/${nextEventSlug}`}
+              className="inline-block px-6 py-3 font-condensed text-sm font-900 uppercase tracking-widest text-white"
+              style={{ backgroundColor: "var(--red)" }}
+            >
+              Ver próximo evento
+            </Link>
+          ) : (
+            <Link
+              href="/home"
+              className="inline-block px-6 py-3 font-condensed text-sm font-900 uppercase tracking-widest text-white"
+              style={{ backgroundColor: "var(--red)" }}
+            >
+              Voltar para home
+            </Link>
+          )}
         </div>
       </section>
     </main>

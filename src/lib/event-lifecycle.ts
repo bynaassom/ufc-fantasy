@@ -17,12 +17,13 @@ export function shouldCompleteEvent(fights: FightResultLike[]) {
   return fights.length > 0 && fights.every((fight) => fight.result_confirmed === true);
 }
 
-export function getNextPicksOpenAt(completedAt = new Date()) {
+export function getNextPicksOpenAt(nextEventDate: string) {
+  const eventDate = new Date(nextEventDate);
   return new Date(
     Date.UTC(
-      completedAt.getUTCFullYear(),
-      completedAt.getUTCMonth(),
-      completedAt.getUTCDate() + 1,
+      eventDate.getUTCFullYear(),
+      eventDate.getUTCMonth(),
+      eventDate.getUTCDate() - 6,
       15,
     ),
   ).toISOString();

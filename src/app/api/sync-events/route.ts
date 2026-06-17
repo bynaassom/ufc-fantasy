@@ -257,7 +257,8 @@ function buildSyncPlan(
 
     const slug = getEventSlug(upstreamEvent);
     const picksLockAt = subtractMinutes(eventDate, 30);
-    const picksOpenAt = subtractHours(eventDate, 12);
+    const picksOpenDate = new Date(eventDate);
+    const picksOpenAt = new Date(Date.UTC(picksOpenDate.getUTCFullYear(), picksOpenDate.getUTCMonth(), picksOpenDate.getUTCDate() - 6, 15)).toISOString();
     const dateKey = getDateKey(eventDate);
     const matchupKey = getMatchupKey(upstreamEvent.name);
 

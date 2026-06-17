@@ -72,7 +72,8 @@ export async function POST(req: NextRequest) {
         .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
       const picksLockAt = new Date(new Date(event.date).getTime() - 30 * 60 * 1000).toISOString();
-      const picksOpenAt = new Date(new Date(event.date).getTime() - 12 * 60 * 60 * 1000).toISOString();
+      const eventDate = new Date(event.date);
+      const picksOpenAt = new Date(Date.UTC(eventDate.getUTCFullYear(), eventDate.getUTCMonth(), eventDate.getUTCDate() - 6, 15)).toISOString();
 
       let createdEvent: any = null;
       try {

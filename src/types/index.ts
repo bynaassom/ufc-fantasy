@@ -26,7 +26,8 @@ export type NotificationType =
   | "fight_removed"
   | "fight_added"
   | "card_updated"
-  | "perfect_pick";
+  | "perfect_pick"
+  | "event_completed";
 
 export interface Profile {
   id: string;
@@ -199,6 +200,7 @@ export type NotificationPreferences = {
   challenge_declined: boolean;
   challenge_result: boolean;
   badge_earned: boolean;
+  event_completed: boolean;
 };
 
 export interface PublicProfileStats {
@@ -377,6 +379,7 @@ export interface EventRecapData {
     total_perfect_picks: number;
   };
   fightStats: EventRecapFightStat[];
+  nextEventSlug: string | null;
 }
 
 export interface ChatMessage {

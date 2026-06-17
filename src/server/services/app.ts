@@ -1042,10 +1042,11 @@ export async function getEventRecapData(slug: string): Promise<import("@/types")
   const event = await getCachedEventBySlug(slug) as import("@/types").EventWithFights | null;
   if (!event) return null;
 
-  const [ranking, scoreStats, pickDistribution] = await Promise.all([
+  const [ranking, scoreStats, pickDistribution, { data: nextEvent }] = await Promise.all([
     getCachedEventRanking(event.id),
     getEventScoreStats(supabase, event.id),
     getPickDistributionForEvent(supabase, event.id),
+    supabase.from("events").select("slug").eq("status", "upcoming").gt("event_date", event.event_date).order("event_date", { ascending: true }).limit(1).maybeSingle(),
   ]);
 
   const fightStats: import("@/types").EventRecapFightStat[] = (event.fights || [])
@@ -1093,6 +1094,7 @@ export async function getEventRecapData(slug: string): Promise<import("@/types")
       total_perfect_picks: scoreStats.perfectPicks,
     },
     fightStats,
+    nextEventSlug: (nextEvent as any)?.slug || null,
   };
 }
 
@@ -2339,6 +2341,7 @@ const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   challenge_declined: true,
   challenge_result: true,
   badge_earned: true,
+  event_completed: true,
 };
 
 export async function getMyNotificationPreferences() {

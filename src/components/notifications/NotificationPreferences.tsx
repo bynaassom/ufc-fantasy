@@ -31,6 +31,7 @@ const SECTIONS: Section[] = [
     keys: [
       { key: "card_updated", label: "Card atualizado", desc: "Notificar quando o card do evento for alterado (lutas adicionadas/removidas)" },
       { key: "perfect_pick", label: "Cravadas", desc: "Notificar quando voce cravar uma luta (vencedor, metodo e round)" },
+      { key: "event_completed", label: "Evento encerrado", desc: "Notificar quando um evento for encerrado e os resultados estiverem disponiveis" },
     ],
   },
   {

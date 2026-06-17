@@ -3,6 +3,7 @@ import {
   getNextPicksOpenAt,
   shouldCompleteEvent,
 } from "@/lib/event-lifecycle";
+import { notifyActiveUsers } from "@/server/services/notifications";
 
 export async function promoteDueEventsToLive(client: DbClient, now = new Date()) {
   const { data: existingLive, error: liveError } = await client
@@ -82,16 +83,27 @@ export async function completeEventIfAllResultsConfirmed(
   if (nextEvent) {
     const { error: nextUpdateError } = await client
       .from("events")
-      .update({ picks_open_at: getNextPicksOpenAt(completedAt) })
+      .update({ picks_open_at: getNextPicksOpenAt(nextEvent.event_date) })
       .eq("id", nextEvent.id);
     if (nextUpdateError) throw new Error(nextUpdateError.message);
+  }
+
+  try {
+    await notifyActiveUsers(client, {
+      type: "event_completed",
+      event: { id: completedEvent.id, name: completedEvent.name, slug: completedEvent.slug },
+      targetPath: `/historico/${completedEvent.slug}`,
+      dedupeKey: `event_completed:${completedEvent.id}`,
+    });
+  } catch (err) {
+    console.error("Failed to send event_completed notification", err);
   }
 
   return {
     completed: true,
     event: completedEvent,
     nextEvent: nextEvent
-      ? { ...nextEvent, picks_open_at: getNextPicksOpenAt(completedAt) }
+      ? { ...nextEvent, picks_open_at: getNextPicksOpenAt(nextEvent.event_date) }
       : null,
   };
 }

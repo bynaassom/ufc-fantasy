@@ -374,6 +374,7 @@ export async function notifyActiveUsers(
     fightName?: string | null;
     perfectPickRarity?: PerfectPickRarity | null;
     dedupeKey?: string | null;
+    targetPath?: string | null;
   },
   deps: NotificationServiceDeps = defaultDeps,
 ) {

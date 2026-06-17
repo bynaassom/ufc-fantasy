@@ -117,8 +117,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Eventos não encontrados" }, { status: 404 });
   }
 
-  const openHoursBefore =
-    typeof body?.open_hours_before === "number" ? body.open_hours_before : 12;
+  const openDaysBefore =
+    typeof body?.open_days_before === "number" ? body.open_days_before : 6;
   const lockMinutesBefore =
     typeof body?.lock_minutes_before === "number" ? body.lock_minutes_before : 30;
   const nextStatus =
@@ -143,7 +143,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "reset_default" || action === "set_offsets") {
-      update.picks_open_at = subtractHours(event.event_date, openHoursBefore);
+      const d = new Date(event.event_date);
+      update.picks_open_at = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - openDaysBefore, 15)).toISOString();
       update.picks_lock_at = subtractMinutes(event.event_date, lockMinutesBefore);
     }
 
@@ -197,7 +198,7 @@ export async function POST(req: NextRequest) {
       action,
       selected_count: eventIds.length,
       applied_count: applied.length,
-      open_hours_before: action === "set_offsets" ? openHoursBefore : null,
+      open_days_before: action === "set_offsets" ? openDaysBefore : null,
       lock_minutes_before: action === "set_offsets" ? lockMinutesBefore : null,
       status: action === "set_status" ? nextStatus : null,
       event_ids: eventIds,
