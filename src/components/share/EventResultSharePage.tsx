@@ -128,6 +128,7 @@ export default function EventResultSharePage({ data, shareUrl, bannerDataUrl, sh
                 >
               {/* ── Hero section ── */}
               <div
+                data-hero
                 style={{
                   position: "relative",
                   height: 380,

@@ -119,6 +119,7 @@ export default function EventPickSharePage({ data, shareUrl, bannerDataUrl, shar
             >
               {/* ── Hero section ── */}
               <div
+                data-hero
                 style={{
                   position: "relative",
                   height: 380,

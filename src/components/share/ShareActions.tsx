@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
 type Props = {
@@ -21,13 +21,10 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
   const bannerProxyUrl = bannerImageUrl
     ? `/api/image-proxy?url=${encodeURIComponent(bannerImageUrl)}`
     : null;
-  const proxyLoadedRef = useRef(false);
 
   useEffect(() => {
     if (!bannerProxyUrl) return;
     const img = new Image();
-    img.onload = () => { proxyLoadedRef.current = true; };
-    img.onerror = () => { proxyLoadedRef.current = false; };
     img.src = bannerProxyUrl;
   }, [bannerProxyUrl]);
 
@@ -59,40 +56,179 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
     await Promise.all(imgs.map((img) => img.decode().catch(() => {})));
   }
 
-  async function swapBannerToProxy(): Promise<boolean> {
-    if (!bannerProxyUrl) return true;
-    const el = cardRef.current?.querySelector("[data-banner]") as HTMLElement | null;
-    if (!el) return true;
+  function getHeroRect(node: HTMLElement) {
+    const hero = node.querySelector("[data-hero]") as HTMLElement | null;
+    if (!hero) return null;
 
-    const original = el.style.backgroundImage;
-    el.dataset.originalBg = original;
-    el.style.backgroundImage = `url("${bannerProxyUrl}")`;
+    const nodeRect = node.getBoundingClientRect();
+    const heroRect = hero.getBoundingClientRect();
+    const scaleX = 540 / nodeRect.width;
+    const scaleY = 960 / nodeRect.height;
+    return {
+      x: (heroRect.left - nodeRect.left) * scaleX,
+      y: (heroRect.top - nodeRect.top) * scaleY,
+      width: heroRect.width * scaleX,
+      height: heroRect.height * scaleY,
+    };
+  }
 
-    if (proxyLoadedRef.current) {
-      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-      return true;
-    }
-
-    return new Promise<boolean>((resolve) => {
+  function loadImage(src: string) {
+    return new Promise<HTMLImageElement>((resolve, reject) => {
       const img = new Image();
-      img.onload = () => {
-        proxyLoadedRef.current = true;
-        resolve(true);
-      };
-      img.onerror = () => {
-        el.style.backgroundImage = original;
-        delete el.dataset.originalBg;
-        resolve(false);
-      };
-      img.src = bannerProxyUrl;
+      img.crossOrigin = "anonymous";
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("Failed to load banner image"));
+      img.src = src;
     });
   }
 
-  function restoreBanner() {
-    const el = cardRef.current?.querySelector("[data-banner]") as HTMLElement | null;
-    if (!el?.dataset.originalBg) return;
-    el.style.backgroundImage = el.dataset.originalBg;
-    delete el.dataset.originalBg;
+  function blobToImage(blob: Blob) {
+    return new Promise<HTMLImageElement>((resolve, reject) => {
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        resolve(img);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("Failed to load overlay image"));
+      };
+      img.src = url;
+    });
+  }
+
+  function canvasToBlob(canvas: HTMLCanvasElement, type = "image/png") {
+    return new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type));
+  }
+
+  function positionToPercent(token: string, axis: "x" | "y", fallback: number) {
+    const value = token.trim().toLowerCase();
+    if (!value || value === "center") return fallback;
+    if (axis === "x") {
+      if (value === "left") return 0;
+      if (value === "right") return 1;
+    } else {
+      if (value === "top") return 0;
+      if (value === "bottom") return 1;
+    }
+    if (value.endsWith("%")) {
+      const parsed = Number(value.slice(0, -1));
+      return Number.isFinite(parsed) ? parsed / 100 : fallback;
+    }
+    return fallback;
+  }
+
+  function parseObjectPosition(value?: string) {
+    const tokens = (value || "center").trim().split(/\s+/).filter(Boolean);
+    let x = 0.5;
+    let y = 0.5;
+
+    if (tokens.length === 1) {
+      const token = tokens[0].toLowerCase();
+      if (token === "top" || token === "bottom") y = positionToPercent(token, "y", y);
+      else x = positionToPercent(token, "x", x);
+      return { x, y };
+    }
+
+    const [first, second] = tokens;
+    if (first === "top" || first === "bottom") {
+      y = positionToPercent(first, "y", y);
+      x = positionToPercent(second, "x", x);
+    } else {
+      x = positionToPercent(first, "x", x);
+      y = positionToPercent(second, "y", y);
+    }
+    return { x, y };
+  }
+
+  function drawCoverImage(ctx: CanvasRenderingContext2D, img: HTMLImageElement, rect: { x: number; y: number; width: number; height: number }, objectPosition?: string) {
+    const srcW = img.naturalWidth || img.width;
+    const srcH = img.naturalHeight || img.height;
+    if (!srcW || !srcH) return;
+
+    const pos = parseObjectPosition(objectPosition);
+    const srcRatio = srcW / srcH;
+    const destRatio = rect.width / rect.height;
+    let sx = 0;
+    let sy = 0;
+    let sw = srcW;
+    let sh = srcH;
+
+    if (srcRatio > destRatio) {
+      sw = srcH * destRatio;
+      sx = (srcW - sw) * pos.x;
+    } else {
+      sh = srcW / destRatio;
+      sy = (srcH - sh) * pos.y;
+    }
+
+    ctx.drawImage(img, sx, sy, sw, sh, rect.x, rect.y, rect.width, rect.height);
+  }
+
+  async function captureOverlayBlob(node: HTMLElement, width: number, height: number) {
+    const hero = node.querySelector("[data-hero]") as HTMLElement | null;
+    const banner = node.querySelector("[data-banner]") as HTMLElement | null;
+    const originalNodeBackground = node.style.background;
+    const originalHeroBackground = hero?.style.background;
+    const originalBannerDisplay = banner?.style.display;
+
+    node.style.background = "transparent";
+    if (hero) hero.style.background = "transparent";
+    if (banner) banner.style.display = "none";
+
+    try {
+      const { toBlob, toPng } = await import("html-to-image");
+      const options = {
+        pixelRatio: 2,
+        cacheBust: true,
+        width,
+        height,
+        backgroundColor: "transparent",
+        style: { width: `${width}px`, height: `${height}px`, maxWidth: "none", transform: "none" },
+      };
+      const blob = await toBlob(node, options);
+      if (blob) return blob;
+
+      const dataUrl = await toPng(node, options);
+      const res = await fetch(dataUrl);
+      return res.blob();
+    } finally {
+      node.style.background = originalNodeBackground;
+      if (hero) hero.style.background = originalHeroBackground || "";
+      if (banner) banner.style.display = originalBannerDisplay || "";
+    }
+  }
+
+  async function composeCardBlob(node: HTMLElement, width: number, height: number) {
+    if (!bannerProxyUrl) return null;
+    const heroRect = getHeroRect(node);
+    if (!heroRect) return null;
+
+    const banner = node.querySelector("[data-banner]") as HTMLElement | null;
+    const objectPosition = banner?.style.backgroundPosition || "center";
+    const [bannerImg, overlayBlob] = await Promise.all([
+      loadImage(bannerProxyUrl),
+      captureOverlayBlob(node, width, height),
+    ]);
+    const overlayImg = await blobToImage(overlayBlob);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width * 2;
+    canvas.height = height * 2;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+
+    ctx.fillStyle = "#0d0d0d";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    drawCoverImage(ctx, bannerImg, {
+      x: heroRect.x * 2,
+      y: heroRect.y * 2,
+      width: heroRect.width * 2,
+      height: heroRect.height * 2,
+    }, objectPosition);
+    ctx.drawImage(overlayImg, 0, 0, canvas.width, canvas.height);
+    return canvasToBlob(canvas);
   }
 
   async function fetchServerImageBlob() {
@@ -117,16 +253,18 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
     const CARD_H = 960;
 
     try {
-      let swapped = false;
-      try {
-        swapped = await swapBannerToProxy();
-      } catch {}
-
       await document.fonts?.ready?.catch(() => undefined);
-      if (swapped) await waitForImages(node);
+      await waitForImages(node);
       await waitForPaint();
 
       const bgColor = getComputedStyle(node).backgroundColor || "#0d0d0d";
+
+      try {
+        const composedBlob = await composeCardBlob(node, CARD_W, CARD_H);
+        if (composedBlob) return composedBlob;
+      } catch (err) {
+        console.warn("Canvas share composition failed, trying DOM capture", err);
+      }
 
       try {
         const { toBlob, toPng } = await import("html-to-image");
@@ -186,7 +324,6 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
       toast.error("Não foi possível gerar a imagem.");
       return null;
     } finally {
-      restoreBanner();
       setCapturing(false);
     }
   }
