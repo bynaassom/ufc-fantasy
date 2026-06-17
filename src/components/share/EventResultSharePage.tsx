@@ -352,10 +352,13 @@ export default function EventResultSharePage({ data, shareUrl, bannerDataUrl, sh
                               : "";
                         const hasPick = !!pick;
                         const winnerName = getWinnerName(fight);
-                        const isCorrect = hasPick && pick?.picked_winner_id === fight.winner_id;
+                        const winnerHit = Number(pick?.points_winner || 0) > 0;
+                        const methodHit = Number(pick?.points_method || 0) > 0;
+                        const roundHit = Number(pick?.points_round || 0) > 0;
                         const totalPts = Number(pick?.total_points || 0);
                         const pickMr = hasPick ? formatMr(pick.picked_method, pick.picked_round) : "";
-                        const resultMr = winnerName ? formatMr(fight.result_method, fight.result_round) : "";
+                        const resultMethod = winnerName ? pickMethodAbbr(fight.result_method) : "";
+                        const showResultRound = winnerName && fight.result_method !== "decision" && fight.result_round;
 
                         return (
                           <div
@@ -407,16 +410,20 @@ export default function EventResultSharePage({ data, shareUrl, bannerDataUrl, sh
                             <div className="flex min-w-0 flex-[2] items-baseline justify-between gap-3 pl-3">
                               <span
                                 className="truncate text-[12px] font-700"
-                                style={{ color: isCorrect ? "#22c55e" : "#555" }}
+                                style={{ color: winnerHit ? "#22c55e" : "#555" }}
                               >
                                 {winnerName ? compactLabel(winnerName) : "-"}
                               </span>
-                              {resultMr && (
-                                <span
-                                  className="shrink-0 text-[9px] font-500"
-                                  style={{ color: isCorrect ? "#22c55e" : "#555" }}
-                                >
-                                  {resultMr}
+                              {resultMethod && (
+                                <span className="shrink-0 text-[9px] font-500">
+                                  <span style={{ color: methodHit ? "#22c55e" : "#555" }}>
+                                    {resultMethod}
+                                  </span>
+                                  {showResultRound && (
+                                    <span style={{ color: roundHit ? "#22c55e" : "#555" }}>
+                                      {` ${fight.result_round}RD`}
+                                    </span>
+                                  )}
                                 </span>
                               )}
                             </div>

@@ -311,10 +311,13 @@ export function renderResultShareCardImage(data: ResultShareData, bannerUrl?: st
                         : "";
                   const hasPick = !!pick;
                   const winnerName = getWinnerName(fight);
-                  const isCorrect = hasPick && pick?.picked_winner_id === fight.winner_id;
+                  const winnerHit = Number(pick?.points_winner || 0) > 0;
+                  const methodHit = Number(pick?.points_method || 0) > 0;
+                  const roundHit = Number(pick?.points_round || 0) > 0;
                   const totalPts = Number(pick?.total_points || 0);
                   const pickMr = hasPick ? formatMr(pick.picked_method, pick.picked_round) : "";
-                  const resultMr = winnerName ? formatMr(fight.result_method, fight.result_round) : "";
+                  const resultMethod = winnerName ? methodAbbr(fight.result_method) : "";
+                  const showResultRound = winnerName && fight.result_method !== "decision" && fight.result_round;
                   return (
                     <div key={fight.id} style={{ height: 68, display: "flex", alignItems: "center", gap: 16, backgroundColor: ROW, borderLeft: hasPick ? `6px solid ${RED}` : "6px solid transparent", padding: "0 20px 0 18px" }}>
                       <div style={{ display: "flex", width: 36, color: MUTED, fontSize: 22, fontWeight: 700, textAlign: "right" }}>{index + 1}</div>
@@ -324,8 +327,13 @@ export function renderResultShareCardImage(data: ResultShareData, bannerUrl?: st
                       </div>
                       <div style={{ width: 2, alignSelf: "stretch", backgroundColor: "#333" }} />
                       <div style={{ flex: 2, display: "flex", justifyContent: "space-between", gap: 16, alignItems: "baseline", paddingLeft: 24 }}>
-                        <div style={{ display: "flex", color: isCorrect ? "#22c55e" : MUTED, fontSize: 24, fontWeight: 700 }}>{winnerName ? compactLabel(winnerName, 14) : "-"}</div>
-                        {resultMr ? <div style={{ display: "flex", color: isCorrect ? "#22c55e" : MUTED, fontSize: 18, fontWeight: 500 }}>{resultMr}</div> : null}
+                        <div style={{ display: "flex", color: winnerHit ? "#22c55e" : MUTED, fontSize: 24, fontWeight: 700 }}>{winnerName ? compactLabel(winnerName, 14) : "-"}</div>
+                        {resultMethod ? (
+                          <div style={{ display: "flex", fontSize: 18, fontWeight: 500 }}>
+                            <span style={{ color: methodHit ? "#22c55e" : MUTED }}>{resultMethod}</span>
+                            {showResultRound ? <span style={{ color: roundHit ? "#22c55e" : MUTED }}>{` ${fight.result_round}RD`}</span> : null}
+                          </div>
+                        ) : null}
                       </div>
                       <div style={{ width: 2, alignSelf: "stretch", backgroundColor: "#333" }} />
                       <div style={{ width: 120, display: "flex", justifyContent: "flex-end", alignItems: "baseline", color: totalPts > 0 ? RED : MUTED, fontSize: 26, fontWeight: 900, paddingLeft: 24 }}>
