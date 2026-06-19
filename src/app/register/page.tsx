@@ -79,6 +79,7 @@ export default function RegisterPage() {
 
     if (data.session) {
       router.push(`/home`);
+      router.refresh();
       setLoading(false);
       return;
     }

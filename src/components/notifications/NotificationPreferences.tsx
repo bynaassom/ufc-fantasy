@@ -54,13 +54,14 @@ const SECTIONS: Section[] = [
 export default function NotificationPreferencesSection() {
   const [preferences, setPreferences] = useState<NotificationPreferences | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<NotificationKey | null>(null);
 
   useEffect(() => {
     fetch("/api/me/notification-preferences")
       .then((res) => readApiResponse<{ preferences: NotificationPreferences }>(res))
       .then((data) => setPreferences(data.preferences))
-      .catch(() => {})
+      .catch(() => setError("Erro ao carregar preferências."))
       .finally(() => setLoading(false));
   }, []);
 
@@ -100,6 +101,14 @@ export default function NotificationPreferencesSection() {
         <p className="text-sm" style={{ color: "var(--text-muted)" }}>
           Carregando...
         </p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-12 px-6" style={{ color: "var(--text-muted)" }}>
+        <p className="text-sm" style={{ color: "var(--red)" }}>{error}</p>
       </div>
     );
   }

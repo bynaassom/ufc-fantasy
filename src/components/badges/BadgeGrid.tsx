@@ -27,13 +27,14 @@ function categoryLabel(category: string) {
 export default function BadgeGrid() {
   const [badges, setBadges] = useState<BadgeWithStatus[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/me/badges")
       .then((res) => readApiResponse<{ badges: BadgeWithStatus[] }>(res))
       .then((data) => setBadges(data.badges))
-      .catch(() => {})
+      .catch(() => setError("Erro ao carregar conquistas."))
       .finally(() => setLoading(false));
   }, []);
 
@@ -43,6 +44,14 @@ export default function BadgeGrid() {
         {Array.from({ length: 10 }).map((_, i) => (
           <div key={i} className="skeleton" style={{ aspectRatio: "1", borderRadius: 0 }} />
         ))}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 text-center" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}>
+        <p className="text-sm" style={{ color: "var(--red)" }}>{error}</p>
       </div>
     );
   }

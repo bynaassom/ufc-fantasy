@@ -109,19 +109,38 @@ export async function countConfirmedPicksForFight(client: any, fightId: string) 
 }
 
 export async function getPickDistributionForEvent(client: any, eventId: string) {
-  const { data, error } = await client
+  const { data: picksData, error: picksError } = await client
     .from("picks")
     .select("fight_id, picked_winner_id")
     .eq("event_id", eventId)
     .eq("is_confirmed", true);
 
-  if (error) throw error;
+  if (picksError) throw picksError;
+
+  const { data: fightsData, error: fightsError } = await client
+    .from("fights")
+    .select("id, fighter_a_id, fighter_b_id")
+    .eq("event_id", eventId);
+
+  if (fightsError) throw fightsError;
+
+  const fightMap = new Map<string, { fighter_a_id: string; fighter_b_id: string }>();
+  for (const fight of fightsData || []) {
+    fightMap.set(fight.id, { fighter_a_id: fight.fighter_a_id, fighter_b_id: fight.fighter_b_id });
+  }
+
   const distribution: Record<string, { fighter_a: number; fighter_b: number }> = {};
-  for (const row of data || []) {
+  for (const row of picksData || []) {
     if (!distribution[row.fight_id]) {
       distribution[row.fight_id] = { fighter_a: 0, fighter_b: 0 };
     }
-    distribution[row.fight_id][row.picked_winner_id as keyof typeof distribution[string]] += 1;
+    const fight = fightMap.get(row.fight_id);
+    if (!fight) continue;
+    if (row.picked_winner_id === fight.fighter_a_id) {
+      distribution[row.fight_id].fighter_a += 1;
+    } else if (row.picked_winner_id === fight.fighter_b_id) {
+      distribution[row.fight_id].fighter_b += 1;
+    }
   }
   return distribution;
 }

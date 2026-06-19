@@ -44,7 +44,7 @@ export async function middleware(request: NextRequest) {
           { status: 429 },
         );
     applySecurityHeaders(response.headers);
-    applyRateLimitHeaders(response.headers, result);
+    applyRateLimitHeaders(response.headers, result, config);
     return response;
   }
 
@@ -84,15 +84,22 @@ export async function middleware(request: NextRequest) {
 
   const {
     data: { user },
+    error: getUserError,
   } = await supabase.auth.getUser();
 
-  if (pathname === "/" && user) {
+  if (getUserError) {
+    console.error("middleware: getUser() failed:", getUserError.message);
+  }
+
+  const isAuthenticated = !!user && !getUserError;
+
+  if (pathname === "/" && isAuthenticated) {
     const response = NextResponse.redirect(new URL("/home", request.url));
     applySecurityHeaders(response.headers);
     return response;
   }
 
-  if (matchProtectedRoute(pathname) && !user) {
+  if (matchProtectedRoute(pathname) && !isAuthenticated) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("next", normalizeSafeRedirectPath(pathname));
     const response = NextResponse.redirect(loginUrl);
@@ -100,15 +107,17 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  if (matchAuthRoute(pathname) && user) {
+  if (matchAuthRoute(pathname) && isAuthenticated) {
     const response = NextResponse.redirect(new URL("/home", request.url));
     applySecurityHeaders(response.headers);
     return response;
   }
 
+  const currentUser = isAuthenticated ? user : null;
+
   // Admin protection
   if (pathname === "/admin" || pathname.startsWith("/admin/")) {
-    if (!user) {
+    if (!currentUser) {
       const response = NextResponse.redirect(new URL("/login", request.url));
       applySecurityHeaders(response.headers);
       return response;
@@ -117,7 +126,7 @@ export async function middleware(request: NextRequest) {
     const { data: profile } = await supabase
       .from("profiles")
       .select("role, is_banned")
-      .eq("id", user.id)
+      .eq("id", currentUser.id)
       .single();
 
     if (!profile || profile.role !== "admin" || profile.is_banned) {

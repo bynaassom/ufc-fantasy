@@ -2,6 +2,7 @@ import EventRankingSelector from "@/components/ranking/EventRankingSelector";
 import Pagination from "@/components/ui/Pagination";
 import Navbar from "@/components/layout/Navbar";
 import Link from "next/link";
+import { Suspense } from "react";
 import { getPlayerLevel } from "@/lib/player-levels";
 import type { RankingSelectableEvent } from "@/lib/ranking-events";
 import { getRankingPageData } from "@/server/services/app";
@@ -148,10 +149,12 @@ export default async function RankingPage({
                 Resultado do ranking por evento.
               </p>
             </div>
-            <EventRankingSelector
-              events={eventOptions}
-              selectedSlug={selectedEvent.slug}
-            />
+            <Suspense fallback={null}>
+              <EventRankingSelector
+                events={eventOptions}
+                selectedSlug={selectedEvent.slug}
+              />
+            </Suspense>
           </div>
         )}
 

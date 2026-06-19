@@ -6,15 +6,6 @@ import {
 import { notifyActiveUsers } from "@/server/services/notifications";
 
 export async function promoteDueEventsToLive(client: DbClient, now = new Date()) {
-  const { data: existingLive, error: liveError } = await client
-    .from("events")
-    .select("id")
-    .eq("status", "live")
-    .limit(1)
-    .maybeSingle();
-  if (liveError) throw new Error(liveError.message);
-  if (existingLive) return [];
-
   const { data: dueEvents, error } = await client
     .from("events")
     .select("id, name, slug")

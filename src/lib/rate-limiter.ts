@@ -12,10 +12,28 @@ const DEFAULT_CONFIG: RateLimitConfig = {
   windowMs: ONE_MINUTE_MS,
 };
 
+const CLEANUP_INTERVAL_MS = 5 * 60_000;
+
+let cleanupTimer: ReturnType<typeof setInterval> | null = null;
+
+function ensureCleanupTimer() {
+  if (cleanupTimer) return;
+  cleanupTimer = setInterval(() => {
+    const now = Date.now();
+    store.forEach((entry, key) => {
+      if (now >= entry.resetAt) store.delete(key);
+    });
+  }, CLEANUP_INTERVAL_MS);
+  if (typeof cleanupTimer === "object" && "unref" in cleanupTimer) {
+    cleanupTimer.unref();
+  }
+}
+
 export function checkRateLimit(
   key: string,
   config: RateLimitConfig = DEFAULT_CONFIG,
 ): { allowed: boolean; remaining: number; resetAt: number } {
+  ensureCleanupTimer();
   const now = Date.now();
   const entry = store.get(key);
 
@@ -56,8 +74,9 @@ export function getRateLimitConfig(pathname: string): RateLimitConfig {
 export function applyRateLimitHeaders(
   headers: Headers,
   result: { allowed: boolean; remaining: number; resetAt: number },
+  config: RateLimitConfig = DEFAULT_CONFIG,
 ) {
-  headers.set("X-RateLimit-Limit", String(DEFAULT_CONFIG.maxRequests));
+  headers.set("X-RateLimit-Limit", String(config.maxRequests));
   headers.set("X-RateLimit-Remaining", String(result.remaining));
   headers.set("X-RateLimit-Reset", String(Math.ceil(result.resetAt / 1000)));
 }

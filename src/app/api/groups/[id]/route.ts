@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextRequest } from "next/server";
-import { apiErrorFromUnknown, apiSuccess } from "@/server/api";
+import { ApiRouteError, apiErrorFromUnknown, apiSuccess } from "@/server/api";
 import { getGroupDetail } from "@/server/services/app";
 
 type Params = { params: { id: string } };
@@ -11,7 +11,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
     const group = await getGroupDetail(params.id);
     if (!group) {
       return apiErrorFromUnknown(
-        Object.assign(new Error("Grupo não encontrado."), { statusCode: 404 }),
+        new ApiRouteError(404, "NOT_FOUND", "Grupo não encontrado."),
       );
     }
     return apiSuccess(group);

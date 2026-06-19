@@ -42,6 +42,7 @@ export default function ChatClient({ groupId }: { groupId?: string | null }) {
       const data = await readApiResponse<{ messages: ChatMessage[]; hasMore: boolean }>(res);
       return data;
     } catch {
+      toast.error("Erro ao carregar mensagens.");
       return null;
     }
   }, [groupId]);
@@ -91,8 +92,8 @@ export default function ChatClient({ groupId }: { groupId?: string | null }) {
           setPollSince(orderedMessages[orderedMessages.length - 1].created_at);
           scrollToBottom(true);
         }
-      } catch {
-        // silent
+      } catch (err) {
+        console.error("ChatClient: poll error", err);
       }
     }, POLL_INTERVAL_MS);
 

@@ -609,32 +609,45 @@ async function enrichChallenges(client: any, challenges: ChallengeRow[]) {
     { challengerPoints: number; challengedPoints: number; leaderUserId: string | null }
   >();
 
-  for (const eventId of scoreKeys) {
-    const eventChallenges = resolved.filter((challenge) => challenge.event_id === eventId);
-    const userIds = Array.from(
+  if (scoreKeys.length > 0) {
+    const allUserIds = Array.from(
       new Set(
-        eventChallenges.flatMap((challenge) => [
+        resolved.flatMap((challenge) => [
           challenge.challenger_id,
           challenge.challenged_id,
         ]),
       ),
     );
-    const eventScoreMap = await getEventScoresMap(client, userIds, eventId);
+    const { data: allScores, error: scoresError } = await client
+      .from("event_scores")
+      .select("user_id, event_id, total_points")
+      .in("event_id", scoreKeys)
+      .in("user_id", allUserIds);
 
-    eventChallenges.forEach((challenge) => {
-      const challengerPoints = eventScoreMap.get(challenge.challenger_id) || 0;
-      const challengedPoints = eventScoreMap.get(challenge.challenged_id) || 0;
-      scoreMapByChallenge.set(challenge.id, {
-        challengerPoints,
-        challengedPoints,
-        leaderUserId: getChallengeLeaderUserId(
+    if (scoresError) throw scoresError;
+
+    const scoreMap = new Map<string, number>();
+    for (const entry of allScores || []) {
+      scoreMap.set(`${entry.event_id}:${entry.user_id}`, Number(entry.total_points || 0));
+    }
+
+    for (const eventId of scoreKeys) {
+      const eventChallenges = resolved.filter((challenge) => challenge.event_id === eventId);
+      eventChallenges.forEach((challenge) => {
+        const challengerPoints = scoreMap.get(`${eventId}:${challenge.challenger_id}`) || 0;
+        const challengedPoints = scoreMap.get(`${eventId}:${challenge.challenged_id}`) || 0;
+        scoreMapByChallenge.set(challenge.id, {
           challengerPoints,
           challengedPoints,
-          challenge.challenger_id,
-          challenge.challenged_id,
-        ),
+          leaderUserId: getChallengeLeaderUserId(
+            challengerPoints,
+            challengedPoints,
+            challenge.challenger_id,
+            challenge.challenged_id,
+          ),
+        });
       });
-    });
+    }
   }
 
   return resolved.map((challenge) => {
@@ -1234,6 +1247,10 @@ export async function saveMyEventPicks(
     throw new ApiRouteError(404, "EVENT_NOT_FOUND", "Evento não encontrado.");
   }
 
+  if (event.picks_lock_at && new Date(event.picks_lock_at) < new Date()) {
+    throw new ApiRouteError(403, "PICKS_CLOSED", "Os picks para este evento já estão fechados.");
+  }
+
   assertValidEventPicks(event, picks);
 
   const payload = picks.map((pick) => ({
@@ -1501,6 +1518,21 @@ export async function createUserChallenge(challengedId: string, eventId: string)
     challenger_id: user.id,
     challenged_id: challengedId,
     status: "pending",
+  }).catch(async (err) => {
+    const recheck = await findActiveChallengeBetweenUsers(
+      adminSupabase,
+      event.id,
+      user.id,
+      challengedId,
+    );
+    if (recheck) {
+      throw new ApiRouteError(
+        409,
+        "CHALLENGE_EXISTS",
+        "Já existe um desafio ativo entre vocês para este evento.",
+      );
+    }
+    throw err;
   });
 
   await createChallengeNotification(adminSupabase, {
@@ -1980,6 +2012,8 @@ export async function deleteAdminFightById(fightId: string) {
   const fight = await findFightById(adminSupabase, fightId);
   const event = getSingleRelation(fight.event);
 
+  const result = await deleteFight(adminSupabase, fightId);
+
   if (event) {
     await safelyNotifyActiveUsers(adminSupabase, {
       type: "fight_removed",
@@ -1991,7 +2025,7 @@ export async function deleteAdminFightById(fightId: string) {
     });
   }
 
-  return deleteFight(adminSupabase, fightId);
+  return result;
 }
 
 export async function reorderAdminEventFights(

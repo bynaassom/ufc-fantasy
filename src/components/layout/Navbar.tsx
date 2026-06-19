@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { createAuthClient } from "@/lib/supabase/client";
+import toast from "react-hot-toast";
 import { Profile } from "@/types";
 import { getDisplayName, getDisplaySubtitle } from "@/lib/utils";
 import NotificationBell from "./NotificationBell";
@@ -82,10 +83,14 @@ export default function Navbar({ profile }: NavbarProps) {
   }, [menuOpen]);
 
   async function handleLogout() {
-    const supabase = createAuthClient();
-    await supabase.auth.signOut();
-    router.push("/");
-    router.refresh();
+    try {
+      const supabase = createAuthClient();
+      await supabase.auth.signOut();
+      router.push("/");
+      router.refresh();
+    } catch {
+      toast.error("Erro ao sair. Tente novamente.");
+    }
   }
 
   const navLinks = [

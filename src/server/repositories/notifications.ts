@@ -47,6 +47,32 @@ export async function createNotificationOnce(
   return data;
 }
 
+export async function createNotificationsBatch(
+  client: DbClient,
+  payloads: Record<string, unknown>[],
+) {
+  if (!payloads.length) return [];
+
+  const { data, error } = await client
+    .from("notifications")
+    .insert(payloads)
+    .select(NOTIFICATION_FIELDS);
+
+  if (error) {
+    if (error.code === "23505") {
+      const results = [];
+      for (const payload of payloads) {
+        const result = await createNotificationOnce(client, payload);
+        if (result) results.push(result);
+      }
+      return results;
+    }
+    throw error;
+  }
+
+  return data || [];
+}
+
 export async function listActiveNotificationRecipients(client: any) {
   const { data, error } = await client
     .from("profiles")

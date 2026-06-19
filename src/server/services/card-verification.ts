@@ -192,25 +192,31 @@ export async function dispatchDueCardVerifications(adminSupabase: DbClient, now 
       .eq("event_id", event.id)
       .eq("scheduled_for", due.scheduledFor)
       .maybeSingle();
-    if (existingRun?.status === "running") continue;
+    if (existingRun?.status === "completed") continue;
+    if (existingRun?.status === "running") {
+      const existingStartedAt = (existingRun as Record<string, unknown>).started_at;
+      const elapsed = existingStartedAt ? now.getTime() - new Date(existingStartedAt as string).getTime() : 0;
+      if (elapsed < 10 * 60 * 1000) continue;
+    }
 
-    let runId = existingRun?.id;
-    if (runId) {
+    let runId: string;
+    if (existingRun?.id) {
       const { error } = await adminSupabase
         .from("card_verification_runs")
         .update({ status: "running", started_at: now.toISOString(), error_message: null })
-        .eq("id", runId);
+        .eq("id", existingRun.id);
       if (error) throw new Error(error.message);
+      runId = existingRun.id;
     } else {
       const { data: createdRun, error } = await adminSupabase
         .from("card_verification_runs")
-        .insert({
+        .upsert({
           event_id: event.id,
-          verification_window: due.window,
           scheduled_for: due.scheduledFor,
+          verification_window: due.window,
           status: "running",
           started_at: now.toISOString(),
-        })
+        }, { onConflict: "event_id,scheduled_for" })
         .select("id")
         .single();
       if (error) throw new Error(error.message);

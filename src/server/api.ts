@@ -35,6 +35,12 @@ export function apiErrorFromUnknown(error: unknown) {
     return apiFailure(400, "VALIDATION_ERROR", "Payload inválido.", error.flatten());
   }
 
+  if (error && typeof error === "object" && "statusCode" in error) {
+    const status = Number((error as Record<string, unknown>).statusCode) || 500;
+    const message = (error as { message?: string }).message || "Erro inesperado.";
+    return apiFailure(status, "ERROR", message);
+  }
+
   console.error(error);
   return apiFailure(500, "INTERNAL_ERROR", "Erro interno do servidor.");
 }
