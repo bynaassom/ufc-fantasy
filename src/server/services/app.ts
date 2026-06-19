@@ -16,9 +16,10 @@ import {
   resolveRankingEventSelection,
   type RankingSelectableEvent,
 } from "@/lib/ranking-events";
+import { logAdminAction } from "@/lib/admin-audit";
 import { getServiceRoleSupabase } from "@/lib/supabase/service-role";
 import { ApiRouteError } from "@/server/api";
-import { requireActiveUser } from "@/server/auth/guards";
+import { requireActiveUser, requireAdmin } from "@/server/auth/guards";
 import { CACHE_TAGS } from "@/server/cache-tags";
 import {
   createChallenge,
@@ -2180,9 +2181,19 @@ export async function toggleAdminUserRole(userId: string, currentRole: string) {
   return { profile, newRole };
 }
 
-export async function toggleAdminUserBan(userId: string, currentBan: boolean) {
-  const adminSupabase = await getAdminSupabase();
-  const profile = await updateProfileBan(adminSupabase, userId, !currentBan);
+export async function toggleAdminUserBan(
+  userId: string,
+  currentBan: boolean,
+  reason?: string,
+) {
+  const { adminSupabase, user } = await requireAdmin();
+  const profile = await updateProfileBan(adminSupabase, userId, !currentBan, reason);
+  await logAdminAction(adminSupabase, {
+    userId: user.id,
+    action: currentBan ? "admin_unban_user" : "admin_ban_user",
+    details: { targetUserId: userId, reason: reason || null },
+    suspicious: false,
+  });
   return { profile, isBanned: !currentBan };
 }
 

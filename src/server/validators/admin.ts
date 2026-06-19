@@ -79,6 +79,7 @@ export const adminRoleToggleSchema = z.object({
 
 export const adminBanToggleSchema = z.object({
   currentBan: z.boolean(),
+  reason: z.string().max(500).optional(),
 });
 
 const badgeIconSchema = z.enum([

@@ -20,7 +20,11 @@ export async function POST(request: NextRequest, { params }: Params) {
     assertSameOriginForMutation(request);
     await requireAdmin();
     const body = await parseJsonBody(request, adminBanToggleSchema);
-    const data = await toggleAdminUserBan(params.userId, body.currentBan);
+    const data = await toggleAdminUserBan(
+      params.userId,
+      body.currentBan,
+      body.reason,
+    );
     return apiSuccess(data);
   } catch (error) {
     return apiErrorFromUnknown(error);

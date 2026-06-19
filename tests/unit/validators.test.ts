@@ -1,4 +1,4 @@
-import { adminFightResultSchema, adminFightReorderSchema } from "@/server/validators/admin";
+import { adminBanToggleSchema, adminFightResultSchema, adminFightReorderSchema } from "@/server/validators/admin";
 import { updateMyProfileSchema } from "@/server/validators/me";
 import { saveEventPicksSchema } from "@/server/validators/picks";
 
@@ -69,6 +69,21 @@ describe("validators", () => {
       method: "knockout",
       round: 1,
     });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts ban payload with reason", () => {
+    const result = adminBanToggleSchema.safeParse({
+      currentBan: false,
+      reason: "Spam no chat",
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts ban payload without reason", () => {
+    const result = adminBanToggleSchema.safeParse({ currentBan: true });
 
     expect(result.success).toBe(true);
   });

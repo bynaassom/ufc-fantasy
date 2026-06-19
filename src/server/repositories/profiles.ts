@@ -73,10 +73,14 @@ export async function updateProfileBan(
   client: DbClient,
   userId: string,
   isBanned: boolean,
+  reason?: string,
 ) {
+  const payload: Record<string, unknown> = { is_banned: isBanned };
+  if (reason !== undefined) payload.ban_reason = reason;
+  if (!isBanned) payload.ban_reason = null;
   const { data, error } = await client
     .from("profiles")
-    .update({ is_banned: isBanned })
+    .update(payload)
     .eq("id", userId)
     .select("*")
     .single();
