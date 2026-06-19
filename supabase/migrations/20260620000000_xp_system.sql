@@ -33,3 +33,30 @@ CREATE POLICY "xp_events_admin_select" ON xp_events
   );
 
 -- Inserts/updates are server-only (no policy = blocked for anon/authenticated)
+
+-- Atomic increment of xp_total
+CREATE OR REPLACE FUNCTION increment_profile_xp(p_user_id UUID, p_amount INTEGER)
+RETURNS void
+LANGUAGE sql
+SECURITY DEFINER
+AS $$
+  UPDATE profiles
+  SET xp_total = GREATEST(0, xp_total + p_amount)
+  WHERE id = p_user_id;
+$$;
+
+-- Monotonic streak update (best_streak never decreases)
+CREATE OR REPLACE FUNCTION update_profile_streak(
+  p_user_id UUID,
+  p_current_streak INTEGER,
+  p_best_streak INTEGER
+)
+RETURNS void
+LANGUAGE sql
+SECURITY DEFINER
+AS $$
+  UPDATE profiles
+  SET current_streak = p_current_streak,
+      best_streak = GREATEST(best_streak, p_best_streak)
+  WHERE id = p_user_id;
+$$;

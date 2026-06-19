@@ -398,3 +398,33 @@ export interface ChatMessage {
     role: string;
   };
 }
+
+export interface XpEventMetadata {
+  accuracy: number;
+  method_acc: number;
+  round_acc: number;
+  fights_with_picks: number;
+  correct_winners: number;
+  correct_methods: number;
+  correct_rounds: number;
+}
+
+export interface XpEvent {
+  id: string;
+  user_id: string;
+  event_id: string;
+  amount: number;
+  reason: string;
+  metadata: XpEventMetadata;
+  created_at: string;
+}
+
+export interface XpSummary {
+  xpTotal: number;
+  level: number;
+  levelTitle: string;
+  currentStreak: number;
+  bestStreak: number;
+  nextLevelXp: number;
+  progressToNextLevel: number;
+}
