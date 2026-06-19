@@ -30,6 +30,7 @@ import { logAdminAction } from "@/lib/admin-audit";
 import { assertSameOriginForMutation } from "@/server/api";
 import { CACHE_TAGS } from "@/server/cache-tags";
 import { completeEventIfAllResultsConfirmed } from "@/server/services/event-lifecycle";
+import { awardEventXpForAllUsers } from "@/server/services/xp";
 
 type ResultSyncEvent = {
   slug?: string | null;
@@ -590,6 +591,17 @@ export async function POST(req: NextRequest) {
   });
 
   const lifecycle = await completeEventIfAllResultsConfirmed(adminSupabase, event_id);
+
+  if (lifecycle.completed) {
+    try {
+      const xpResult = await awardEventXpForAllUsers(event_id);
+      console.log(
+        `[sync-results] Awarded XP for event ${event_id}: ${xpResult.awarded} awards to ${xpResult.usersAffected.length} users`,
+      );
+    } catch (err) {
+      console.error(`[sync-results] Failed to award XP for event ${event_id}`, err);
+    }
+  }
 
   revalidatePath("/ranking");
   revalidatePath("/home");

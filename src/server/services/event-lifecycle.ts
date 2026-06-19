@@ -4,6 +4,7 @@ import {
   shouldCompleteEvent,
 } from "@/lib/event-lifecycle";
 import { notifyActiveUsers } from "@/server/services/notifications";
+import { awardEventXpForAllUsers } from "@/server/services/xp";
 
 export async function promoteDueEventsToLive(client: DbClient, now = new Date()) {
   const { data: dueEvents, error } = await client
@@ -88,6 +89,18 @@ export async function completeEventIfAllResultsConfirmed(
     });
   } catch (err) {
     console.error("Failed to send event_completed notification", err);
+  }
+
+  try {
+    const xpResult = await awardEventXpForAllUsers(completedEvent.id);
+    console.log(
+      `[event-lifecycle] Awarded XP for event ${completedEvent.id}: ${xpResult.awarded} awards to ${xpResult.usersAffected.length} users`,
+    );
+  } catch (err) {
+    console.error(
+      `[event-lifecycle] Failed to award XP for event ${completedEvent.id}`,
+      err,
+    );
   }
 
   return {
