@@ -436,6 +436,26 @@ export default function FightStatsCompare({
                     />
                   </div>
                 )}
+
+                <div
+                  className="flex justify-between pt-2"
+                  style={{ borderTop: "1px solid var(--border-light)" }}
+                >
+                  <a
+                    href={`/lutador/${slugA}`}
+                    className="font-condensed text-xs uppercase tracking-widest inline-block"
+                    style={{ color: "var(--red)" }}
+                  >
+                    Ver perfil de {nameA} →
+                  </a>
+                  <a
+                    href={`/lutador/${slugB}`}
+                    className="font-condensed text-xs uppercase tracking-widest inline-block"
+                    style={{ color: "#3b82f6" }}
+                  >
+                    Ver perfil de {nameB} →
+                  </a>
+                </div>
               </div>
             )}
           </div>

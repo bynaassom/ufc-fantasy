@@ -77,6 +77,7 @@ export interface Event {
 export interface Fighter {
   id: string;
   name: string;
+  slug?: string;
   ufc_fighter_id?: string;
   headshot_url?: string;
   country?: string;

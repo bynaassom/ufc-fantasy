@@ -322,6 +322,17 @@ export default function FightCard({
                 </p>
               )}
 
+              {(fighter.slug || nameToSlug(fighter.name)) && (
+                <a
+                  href={`/lutador/${fighter.slug || nameToSlug(fighter.name)}`}
+                  className="font-condensed text-xs uppercase tracking-widest mt-1 inline-block"
+                  style={{ color: "var(--text-muted)" }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Ver perfil
+                </a>
+              )}
+
               {/* Odds */}
               {(() => {
                 const odds = idx === 0 ? fight.odds_a : fight.odds_b;
