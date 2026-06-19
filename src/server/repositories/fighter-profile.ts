@@ -82,7 +82,6 @@ export async function listFighterRecentFights(
 }
 
 export type FighterPickStats = {
-  pick_rate: number;
   win_when_picked: number;
   total_events_picked: number;
 };
@@ -105,7 +104,6 @@ export async function getFighterPickStats(
   const distinctFights = new Set(picks.map((p: any) => p.fight_id)).size;
 
   return {
-    pick_rate: 0,
     win_when_picked: total > 0 ? Math.round((wins / total) * 100) : 0,
     total_events_picked: distinctFights,
   };
