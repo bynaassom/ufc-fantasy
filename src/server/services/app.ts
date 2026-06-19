@@ -757,6 +757,8 @@ export async function getPublicEventResultShareData(
 
   if (!event || !profile) return null;
 
+  const xpSummary = await getProfileXpSummary(profile.id);
+
   const picksLocked = hasDatePassed(event.picks_lock_at);
   if (!picksLocked) {
     return {
@@ -766,6 +768,7 @@ export async function getPublicEventResultShareData(
       picks: [],
       score: null,
       rank: null,
+      xpSummary,
     };
   }
 
@@ -782,6 +785,7 @@ export async function getPublicEventResultShareData(
     picks,
     score,
     rank,
+    xpSummary,
   };
 }
 
@@ -797,6 +801,8 @@ export async function getPublicEventPickShareData(
 
   if (!event || !profile) return null;
 
+  const xpSummary = await getProfileXpSummary(profile.id);
+
   const picksLocked = hasDatePassed(event.picks_lock_at);
   if (!picksLocked) {
     return {
@@ -804,6 +810,7 @@ export async function getPublicEventPickShareData(
       event,
       profile,
       picks: [],
+      xpSummary,
     };
   }
 
@@ -814,6 +821,7 @@ export async function getPublicEventPickShareData(
     event,
     profile,
     picks,
+    xpSummary,
   };
 }
 
@@ -835,7 +843,10 @@ export async function getHomePageData() {
   );
 
   const adminSupabase = await getAdminSupabase();
-  const rawChallenges = (await listChallengesForUser(adminSupabase, user.id)) as ChallengeRow[];
+  const [rawChallenges, xpSummary] = await Promise.all([
+    listChallengesForUser(adminSupabase, user.id) as Promise<ChallengeRow[]>,
+    getProfileXpSummary(user.id),
+  ]);
 
   const activeChallengeRows = rawChallenges
     .filter(
@@ -869,6 +880,7 @@ export async function getHomePageData() {
         c.challenger_id === user.id ? c.challenged_id : c.challenger_id,
       ) as PublicProfileSummary | undefined) || null,
     })),
+    xpSummary,
   };
 }
 

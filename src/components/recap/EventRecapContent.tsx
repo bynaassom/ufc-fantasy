@@ -3,7 +3,7 @@ import { formatEventDate } from "@/lib/utils";
 import type { EventRecapData } from "@/types";
 
 export default function EventRecapContent({ data }: { data: EventRecapData }) {
-  const { event, ranking, aggregateStats, fightStats, nextEventSlug } = data;
+  const { event, ranking, aggregateStats, fightStats, nextEventSlug, xpEarned, xpAccuracy } = data;
 
   return (
     <main className="min-h-[100dvh]" style={{ backgroundColor: "var(--bg)" }}>
@@ -40,6 +40,36 @@ export default function EventRecapContent({ data }: { data: EventRecapData }) {
             </div>
           ))}
         </div>
+
+        {/* XP Earned */}
+        {xpEarned > 0 && (
+          <div
+            className="my-4 p-4"
+            style={{
+              backgroundColor: "var(--bg-elevated)",
+              border: "1px solid var(--border)",
+            }}
+          >
+            <div
+              className="font-condensed text-xs uppercase tracking-widest"
+              style={{ color: "var(--text-muted)" }}
+            >
+              XP ganho neste evento
+            </div>
+            <div
+              className="font-condensed font-900 text-3xl"
+              style={{ color: "var(--red)" }}
+            >
+              +{xpEarned} XP
+            </div>
+            <div
+              className="font-condensed text-xs"
+              style={{ color: "var(--text-muted)" }}
+            >
+              {Math.round(xpAccuracy * 100)}% de acerto nos vencedores
+            </div>
+          </div>
+        )}
 
         {/* Top 10 Leaderboard */}
         <div className="mb-8">

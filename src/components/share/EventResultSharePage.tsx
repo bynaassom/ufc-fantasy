@@ -50,7 +50,7 @@ const HERO_OVERLAY =
   "linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(13,13,13,0.45) 40%, rgba(13,13,13,0.95) 100%)";
 
 export default function EventResultSharePage({ data, shareUrl, bannerDataUrl, shareImageUrl }: { data: ShareData; shareUrl: string; bannerDataUrl?: string | null; shareImageUrl?: string }) {
-  const { event, profile, picks, score, rank, status } = data;
+  const { event, profile, picks, score, rank, status, xpSummary } = data;
   const cardRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [cardScale, setCardScale] = useState(0.65);
@@ -299,6 +299,27 @@ export default function EventResultSharePage({ data, shareUrl, bannerDataUrl, sh
                           }}
                         >
                           #{rank} no evento
+                        </span>
+                        {xpSummary && (
+                          <span
+                            className="text-[11px] font-700 uppercase tracking-widest"
+                            style={{ color: "rgba(255,255,255,0.55)" }}
+                          >
+                            {xpSummary.levelTitle} · {xpSummary.currentStreak} eventos seguidos
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {!rank && xpSummary && (
+                      <div
+                        className="mb-4"
+                        style={{ borderBottom: "1px solid #2a2a2a", paddingBottom: 12 }}
+                      >
+                        <span
+                          className="text-[11px] font-700 uppercase tracking-widest"
+                          style={{ color: "rgba(255,255,255,0.55)" }}
+                        >
+                          {xpSummary.levelTitle} · {xpSummary.currentStreak} eventos seguidos
                         </span>
                       </div>
                     )}

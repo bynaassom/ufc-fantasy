@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   findPublicProfilesByIds: vi.fn(),
   getAdminSupabase: vi.fn(),
   requirePageUserProfile: vi.fn(),
+  getProfileXpSummary: vi.fn(),
 }));
 
 vi.mock("next/cache", () => ({
@@ -47,6 +48,11 @@ vi.mock("@/server/repositories/profiles", () => ({
   updateProfile: vi.fn(),
   updateProfileBan: vi.fn(),
   updateProfileRole: vi.fn(),
+}));
+
+vi.mock("@/server/services/xp", () => ({
+  getProfileXpSummary: mocks.getProfileXpSummary,
+  getEventXpForUser: vi.fn(),
 }));
 
 vi.mock("@/server/repositories/events", () => ({
@@ -109,6 +115,15 @@ describe("getHomePageData", () => {
     mocks.listChallengesForUser.mockResolvedValue([]);
     mocks.findPublicProfilesByIds.mockResolvedValue([]);
     mocks.getAdminSupabase.mockResolvedValue({ client: "admin" });
+    mocks.getProfileXpSummary.mockResolvedValue({
+      xpTotal: 0,
+      level: 1,
+      levelTitle: "Rookie",
+      currentStreak: 0,
+      bestStreak: 0,
+      nextLevelXp: 500,
+      progressToNextLevel: 0,
+    });
   });
 
   afterEach(() => {
@@ -215,5 +230,33 @@ describe("getHomePageData", () => {
     expect(result.completedEvents).toHaveLength(3);
     expect(mocks.listUpcomingEvents).toHaveBeenCalledOnce();
     expect(mocks.listRecentCompletedEvents).toHaveBeenCalledOnce();
+  });
+
+  it("includes xpSummary in the returned data", async () => {
+    mocks.getCurrentPublicEvent.mockResolvedValue(null);
+    mocks.listUpcomingEvents.mockResolvedValue([]);
+    mocks.getProfileXpSummary.mockResolvedValue({
+      xpTotal: 1500,
+      level: 4,
+      levelTitle: "Veteran",
+      currentStreak: 5,
+      bestStreak: 7,
+      nextLevelXp: 500,
+      progressToNextLevel: 0,
+    });
+
+    const { getHomePageData } = await import("@/server/services/app");
+    const result = await getHomePageData();
+
+    expect(result.xpSummary).toEqual({
+      xpTotal: 1500,
+      level: 4,
+      levelTitle: "Veteran",
+      currentStreak: 5,
+      bestStreak: 7,
+      nextLevelXp: 500,
+      progressToNextLevel: 0,
+    });
+    expect(mocks.getProfileXpSummary).toHaveBeenCalledWith("profile-id");
   });
 });

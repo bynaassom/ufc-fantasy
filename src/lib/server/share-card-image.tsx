@@ -208,7 +208,7 @@ function Footer({ text }: { text: string }) {
 }
 
 export function renderPickShareCardImage(data: PickShareData, bannerUrl?: string | null): ReactElement {
-  const { event, profile, picks, status } = data;
+  const { event, profile, picks, status, xpSummary } = data;
   const pickMap = new Map((picks || []).map((pick: any) => [pick.fight_id, pick]));
   const sortedFights = (event.fights || []).slice().sort((a: any, b: any) => a.fight_order - b.fight_order);
   const totalPicks = picks.length;
@@ -232,6 +232,13 @@ export function renderPickShareCardImage(data: PickShareData, bannerUrl?: string
         <div style={bodyStyle}>
           {status === "public" ? (
             <>
+              {xpSummary ? (
+                <div style={{ marginBottom: 20, paddingBottom: 20, display: "flex", borderBottom: `2px solid ${BORDER}` }}>
+                  <div style={{ display: "flex", color: "rgba(255,255,255,0.55)", fontSize: 22, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em" }}>
+                    {xpSummary.levelTitle} · {xpSummary.currentStreak} eventos seguidos
+                  </div>
+                </div>
+              ) : null}
               <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10, overflow: "hidden" }}>
                 {sortedFights.map((fight: any, index: number) => {
                   const pick = pickMap.get(fight.id) as any;
@@ -260,7 +267,7 @@ export function renderPickShareCardImage(data: PickShareData, bannerUrl?: string
 }
 
 export function renderResultShareCardImage(data: ResultShareData, bannerUrl?: string | null): ReactElement {
-  const { event, profile, picks, score, rank, status } = data;
+  const { event, profile, picks, score, rank, status, xpSummary } = data;
   const pickMap = new Map((picks || []).map((pick: any) => [pick.fight_id, pick]));
   const sortedFights = (event.fights || []).slice().sort((a: any, b: any) => a.fight_order - b.fight_order);
   const totalPoints = Number(score?.total_points || 0);
@@ -286,8 +293,19 @@ export function renderResultShareCardImage(data: ResultShareData, bannerUrl?: st
           {status === "public" ? (
             <>
               {rank ? (
-                <div style={{ marginBottom: 24, paddingBottom: 24, display: "flex", borderBottom: `2px solid ${BORDER}` }}>
+                <div style={{ marginBottom: 24, paddingBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `2px solid ${BORDER}` }}>
                   <div style={{ height: 40, display: "flex", alignItems: "center", backgroundColor: RED, color: TEXT, padding: "0 16px", fontSize: 20, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.12em" }}>#{rank} no evento</div>
+                  {xpSummary ? (
+                    <div style={{ display: "flex", color: "rgba(255,255,255,0.55)", fontSize: 22, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em" }}>
+                      {xpSummary.levelTitle} · {xpSummary.currentStreak} eventos seguidos
+                    </div>
+                  ) : null}
+                </div>
+              ) : xpSummary ? (
+                <div style={{ marginBottom: 24, paddingBottom: 24, display: "flex", borderBottom: `2px solid ${BORDER}` }}>
+                  <div style={{ display: "flex", color: "rgba(255,255,255,0.55)", fontSize: 22, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em" }}>
+                    {xpSummary.levelTitle} · {xpSummary.currentStreak} eventos seguidos
+                  </div>
                 </div>
               ) : null}
 

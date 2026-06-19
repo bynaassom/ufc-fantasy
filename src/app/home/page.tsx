@@ -16,7 +16,7 @@ import HomeChallenges from "@/components/challenges/HomeChallenges";
 export const revalidate = 60; // revalida a cada 60s
 
 export default async function HomePage() {
-  const { profile, currentEvent, upcomingEvents, completedEvents, activeChallenges } =
+  const { profile, currentEvent, upcomingEvents, completedEvents, activeChallenges, xpSummary } =
     await getHomePageData();
 
   return (
@@ -28,6 +28,33 @@ export default async function HomePage() {
         <Navbar profile={profile} />
 
         <main className="max-w-4xl mx-auto px-4 py-8">
+        {/* Streak banner (positive-only) */}
+        {xpSummary.currentStreak >= 3 && (
+          <div
+            className="mb-6 p-4 flex items-center gap-3"
+            style={{
+              backgroundColor: "rgba(239,68,68,0.1)",
+              border: "1px solid var(--red)",
+            }}
+          >
+            <span style={{ fontSize: 24 }}>🔥</span>
+            <div>
+              <div
+                className="font-condensed font-900 text-sm uppercase"
+                style={{ color: "var(--text)" }}
+              >
+                Sequência de {xpSummary.currentStreak} eventos!
+              </div>
+              <div
+                className="font-condensed text-xs"
+                style={{ color: "var(--text-muted)" }}
+              >
+                Você acertou 70%+ nos últimos {xpSummary.currentStreak} eventos.
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Welcome */}
         <div
           className="mb-8 pb-6"

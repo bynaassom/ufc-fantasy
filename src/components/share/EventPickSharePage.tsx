@@ -43,7 +43,7 @@ const HERO_OVERLAY =
   "linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(13,13,13,0.45) 40%, rgba(13,13,13,0.95) 100%)";
 
 export default function EventPickSharePage({ data, shareUrl, bannerDataUrl, shareImageUrl }: { data: ShareData; shareUrl: string; bannerDataUrl?: string | null; shareImageUrl?: string }) {
-  const { event, profile, picks, status } = data;
+  const { event, profile, picks, status, xpSummary } = data;
   const cardRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [cardScale, setCardScale] = useState(0.65);
@@ -269,6 +269,20 @@ export default function EventPickSharePage({ data, shareUrl, bannerDataUrl, shar
               >
                 {status === "public" && (
                   <>
+                    {xpSummary && (
+                      <div
+                        className="mb-3"
+                        style={{ paddingBottom: 10, borderBottom: "1px solid #2a2a2a" }}
+                      >
+                        <span
+                          className="text-[11px] font-700 uppercase tracking-widest"
+                          style={{ color: "rgba(255,255,255,0.55)" }}
+                        >
+                          {xpSummary.levelTitle} · {xpSummary.currentStreak} eventos seguidos
+                        </span>
+                      </div>
+                    )}
+
                     {/* Picks list */}
                     <div className="flex-1 space-y-[5px] overflow-hidden">
                       {sortedFights.map((fight: any, index: number) => {
