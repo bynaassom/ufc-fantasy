@@ -38,11 +38,14 @@ export default function UsersTab({
 
 // ─── USUÁRIOS ────────────────────────────────────────────────
 function Usuarios({ userList, setUserList }: any) {
-  async function toggleBan(userId: string, currentBan: boolean) {
+  const [banTargetId, setBanTargetId] = useState<string | null>(null);
+  const [banReason, setBanReason] = useState("");
+
+  async function toggleBan(userId: string, currentBan: boolean, reason?: string) {
     try {
       await adminSend(`/api/admin/users/${userId}/ban`, {
         method: "POST",
-        body: JSON.stringify({ currentBan }),
+        body: JSON.stringify({ currentBan, reason }),
       });
     } catch (error: any) {
       toast.error(error.message);
@@ -50,10 +53,14 @@ function Usuarios({ userList, setUserList }: any) {
     }
     setUserList((u: any[]) =>
       u.map((p: any) =>
-        p.id === userId ? { ...p, is_banned: !currentBan } : p,
+        p.id === userId
+          ? { ...p, is_banned: !currentBan, ban_reason: reason || null }
+          : p,
       ),
     );
     toast.success(currentBan ? "Usuário desbanido." : "Usuário banido.");
+    setBanTargetId(null);
+    setBanReason("");
   }
 
   async function toggleRole(userId: string, currentRole: string) {
@@ -163,17 +170,57 @@ function Usuarios({ userList, setUserList }: any) {
             >
               {u.role === "admin" ? "→USER" : "→ADMIN"}
             </button>
-            <button
-              onClick={() => toggleBan(u.id, u.is_banned)}
-              className="font-condensed font-700 text-xs uppercase px-2 py-1 transition-opacity hover:opacity-70"
-              style={{
-                border: `1px solid ${u.is_banned ? "var(--border)" : "var(--red)"}`,
-                color: u.is_banned ? "var(--text-muted)" : "var(--red)",
-                fontSize: "10px",
-              }}
-            >
-              {u.is_banned ? "DESBANIR" : "BANIR"}
-            </button>
+            {banTargetId === u.id ? (
+              <div className="flex gap-1">
+                <input
+                  type="text"
+                  placeholder="Motivo..."
+                  value={banReason}
+                  onChange={(e) => setBanReason(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter")
+                      toggleBan(u.id, u.is_banned, banReason || undefined);
+                  }}
+                  style={{
+                    ...(inp as React.CSSProperties),
+                    padding: "4px 8px",
+                    fontSize: "12px",
+                  }}
+                />
+                <button
+                  onClick={() =>
+                    toggleBan(u.id, u.is_banned, banReason || undefined)
+                  }
+                  className="font-condensed font-700 text-xs uppercase px-2 py-1 transition-opacity hover:opacity-70"
+                  style={{
+                    border: "1px solid var(--border)",
+                    color: "var(--text-muted)",
+                    fontSize: "10px",
+                  }}
+                >
+                  OK
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => {
+                  if (u.is_banned) {
+                    toggleBan(u.id, u.is_banned);
+                  } else {
+                    setBanTargetId(u.id);
+                    setBanReason("");
+                  }
+                }}
+                className="font-condensed font-700 text-xs uppercase px-2 py-1 transition-opacity hover:opacity-70"
+                style={{
+                  border: `1px solid ${u.is_banned ? "var(--border)" : "var(--red)"}`,
+                  color: u.is_banned ? "var(--text-muted)" : "var(--red)",
+                  fontSize: "10px",
+                }}
+              >
+                {u.is_banned ? "DESBANIR" : "BANIR"}
+              </button>
+            )}
           </div>
         </div>
       ))}
