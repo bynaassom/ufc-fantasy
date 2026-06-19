@@ -121,3 +121,43 @@ export async function unhideMessage(
 
   if (error) throw error;
 }
+
+export async function listAllMessages(
+  client: any,
+  limit = 50,
+  beforeCreatedAt?: string | null,
+  groupId?: string | null,
+  showHidden?: boolean | null,
+): Promise<{ messages: ChatMessage[]; hasMore: boolean }> {
+  let query = client
+    .from("chat_messages")
+    .select(MESSAGE_FIELDS)
+    .order("created_at", { ascending: false })
+    .limit(limit + 1);
+
+  if (beforeCreatedAt) {
+    query = query.lt("created_at", beforeCreatedAt);
+  }
+
+  if (groupId) {
+    query = query.eq("group_id", groupId);
+  }
+
+  if (showHidden) {
+    query = query.eq("is_hidden", true);
+  } else if (showHidden === false) {
+    query = query.eq("is_hidden", false);
+  }
+
+  const { data, error } = await query;
+
+  if (error) throw error;
+
+  const messages = (data || []) as ChatMessage[];
+  const hasMore = messages.length > limit;
+
+  return {
+    messages: hasMore ? messages.slice(0, limit) : messages,
+    hasMore,
+  };
+}

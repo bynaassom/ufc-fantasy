@@ -5,6 +5,7 @@ import {
   listRecentMessages,
   hideMessage,
   unhideMessage,
+  listAllMessages,
 } from "@/server/repositories/chat";
 import { requireActiveUser, requireAdmin } from "@/server/auth/guards";
 
@@ -44,4 +45,13 @@ export async function unhideChatMessage(
 ): Promise<void> {
   const { adminSupabase } = await requireAdmin();
   return unhideMessage(adminSupabase, messageId);
+}
+
+export async function getAdminChatMessages(
+  beforeCreatedAt?: string | null,
+  groupId?: string | null,
+  showHidden?: boolean | null,
+): Promise<{ messages: ChatMessage[]; hasMore: boolean }> {
+  const { adminSupabase } = await requireAdmin();
+  return listAllMessages(adminSupabase, 50, beforeCreatedAt, groupId, showHidden);
 }
