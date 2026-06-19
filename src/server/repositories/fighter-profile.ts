@@ -53,7 +53,6 @@ export async function listFighterRecentFights(
       fighter_b:fighter_b_id(name)
     `)
     .or(`fighter_a_id.eq.${fighterId},fighter_b_id.eq.${fighterId}`)
-    .not("winner_id", "is", null)
     .order("event(event_date)", { ascending: false })
     .limit(limit);
 
@@ -63,8 +62,13 @@ export async function listFighterRecentFights(
     const isA = f.fighter_a_id === fighterId;
     const opponent = isA ? f.fighter_b.name : f.fighter_a.name;
     const won = f.winner_id === fighterId;
-    const drawOrNc = !f.winner_id || f.result_method === "no_contest";
-    const result = drawOrNc ? "NC" : won ? "W" : "L";
+    const result = f.result_method === "no_contest"
+      ? "NC"
+      : !f.winner_id
+        ? "D"
+        : won
+          ? "W"
+          : "L";
 
     return {
       event_name: f.event?.name || "—",
@@ -88,30 +92,21 @@ export async function getFighterPickStats(
   fighterId: string,
 ): Promise<FighterPickStats> {
   const { data, error } = await client
-    .from("event_picks")
-    .select("fight_id, winner_id, fights!inner(winner_id)")
-    .eq("fights.fighter_a_id", fighterId)
-    .or(`fights.fighter_b_id.eq.${fighterId}`)
-    .not("winner_id", "is", null);
+    .from("picks")
+    .select("picked_winner_id, fight_id, fights!inner(winner_id)")
+    .eq("picked_winner_id", fighterId)
+    .eq("is_confirmed", true);
 
   if (error) throw error;
   const picks = data || [];
 
   const total = picks.length;
-  const wins = picks.filter((p: any) => p.winner_id === p.fights?.winner_id).length;
+  const wins = picks.filter((p: any) => p.fights?.winner_id === fighterId).length;
+  const distinctFights = new Set(picks.map((p: any) => p.fight_id)).size;
 
-  // Distinct event count for pick rate calculation will be done in service layer
-  const { data: eventData, error: eventError } = await client
-    .from("fights")
-    .select("id", { count: "exact", head: true })
-    .or(`fighter_a_id.eq.${fighterId},fighter_b_id.eq.${fighterId}`);
-
-  if (eventError) throw eventError;
-
-  // For pick_rate: percentage of users who picked this fighter across all fights
   return {
-    pick_rate: 0, // computed in service from total_picks / total_events_with_picks
+    pick_rate: 0,
     win_when_picked: total > 0 ? Math.round((wins / total) * 100) : 0,
-    total_events_picked: total,
+    total_events_picked: distinctFights,
   };
 }

@@ -1,13 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-
-const mockMaybeSingle = vi.fn();
-const mockSelect = vi.fn();
-const mockEq = vi.fn();
-const mockOr = vi.fn();
-const mockNot = vi.fn();
-const mockOrder = vi.fn();
-const mockLimit = vi.fn();
-const mockFrom = vi.fn();
+import { describe, it, expect, vi } from "vitest";
 
 vi.mock("@/lib/supabase/service-role", () => ({
   getServiceRoleSupabase: vi.fn(() => Promise.resolve({

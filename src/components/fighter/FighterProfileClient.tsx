@@ -24,13 +24,15 @@ export default function FighterProfileClient({ fighter, form, pickStats, slug }:
   const [statsError, setStatsError] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/fighter-stats/${slug}?name=${encodeURIComponent(fighter.name)}`)
+    const controller = new AbortController();
+    fetch(`/api/fighter-stats/${slug}?name=${encodeURIComponent(fighter.name)}`, { signal: controller.signal })
       .then((r) => r.json())
       .then((data) => {
         if (data.error) { setStatsError(true); return; }
         setStats(data);
       })
-      .catch(() => setStatsError(true));
+      .catch((err) => { if (err.name !== "AbortError") setStatsError(true); });
+    return () => controller.abort();
   }, [slug, fighter.name]);
 
   return (
@@ -135,12 +137,12 @@ export default function FighterProfileClient({ fighter, form, pickStats, slug }:
       )}
 
       {/* Form Timeline */}
-      {form.length > 0 && (
-        <div className="mb-6 p-4" style={{ backgroundColor: "var(--bg-elevated)", border: "1px solid var(--border)" }}>
-          <h3 className="font-condensed font-700 text-xs uppercase tracking-widest mb-3" style={{ color: "var(--text-muted)" }}>
-            Ultimas Lutas
-          </h3>
-          {form.map((f, i) => {
+      <div className="mb-6 p-4" style={{ backgroundColor: "var(--bg-elevated)", border: "1px solid var(--border)" }}>
+        <h3 className="font-condensed font-700 text-xs uppercase tracking-widest mb-3" style={{ color: "var(--text-muted)" }}>
+          Ultimas Lutas
+        </h3>
+        {form.length > 0 ? (
+          form.map((f, i) => {
             const dot = f.result === "W" ? "🟢" : f.result === "L" ? "🔴" : "⚪";
             return (
               <div
@@ -160,9 +162,13 @@ export default function FighterProfileClient({ fighter, form, pickStats, slug }:
                 </div>
               </div>
             );
-          })}
-        </div>
-      )}
+          })
+        ) : (
+          <p className="font-condensed text-sm" style={{ color: "var(--text-muted)" }}>
+            Sem historico de lutas
+          </p>
+        )}
+      </div>
 
       {/* Fantasy Pick Stats */}
       <div className="mb-6 p-4" style={{ backgroundColor: "var(--bg-elevated)", border: "1px solid var(--border)" }}>

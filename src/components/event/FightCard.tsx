@@ -6,15 +6,7 @@ import { FightWithFighters, FightMethod, Pick } from "@/types";
 import { getFallbackHeadshot, getMethodLabel } from "@/lib/utils";
 import FightStatsCompare from "./FightStatsCompare";
 import { WEIGHT_CLASS_PT } from "@/lib/ufc-api";
-
-function nameToSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-}
+import { generateFighterSlug } from "@/lib/fighter-slug";
 
 interface FightCardProps {
   fight: FightWithFighters;
@@ -322,9 +314,9 @@ export default function FightCard({
                 </p>
               )}
 
-              {(fighter.slug || nameToSlug(fighter.name)) && (
+              {(fighter.slug || generateFighterSlug(fighter.name)) && (
                 <a
-                  href={`/lutador/${fighter.slug || nameToSlug(fighter.name)}`}
+                  href={`/lutador/${fighter.slug || generateFighterSlug(fighter.name)}`}
                   className="font-condensed text-xs uppercase tracking-widest mt-1 inline-block"
                   style={{ color: "var(--text-muted)" }}
                   onClick={(e) => e.stopPropagation()}
@@ -456,8 +448,8 @@ export default function FightCard({
 
       {/* Comparativo de stats — inline, expansível */}
       <FightStatsCompare
-        slugA={nameToSlug(fight.fighter_a.name)}
-        slugB={nameToSlug(fight.fighter_b.name)}
+        slugA={generateFighterSlug(fight.fighter_a.name)}
+        slugB={generateFighterSlug(fight.fighter_b.name)}
         nameA={fight.fighter_a.name}
         nameB={fight.fighter_b.name}
       />
