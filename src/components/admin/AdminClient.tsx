@@ -16,6 +16,7 @@ import SyncTab from "./tabs/SyncTab";
 import UsersTab from "./tabs/UsersTab";
 import BadgesTab from "./tabs/BadgesTab";
 import AnalyticsTab from "./tabs/AnalyticsTab";
+import ChatModerationTab from "./tabs/ChatModerationTab";
 
 export default function AdminClient({
   events,
@@ -115,6 +116,9 @@ export default function AdminClient({
     { key: "analytics", label: "ANALYTICS", subs: [
       { key: "analytics", label: "Dashboard" },
     ]},
+    { key: "chat", label: "CHAT", subs: [
+      { key: "chat-moderacao", label: "Moderacao" },
+    ]},
     { key: "usuarios", label: "USUÁRIOS", subs: [] },
   ];
 
@@ -173,6 +177,7 @@ export default function AdminClient({
       {subTab === "badges-list" && <BadgesTab subTab={subTab} users={userList} />}
       {subTab === "badges-novo" && <BadgesTab subTab={subTab} users={userList} />}
       {subTab === "analytics" && <AnalyticsTab />}
+      {subTab === "chat-moderacao" && <ChatModerationTab />}
     </div>
   );
 }
