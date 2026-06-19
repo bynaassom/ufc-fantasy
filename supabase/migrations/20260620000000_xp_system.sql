@@ -1,6 +1,6 @@
 -- 20260620000000_xp_system.sql
 CREATE TABLE IF NOT EXISTS xp_events (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
   amount INTEGER NOT NULL,

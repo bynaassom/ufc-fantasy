@@ -29,20 +29,20 @@ describe("level-titles", () => {
     expect(titleFromLevel(1)).toBe("Rookie");
   });
 
-  it("titleFromLevel returns Prospect for level 2", () => {
-    expect(titleFromLevel(2)).toBe("Prospect");
+  it("titleFromLevel returns Apprentice for level 2", () => {
+    expect(titleFromLevel(2)).toBe("Apprentice");
   });
 
-  it("titleFromLevel returns Contender for level 3", () => {
-    expect(titleFromLevel(3)).toBe("Contender");
+  it("titleFromLevel returns Strategist for level 3", () => {
+    expect(titleFromLevel(3)).toBe("Strategist");
   });
 
   it("titleFromLevel returns Veteran for level 4", () => {
     expect(titleFromLevel(4)).toBe("Veteran");
   });
 
-  it("titleFromLevel returns Champion for level 5", () => {
-    expect(titleFromLevel(5)).toBe("Champion");
+  it("titleFromLevel returns Expert for level 5", () => {
+    expect(titleFromLevel(5)).toBe("Expert");
   });
 
   it("titleFromLevel returns Legend for level >= 6", () => {

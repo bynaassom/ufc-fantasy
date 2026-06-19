@@ -7,10 +7,10 @@ export function levelFromXp(xp: number): number {
 
 export function titleFromLevel(level: number): string {
   if (level <= 1) return "Rookie";
-  if (level === 2) return "Prospect";
-  if (level === 3) return "Contender";
+  if (level === 2) return "Apprentice";
+  if (level === 3) return "Strategist";
   if (level === 4) return "Veteran";
-  if (level === 5) return "Champion";
+  if (level === 5) return "Expert";
   return "Legend";
 }
 
