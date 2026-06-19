@@ -168,3 +168,19 @@ export async function getRecentXpEventsForUser(
   const admin: any = await getServiceRoleSupabase();
   return listXpEventsForUser(admin, userId, limit);
 }
+
+export async function getEventXpForUser(
+  userId: string,
+  eventId: string,
+): Promise<XpEvent | null> {
+  const admin: any = await getServiceRoleSupabase();
+  const { data, error } = await admin
+    .from("xp_events")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("event_id", eventId)
+    .eq("reason", XP_REASON)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as unknown as XpEvent) || null;
+}

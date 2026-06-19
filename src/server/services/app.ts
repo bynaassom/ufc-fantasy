@@ -130,6 +130,7 @@ import {
 import { listUserBadges } from "@/server/repositories/badges";
 import { getRivalry } from "@/server/repositories/rivalries";
 import { getAdminSupabase, getUserSupabase } from "@/server/supabase";
+import { getEventXpForUser, getProfileXpSummary } from "@/server/services/xp";
 
 type RankingProfileRow = Pick<
   Profile,
@@ -1092,6 +1093,11 @@ export async function getEventRecapData(slug: string): Promise<import("@/types")
       };
     });
 
+  const userSupabase = await getUserSupabase();
+  const { data: userData } = await userSupabase.auth.getUser();
+  const userId = userData?.user?.id;
+  const xpEvent = userId ? await getEventXpForUser(userId, event.id) : null;
+
   return {
     event,
     ranking: ranking.map((entry: any, index: number) => ({
@@ -1109,6 +1115,8 @@ export async function getEventRecapData(slug: string): Promise<import("@/types")
     },
     fightStats,
     nextEventSlug: (nextEvent as any)?.slug || null,
+    xpEarned: xpEvent?.amount ?? 0,
+    xpAccuracy: xpEvent?.metadata?.accuracy ?? 0,
   };
 }
 
@@ -1135,8 +1143,9 @@ export async function getAdminPageData() {
 }
 
 export async function getMyProfile() {
-  const { profile } = await requireActiveUser();
-  return { profile };
+  const { user, profile } = await requireActiveUser();
+  const xpSummary = await getProfileXpSummary(user.id);
+  return { profile, xpSummary };
 }
 
 export async function updateMyProfile(payload: {
@@ -1383,6 +1392,7 @@ export async function getPublicProfilePageData(nickname: string) {
   const publicProfile = await findPublicProfileByNickname(adminSupabase, nickname);
 
   if (!publicProfile) {
+    const xpSummary = await getProfileXpSummary(profile.id);
     return {
       viewerProfile: profile,
       publicProfile: null,
@@ -1392,16 +1402,18 @@ export async function getPublicProfilePageData(nickname: string) {
       canChallenge: false,
       badges: [],
       rivalry: null,
+      xpSummary,
     };
   }
 
-  const [stats, currentEvent, userBadges, rivalry] = await Promise.all([
+  const [stats, currentEvent, userBadges, rivalry, xpSummary] = await Promise.all([
     getPublicProfileStats(adminSupabase, publicProfile.id),
     getCachedCurrentPublicEvent(),
     listUserBadges(adminSupabase, publicProfile.id),
     publicProfile.id !== profile.id
       ? getRivalry(adminSupabase, profile.id, publicProfile.id)
       : Promise.resolve(null),
+    getProfileXpSummary(publicProfile.id),
   ]);
 
   const challengeableEvent = currentEvent || null;
@@ -1449,6 +1461,7 @@ export async function getPublicProfilePageData(nickname: string) {
       !enrichedExistingChallenge,
     badges: recentBadges,
     rivalry,
+    xpSummary,
   };
 }
 

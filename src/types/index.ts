@@ -380,6 +380,8 @@ export interface EventRecapData {
   };
   fightStats: EventRecapFightStat[];
   nextEventSlug: string | null;
+  xpEarned: number;
+  xpAccuracy: number;
 }
 
 export interface ChatMessage {
