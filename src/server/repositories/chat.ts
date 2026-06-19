@@ -105,3 +105,19 @@ export async function hideMessage(
 
   if (error) throw error;
 }
+
+export async function unhideMessage(
+  client: any,
+  messageId: string,
+): Promise<void> {
+  const { error } = await client
+    .from("chat_messages")
+    .update({
+      is_hidden: false,
+      hidden_by: null,
+      hidden_at: null,
+    })
+    .eq("id", messageId);
+
+  if (error) throw error;
+}
