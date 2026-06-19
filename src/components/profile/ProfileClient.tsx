@@ -6,18 +6,24 @@ import toast from "react-hot-toast";
 import Navbar from "@/components/layout/Navbar";
 import { readApiResponse } from "@/lib/api";
 import { getPlayerLevelProgress } from "@/lib/player-levels";
-import type { Profile } from "@/types";
+import type { Profile, XpEvent, XpSummary as XpSummaryType } from "@/types";
 import type { MeResponse } from "@/types/api";
 import { createAuthClient } from "@/lib/supabase/client";
 import NotificationPreferences from "@/components/notifications/NotificationPreferences";
 import BadgeGrid from "@/components/badges/BadgeGrid";
+import XpSummary from "@/components/profile/XpSummary";
+import XpHistoryList from "@/components/profile/XpHistoryList";
 
 export default function ProfileClient({
   profile: initialProfile,
   initialTab,
+  xpSummary,
+  xpHistory,
 }: {
   profile: Profile;
   initialTab: "nickname" | "password" | "badges";
+  xpSummary: XpSummaryType;
+  xpHistory: XpEvent[];
 }) {
   const [profile, setProfile] = useState(initialProfile);
   const [loading, setLoading] = useState(false);
@@ -201,6 +207,11 @@ export default function ProfileClient({
               </div>
             </div>
           </div>
+        </div>
+
+        <div className="mb-6 space-y-6">
+          <XpSummary data={xpSummary} />
+          <XpHistoryList events={xpHistory} />
         </div>
 
         <div className="flex gap-0 mb-6 overflow-x-auto" style={{ borderBottom: "1px solid var(--border)" }}>

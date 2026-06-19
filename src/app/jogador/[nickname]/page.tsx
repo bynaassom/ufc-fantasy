@@ -23,6 +23,7 @@ export default async function PublicProfilePage({ params }: Props) {
       canChallenge={data.canChallenge}
       badges={data.badges as any[]}
       rivalry={data.rivalry as any}
+      xpSummary={data.xpSummary}
     />
   );
 }

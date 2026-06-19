@@ -7,8 +7,9 @@ import toast from "react-hot-toast";
 import Navbar from "@/components/layout/Navbar";
 import BadgeIcon from "@/components/badges/BadgeIcon";
 import { readApiResponse } from "@/lib/api";
+import XpSummary from "@/components/profile/XpSummary";
 import type { ChallengeResponse, CreateChallengePayload } from "@/types/api";
-import type { Badge, Profile, PublicProfileStats, PublicProfileSummary, Rivalry } from "@/types";
+import type { Badge, Profile, PublicProfileStats, PublicProfileSummary, Rivalry, XpSummary as XpSummaryType } from "@/types";
 
 export default function PublicProfileClient({
   viewerProfile,
@@ -19,6 +20,7 @@ export default function PublicProfileClient({
   canChallenge,
   badges,
   rivalry,
+  xpSummary,
 }: {
   viewerProfile: Profile;
   profile: PublicProfileSummary;
@@ -34,6 +36,7 @@ export default function PublicProfileClient({
   canChallenge: boolean;
   badges: Badge[];
   rivalry: Rivalry | null;
+  xpSummary: XpSummaryType;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -254,6 +257,17 @@ export default function PublicProfileClient({
             </div>
           ))}
         </section>
+
+        {/* XP summary */}
+        <p
+          className="font-condensed font-700 text-xs uppercase tracking-widest mb-3"
+          style={{ color: "var(--text-secondary)" }}
+        >
+          XP e nível
+        </p>
+        <div className="mb-8">
+          <XpSummary data={xpSummary} />
+        </div>
 
         {/* Trophy case */}
         {badges.length > 0 && (
