@@ -26,6 +26,7 @@ type FilterMode = "all" | "visible" | "hidden";
 export default function ChatModerationTab() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [oldestTs, setOldestTs] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterMode>("all");
@@ -38,6 +39,7 @@ export default function ChatModerationTab() {
     async (before?: string | null, reset = false) => {
       setLoading(true);
       try {
+        setError(null);
         const hidden =
           filter === "hidden" ? "true" : filter === "visible" ? "false" : null;
         const params = new URLSearchParams();
@@ -64,6 +66,7 @@ export default function ChatModerationTab() {
         }
       } catch (err: any) {
         toast.error(err.message);
+        setError(err.message || "Erro ao carregar mensagens.");
       } finally {
         setLoading(false);
       }
@@ -151,7 +154,7 @@ export default function ChatModerationTab() {
                 color: filter === f ? "#000" : "var(--text-muted)",
               }}
             >
-              {f === "all" ? "Todas" : f === "visible" ? "Visiveis" : "Ocultas"}
+              {f === "all" ? "Todas" : f === "visible" ? "Visíveis" : "Ocultas"}
             </button>
           ))}
         </div>
@@ -165,9 +168,11 @@ export default function ChatModerationTab() {
         )}
       </div>
 
-      {messages.length === 0 && !loading ? (
-        <p style={{ color: "var(--text-muted)" }}>Nenhuma mensagem encontrada.</p>
-      ) : (
+          {messages.length === 0 && !loading && error ? (
+            <p style={{ color: "var(--red)" }}>{error}</p>
+          ) : messages.length === 0 && !loading ? (
+            <p style={{ color: "var(--text-muted)" }}>Nenhuma mensagem encontrada.</p>
+          ) : (
         <div>
           {messages.map((m) => (
             <div
@@ -260,9 +265,14 @@ export default function ChatModerationTab() {
                   </button>
                 )}
                 <button
-                  onClick={() =>
-                    setBanUserId(banUserId === m.user_id ? null : m.user_id)
-                  }
+                  onClick={() => {
+                    const newTarget = banUserId !== m.user_id ? m.user_id : null;
+                    setBanUserId(newTarget);
+                    if (newTarget) {
+                      setBanReason("");
+                      setTimeout(() => reasonInputRef.current?.focus(), 0);
+                    }
+                  }}
                   disabled={actionLoading === `ban-${m.user_id}`}
                   className="font-condensed text-xs uppercase tracking-widest px-3 py-1.5 transition-all"
                   style={{

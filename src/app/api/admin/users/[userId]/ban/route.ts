@@ -7,7 +7,6 @@ import {
   assertSameOriginForMutation,
   parseJsonBody,
 } from "@/server/api";
-import { requireAdmin } from "@/server/auth/guards";
 import { toggleAdminUserBan } from "@/server/services/app";
 import { adminBanToggleSchema } from "@/server/validators/admin";
 
@@ -18,7 +17,6 @@ type Params = {
 export async function POST(request: NextRequest, { params }: Params) {
   try {
     assertSameOriginForMutation(request);
-    await requireAdmin();
     const body = await parseJsonBody(request, adminBanToggleSchema);
     const data = await toggleAdminUserBan(
       params.userId,

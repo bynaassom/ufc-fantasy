@@ -12,6 +12,18 @@ const MESSAGE_FIELDS = `
   profile:user_id!inner(nickname, first_name, last_name, role)
 `;
 
+const ADMIN_MESSAGE_FIELDS = `
+  id,
+  user_id,
+  group_id,
+  content,
+  is_hidden,
+  hidden_by,
+  hidden_at,
+  created_at,
+  profile:user_id(nickname, first_name, last_name, role)
+`;
+
 export async function insertMessage(
   client: any,
   userId: string,
@@ -131,7 +143,7 @@ export async function listAllMessages(
 ): Promise<{ messages: ChatMessage[]; hasMore: boolean }> {
   let query = client
     .from("chat_messages")
-    .select(MESSAGE_FIELDS)
+    .select(ADMIN_MESSAGE_FIELDS)
     .order("created_at", { ascending: false })
     .limit(limit + 1);
 

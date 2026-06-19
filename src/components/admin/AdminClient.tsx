@@ -117,7 +117,7 @@ export default function AdminClient({
       { key: "analytics", label: "Dashboard" },
     ]},
     { key: "chat", label: "CHAT", subs: [
-      { key: "chat-moderacao", label: "Moderacao" },
+      { key: "chat-moderacao", label: "Moderação" },
     ]},
     { key: "usuarios", label: "USUÁRIOS", subs: [] },
   ];

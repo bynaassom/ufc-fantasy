@@ -8,6 +8,7 @@ import {
   listAllMessages,
 } from "@/server/repositories/chat";
 import { requireActiveUser, requireAdmin } from "@/server/auth/guards";
+import { logAdminAction } from "@/lib/admin-audit";
 
 export async function sendMessage(
   content: string,
@@ -37,14 +38,24 @@ export async function hideChatMessage(
   messageId: string,
 ): Promise<void> {
   const { adminSupabase, user } = await requireAdmin();
-  return hideMessage(adminSupabase, messageId, user.id);
+  await hideMessage(adminSupabase, messageId, user.id);
+  await logAdminAction(adminSupabase, {
+    userId: user.id,
+    action: "admin_hide_message",
+    details: { messageId },
+  });
 }
 
 export async function unhideChatMessage(
   messageId: string,
 ): Promise<void> {
-  const { adminSupabase } = await requireAdmin();
-  return unhideMessage(adminSupabase, messageId);
+  const { adminSupabase, user } = await requireAdmin();
+  await unhideMessage(adminSupabase, messageId);
+  await logAdminAction(adminSupabase, {
+    userId: user.id,
+    action: "admin_unhide_message",
+    details: { messageId },
+  });
 }
 
 export async function getAdminChatMessages(
