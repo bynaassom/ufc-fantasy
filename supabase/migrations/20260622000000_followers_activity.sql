@@ -56,3 +56,21 @@ CREATE POLICY "user_activity_admin_select" ON user_activity
   FOR SELECT USING (
     EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin' AND is_banned = false)
   );
+
+CREATE OR REPLACE FUNCTION update_follow_counters(
+  p_follower_id UUID,
+  p_following_id UUID,
+  p_increment BOOLEAN
+)
+RETURNS void
+LANGUAGE sql
+SECURITY DEFINER
+AS $$
+  UPDATE profiles
+  SET following_count = GREATEST(0, following_count + CASE WHEN p_increment THEN 1 ELSE -1 END)
+  WHERE id = p_follower_id;
+
+  UPDATE profiles
+  SET followers_count = GREATEST(0, followers_count + CASE WHEN p_increment THEN 1 ELSE -1 END)
+  WHERE id = p_following_id;
+$$;
