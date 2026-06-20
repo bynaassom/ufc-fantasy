@@ -87,7 +87,7 @@ export async function middleware(request: NextRequest) {
     error: getUserError,
   } = await supabase.auth.getUser();
 
-  if (getUserError) {
+  if (getUserError && getUserError.message !== "Auth session missing!") {
     console.error("middleware: getUser() failed:", getUserError.message);
   }
 

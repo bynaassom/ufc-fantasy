@@ -58,15 +58,21 @@ export async function listActivityForFollower(
   limit = 20,
   type?: string | null,
 ): Promise<{ items: UserActivity[]; hasMore: boolean }> {
+  const { data: followingRows } = await client
+    .from("user_follows")
+    .select("following_id")
+    .eq("follower_id", followerId);
+
+  const followingIds = (followingRows || []).map(
+    (row: { following_id: string }) => row.following_id,
+  );
+
+  const visibleUserIds = [followerId, ...followingIds];
+
   let query = client
     .from("user_activity")
     .select("id, user_id, type, metadata, created_at, profile:user_id(nickname, first_name, last_name)")
-    .or(
-      `user_id.eq.${followerId},user_id.in.(${client
-        .from("user_follows")
-        .select("following_id")
-        .eq("follower_id", followerId)})`,
-    )
+    .in("user_id", visibleUserIds)
     .order("created_at", { ascending: false })
     .limit(limit + 1);
 
