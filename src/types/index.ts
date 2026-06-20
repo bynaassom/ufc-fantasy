@@ -473,3 +473,21 @@ export interface XpSummary {
   nextLevelXp: number;
   progressToNextLevel: number;
 }
+
+export interface LeagueRecapMember {
+  position: number;
+  userId: string;
+  name: string;
+  nickname: string;
+  totalPoints: number;
+  eventXp: number;
+  movement: "up" | "down" | "same" | "new";
+  movementDelta: number;
+  isCurrentUser: boolean;
+}
+
+export interface LeagueRecapStanding {
+  groupId: string;
+  groupName: string;
+  members: LeagueRecapMember[];
+}
