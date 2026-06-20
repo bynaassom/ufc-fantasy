@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import type { GroupWithMembers } from "@/types";
 import CopyInviteButton from "@/components/groups/CopyInviteButton";
+import FollowButton from "@/components/profile/FollowButton";
 import ChatClient from "@/components/chat/ChatClient";
 
 interface MemberWithScore {
@@ -199,12 +200,17 @@ export default function GroupDetailClient({
               </Link>
 
               {/* Points */}
-              <span
-                className="flex-shrink-0 font-condensed font-900 text-lg"
-                style={{ color: "var(--text)" }}
-              >
-                {member.total_points}
-              </span>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {!isMe && member.profile && (
+                  <FollowButton userId={member.user_id} />
+                )}
+                <span
+                  className="font-condensed font-900 text-lg"
+                  style={{ color: "var(--text)" }}
+                >
+                  {member.total_points}
+                </span>
+              </div>
             </div>
           );
         })}

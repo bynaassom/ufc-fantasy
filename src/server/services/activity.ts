@@ -1,9 +1,8 @@
 import { getAdminSupabase } from "@/server/supabase";
 import {
   insertActivity,
-  listActivityForUsers,
+  listActivityForFollower,
 } from "@/server/repositories/activity";
-import { listFollowing } from "@/server/repositories/follows";
 import type { ActivityType, ActivityFeedItem } from "@/types";
 
 export async function logActivity(
@@ -23,19 +22,10 @@ export async function getFeedForUser(
   userId: string,
   before?: string | null,
   limit = 20,
+  type?: string | null,
 ): Promise<{ items: ActivityFeedItem[]; hasMore: boolean; nextCursor: string | null }> {
   const admin = await getAdminSupabase();
-  const following = await listFollowing(admin, userId, 1000);
-  const followingIds = following.map((f: any) => f.following_id);
-
-  if (followingIds.length === 0) {
-    return { items: [], hasMore: false, nextCursor: null };
-  }
-
-  // Include self in feed so users see their own activity too
-  const feedUserIds = [userId, ...followingIds];
-
-  const result = await listActivityForUsers(admin, feedUserIds, before, limit);
+  const result = await listActivityForFollower(admin, userId, before, limit, type);
   const last = result.items[result.items.length - 1];
 
   return {

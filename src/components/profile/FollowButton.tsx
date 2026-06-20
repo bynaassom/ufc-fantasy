@@ -7,9 +7,11 @@ import toast from "react-hot-toast";
 export default function FollowButton({
   userId,
   initialFollowing,
+  onToggle,
 }: {
   userId: string;
   initialFollowing?: boolean;
+  onToggle?: (following: boolean, followersCount: number, followingCount: number) => void;
 }) {
   const [following, setFollowing] = useState(!!initialFollowing);
   const [loading, setLoading] = useState(false);
@@ -17,11 +19,13 @@ export default function FollowButton({
   async function toggle() {
     setLoading(true);
     try {
-      const data = await adminSend<{ following: boolean }>(
-        `/api/follow/${userId}`,
-        { method: "POST" },
-      );
+      const data = await adminSend<{
+        following: boolean;
+        followersCount: number;
+        followingCount: number;
+      }>(`/api/follow/${userId}`, { method: "POST" });
       setFollowing(data.following);
+      onToggle?.(data.following, data.followersCount, data.followingCount);
     } catch (err: any) {
       toast.error(err.message);
     } finally {

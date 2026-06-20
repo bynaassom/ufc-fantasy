@@ -11,7 +11,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const before = searchParams.get("before");
     const limit = Math.min(50, parseInt(searchParams.get("limit") || "20", 10));
-    const data = await getFeedForUser(user.id, before, limit);
+    const type = searchParams.get("type");
+    const data = await getFeedForUser(user.id, before, limit, type);
     return apiSuccess(data);
   } catch (error) {
     return apiErrorFromUnknown(error);

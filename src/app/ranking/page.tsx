@@ -1,6 +1,7 @@
 import EventRankingSelector from "@/components/ranking/EventRankingSelector";
 import Pagination from "@/components/ui/Pagination";
 import Navbar from "@/components/layout/Navbar";
+import FollowButton from "@/components/profile/FollowButton";
 import Link from "next/link";
 import { Suspense } from "react";
 import { getPlayerLevel } from "@/lib/player-levels";
@@ -392,6 +393,11 @@ export default async function RankingPage({
                           </p>
                         </div>
                       </Link>
+                      {!isMe && (
+                        <div className="mt-1">
+                          <FollowButton userId={entry.userId} />
+                        </div>
+                      )}
                     </div>
                     <div className="col-span-2 text-right">
                       <span

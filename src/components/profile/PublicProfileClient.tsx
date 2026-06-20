@@ -23,8 +23,8 @@ export default function PublicProfileClient({
   rivalry,
   xpSummary,
   isViewerFollowing = false,
-  followersCount = 0,
-  followingCount = 0,
+  followersCount: initialFollowersCount = 0,
+  followingCount: initialFollowingCount = 0,
   favoriteFighterName,
 }: {
   viewerProfile: Profile;
@@ -49,6 +49,7 @@ export default function PublicProfileClient({
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [followersCount, setFollowersCount] = useState(initialFollowersCount);
   const isMe = viewerProfile.id === profile.id;
 
   async function handleChallenge() {
@@ -134,7 +135,11 @@ export default function PublicProfileClient({
 
               {!isMe && (
                 <div className="flex items-center gap-2 mt-3">
-                  <FollowButton userId={profile.id} initialFollowing={isViewerFollowing} />
+                  <FollowButton
+                    userId={profile.id}
+                    initialFollowing={isViewerFollowing}
+                    onToggle={(_following, count) => setFollowersCount(count)}
+                  />
                   <span className="font-condensed text-xs" style={{ color: "var(--text-muted)" }}>
                     {followersCount} seguidor{followersCount !== 1 ? "es" : ""}
                   </span>

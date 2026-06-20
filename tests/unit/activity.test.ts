@@ -2,16 +2,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockSupabase = {};
 const mockRepoInsertActivity = vi.fn();
-const mockRepoListActivityForUsers = vi.fn();
-const mockRepoListFollowing = vi.fn();
+const mockRepoListActivityForFollower = vi.fn();
 
 vi.mock("@/server/repositories/activity", () => ({
   insertActivity: (...args: unknown[]) => mockRepoInsertActivity(...args),
-  listActivityForUsers: (...args: unknown[]) => mockRepoListActivityForUsers(...args),
-}));
-
-vi.mock("@/server/repositories/follows", () => ({
-  listFollowing: (...args: unknown[]) => mockRepoListFollowing(...args),
+  listActivityForFollower: (...args: unknown[]) => mockRepoListActivityForFollower(...args),
 }));
 
 vi.mock("@/server/supabase", () => ({
@@ -34,17 +29,25 @@ describe("activity service", () => {
   });
 
   it("getFeedForUser returns empty for user with no follows", async () => {
-    mockRepoListFollowing.mockResolvedValueOnce([]);
+    mockRepoListActivityForFollower.mockResolvedValueOnce({
+      items: [],
+      hasMore: false,
+    });
     const { getFeedForUser } = await import("@/server/services/activity");
 
     const result = await getFeedForUser("user-1");
 
     expect(result).toEqual({ items: [], hasMore: false, nextCursor: null });
-    expect(mockRepoListActivityForUsers).not.toHaveBeenCalled();
+    expect(mockRepoListActivityForFollower).toHaveBeenCalledWith(
+      mockSupabase,
+      "user-1",
+      undefined,
+      20,
+      undefined,
+    );
   });
 
   it("getFeedForUser paginates correctly", async () => {
-    const now = new Date().toISOString();
     const activities = Array.from({ length: 21 }, (_, i) => ({
       id: `act-${i}`,
       user_id: i % 2 === 0 ? "user-1" : "user-2",
@@ -53,10 +56,7 @@ describe("activity service", () => {
       created_at: new Date(Date.now() - i * 1000).toISOString(),
     }));
 
-    mockRepoListFollowing.mockResolvedValueOnce([
-      { following_id: "user-2", created_at: now },
-    ]);
-    mockRepoListActivityForUsers.mockResolvedValueOnce({
+    mockRepoListActivityForFollower.mockResolvedValueOnce({
       items: activities,
       hasMore: true,
     });
@@ -68,11 +68,12 @@ describe("activity service", () => {
     expect(result.items).toHaveLength(21);
     expect(result.hasMore).toBe(true);
     expect(result.nextCursor).toBe(activities[20].created_at);
-    expect(mockRepoListActivityForUsers).toHaveBeenCalledWith(
+    expect(mockRepoListActivityForFollower).toHaveBeenCalledWith(
       mockSupabase,
-      ["user-1", "user-2"],
+      "user-1",
       null,
       20,
+      undefined,
     );
   });
 });

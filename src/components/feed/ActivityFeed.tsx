@@ -36,7 +36,10 @@ function activityText(item: ActivityFeedItem): string {
     case "result_scored": return `${nick} acertou ${m.correctWinners}/${m.totalFights} vencedores · +${m.xpEarned} XP`;
     case "challenge_created": return `${nick} desafiou ${m.challengedName}`;
     case "challenge_accepted": return `${nick} aceitou desafio de ${m.challengerName}`;
-    case "challenge_completed": return `${nick} venceu desafio contra ${m.opponentName}`;
+    case "challenge_completed":
+      if (m.result === "win") return `${nick} venceu desafio contra ${m.opponentName}`;
+      if (m.result === "loss") return `${nick} perdeu desafio para ${m.opponentName}`;
+      return `${nick} empatou com ${m.opponentName}`;
     case "league_joined": return `${nick} entrou na liga ${m.groupName}`;
     case "streak_milestone": return `${nick} atingiu ${m.currentStreak} eventos seguidos!`;
     case "level_up": return `${nick} subiu para ${m.levelTitle}!`;
@@ -81,7 +84,7 @@ export default function ActivityFeed() {
 
   useEffect(() => {
     fetchFeed(true);
-  }, []);
+  }, [fetchFeed]);
 
   return (
     <div>
@@ -133,7 +136,7 @@ export default function ActivityFeed() {
       {hasMore && (
         <div className="flex justify-center py-4">
           <button
-            onClick={() => fetchFeed()}
+            onClick={() => { if (loading) return; fetchFeed(); }}
             disabled={loading}
             className="font-condensed text-xs uppercase tracking-widest px-6 py-2"
             style={{

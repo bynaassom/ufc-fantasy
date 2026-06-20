@@ -192,6 +192,25 @@ vi.mock("@/server/auth/guards", () => ({
   ),
 }));
 
+const mockAdminSupabase = {
+  from: vi.fn(() => ({
+    select: vi.fn(() => ({
+      eq: vi.fn(() => ({
+        single: vi.fn(() =>
+          Promise.resolve({
+            data: { followers_count: 5, following_count: 3 },
+            error: null,
+          }),
+        ),
+      })),
+    })),
+  })),
+};
+
+vi.mock("@/server/supabase", () => ({
+  getAdminSupabase: vi.fn(() => Promise.resolve(mockAdminSupabase)),
+}));
+
 describe("follows service", () => {
   beforeEach(() => {
     vi.resetAllMocks();
@@ -206,7 +225,7 @@ describe("follows service", () => {
     expect(mockRepoIsFollowing).toHaveBeenCalledWith(mockSupabase, "user-1", "user-2");
     expect(mockRepoUnfollowUser).toHaveBeenCalledWith(mockSupabase, "user-1", "user-2");
     expect(mockRepoFollowUser).not.toHaveBeenCalled();
-    expect(result).toEqual({ following: false });
+    expect(result).toEqual({ following: false, followersCount: 5, followingCount: 3 });
   });
 
   it("toggleFollow calls follow when not following", async () => {
@@ -218,7 +237,7 @@ describe("follows service", () => {
     expect(mockRepoIsFollowing).toHaveBeenCalledWith(mockSupabase, "user-1", "user-2");
     expect(mockRepoFollowUser).toHaveBeenCalledWith(mockSupabase, "user-1", "user-2");
     expect(mockRepoUnfollowUser).not.toHaveBeenCalled();
-    expect(result).toEqual({ following: true });
+    expect(result).toEqual({ following: true, followersCount: 5, followingCount: 3 });
   });
 
   it("getFollowersForUser calls listFollowers with correct args", async () => {
