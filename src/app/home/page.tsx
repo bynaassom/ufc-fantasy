@@ -293,11 +293,9 @@ export default async function HomePage() {
           </section>
         )}
 
-        <ActivityFeed
-          currentEvent={currentEvent}
-          upcomingEvents={upcomingEvents}
-          completedEvents={completedEvents}
-        />
+        <section className="mb-10">
+          <ActivityFeed />
+        </section>
 
         <HomeChallenges
           challenges={activeChallenges}
