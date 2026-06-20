@@ -1,3 +1,8 @@
+"use client";
+
+import { useRef } from "react";
+import ChallengeShareCard from "@/components/share/ChallengeShareCard";
+import ShareActions from "@/components/share/ShareActions";
 import type { ChallengeShareData } from "@/types";
 
 export default function ChallengeSharePage({
@@ -5,41 +10,28 @@ export default function ChallengeSharePage({
 }: {
   data: ChallengeShareData;
 }) {
-  const isCompleted = data.status === "completed";
+  const cardRef = useRef<HTMLDivElement>(null);
+  const filename = `desafio-${data.challenger.nickname}-vs-${data.challenged.nickname}`;
+  const shareCaption = `${data.challenger.nickname} × ${data.challenged.nickname} — ${data.eventName}`;
+  const shareUrl = typeof window !== "undefined" ? window.location.href : "";
+  const whatsappTextUrl = `https://wa.me/?text=${encodeURIComponent(`${data.challenger.nickname} × ${data.challenged.nickname} — ${data.eventName} ${shareUrl}`)}`;
 
   return (
-    <main
-      className="min-h-screen flex flex-col items-center justify-center py-8"
+    <div
+      className="min-h-screen flex flex-col items-center py-8"
       style={{ backgroundColor: "var(--bg)", color: "var(--text)" }}
     >
-      <div className="text-center space-y-4">
-        <h1 className="font-condensed font-900 text-3xl uppercase" style={{ color: "var(--red)" }}>
-          {isCompleted ? "DESAFIO COMPLETO" : "DESAFIO LANCADO"}
-        </h1>
-
-        <div className="space-y-2">
-          <p className="font-condensed font-700 text-xl">
-            {data.challenger.nickname} × {data.challenged.nickname}
-          </p>
-          <p className="font-condensed text-sm" style={{ color: "var(--text-muted)" }}>
-            {data.eventName}
-          </p>
-
-          {data.templateLabel && (
-            <div className="inline-block px-4 py-2 border" style={{ borderColor: "var(--red)", backgroundColor: "rgba(239,68,68,0.1)" }}>
-              <p className="font-condensed font-700 text-sm uppercase" style={{ color: "var(--red)" }}>
-                {data.templateLabel}
-              </p>
-            </div>
-          )}
-
-          {isCompleted && data.result && (
-            <p className="font-condensed font-700 text-2xl" style={{ color: "var(--red)" }}>
-              {data.result.challengerScore} × {data.result.challengedScore}
-            </p>
-          )}
-        </div>
+      <div ref={cardRef}>
+        <ChallengeShareCard data={data} />
       </div>
-    </main>
+      <div className="mt-4">
+        <ShareActions
+          cardRef={cardRef}
+          filename={filename}
+          shareCaption={shareCaption}
+          whatsappTextUrl={whatsappTextUrl}
+        />
+      </div>
+    </div>
   );
 }
