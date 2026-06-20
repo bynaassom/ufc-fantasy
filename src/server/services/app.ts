@@ -64,6 +64,7 @@ import {
 import {
   countConfirmedPicksForFight,
   getPickDistributionForEvent,
+  getPickDistributionForFight,
   listPerfectPickUsersForFight,
   listPicksForUser,
   listPicksForUserEvent,
@@ -927,7 +928,7 @@ export async function getEventLiveData(slug: string) {
   const { supabase, user } = await requirePageUserProfile();
   const event = await getCachedEventBySlug(slug);
   if (!event) {
-    return { status: "completed" as const, fights: [], picks: [], leaderboard: [], myScore: null };
+    return { status: "completed" as const, fights: [], picks: [], leaderboard: [], myScore: null, pickDistribution: [] };
   }
 
   const confirmedFights = (event as EventWithFights).fights.filter(
@@ -969,12 +970,25 @@ export async function getEventLiveData(slug: string) {
       }
     : null;
 
+  const adminSupabase = await getAdminSupabase();
+  const pickDistribution = await Promise.all(
+    fights.map(async (f: any) => {
+      try {
+        const dist = await getPickDistributionForFight(adminSupabase, f.id);
+        return { fightId: f.id, ...dist };
+      } catch {
+        return { fightId: f.id, winner_picks: [], method_picks: [] };
+      }
+    }),
+  );
+
   return {
     status: event.status,
     fights,
     picks,
     leaderboard,
     myScore,
+    pickDistribution,
   };
 }
 

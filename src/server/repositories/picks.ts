@@ -1,4 +1,5 @@
 import type { DbClient } from "@/types/database";
+import type { PickDistributionItem } from "@/types";
 
 const PICK_FIELDS = `
   id,
@@ -143,4 +144,60 @@ export async function getPickDistributionForEvent(client: any, eventId: string) 
     }
   }
   return distribution;
+}
+
+export async function getPickDistributionForFight(
+  client: any,
+  fightId: string,
+): Promise<Omit<PickDistributionItem, "fightId">> {
+  const { data: winners, error: wErr } = await client
+    .from("picks")
+    .select("picked_winner_id, fighter:picked_winner_id(name)")
+    .eq("fight_id", fightId)
+    .eq("is_confirmed", true)
+    .not("picked_winner_id", "is", null);
+
+  if (wErr) throw wErr;
+
+  const { data: methods, error: mErr } = await client
+    .from("picks")
+    .select("picked_method")
+    .eq("fight_id", fightId)
+    .eq("is_confirmed", true)
+    .not("picked_method", "is", null);
+
+  if (mErr) throw mErr;
+
+  const winnerMap = new Map<string, { name: string; count: number }>();
+  let totalWinners = 0;
+  for (const r of winners || []) {
+    const id = r.picked_winner_id;
+    if (!winnerMap.has(id)) {
+      winnerMap.set(id, { name: (r as any).fighter?.name || "\u2014", count: 0 });
+    }
+    winnerMap.get(id)!.count++;
+    totalWinners++;
+  }
+
+  const methodMap = new Map<string, number>();
+  let totalMethods = 0;
+  for (const r of methods || []) {
+    const m = r.picked_method;
+    methodMap.set(m, (methodMap.get(m) || 0) + 1);
+    totalMethods++;
+  }
+
+  return {
+    winner_picks: Array.from(winnerMap.entries()).map(([id, v]) => ({
+      fighterId: id,
+      name: v.name,
+      count: v.count,
+      pct: totalWinners > 0 ? Math.round((v.count / totalWinners) * 100) : 0,
+    })),
+    method_picks: Array.from(methodMap.entries()).map(([method, count]) => ({
+      method,
+      count,
+      pct: totalMethods > 0 ? Math.round((count / totalMethods) * 100) : 0,
+    })),
+  };
 }

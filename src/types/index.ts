@@ -492,3 +492,22 @@ export interface LeagueRecapStanding {
   groupName: string;
   members: LeagueRecapMember[];
 }
+
+export interface WinnerPickSplit {
+  fighterId: string;
+  name: string;
+  count: number;
+  pct: number;
+}
+
+export interface MethodPickSplit {
+  method: string;
+  count: number;
+  pct: number;
+}
+
+export interface PickDistributionItem {
+  fightId: string;
+  winner_picks: WinnerPickSplit[];
+  method_picks: MethodPickSplit[];
+}
