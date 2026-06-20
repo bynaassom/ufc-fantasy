@@ -8,9 +8,6 @@ export const updateMyProfileSchema = z.object({
     .max(20, "Nickname deve ter entre 3 e 20 caracteres.")
     .regex(/^[a-zA-Z0-9_]+$/, "Nickname: apenas letras, números e _.")
     .optional(),
-}).refine(
-  (value) => value.nickname !== undefined,
-  {
-    message: "Informe um nickname.",
-  },
-);
+  bio: z.string().max(200).optional(),
+  favoriteFighterId: z.string().uuid().optional().nullable(),
+});

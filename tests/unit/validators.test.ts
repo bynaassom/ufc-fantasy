@@ -15,8 +15,25 @@ describe("validators", () => {
     expect(result.success).toBe(false);
   });
 
-  it("rejects profile updates without fields", () => {
+  it("accepts empty profile updates (all fields optional)", () => {
     const result = updateMyProfileSchema.safeParse({});
+
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts valid bio and favoriteFighterId updates", () => {
+    const result = updateMyProfileSchema.safeParse({
+      bio: "apaixonado por MMA",
+      favoriteFighterId: "33333333-3333-4333-8333-333333333333",
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects bio exceeding 200 characters", () => {
+    const result = updateMyProfileSchema.safeParse({
+      bio: "x".repeat(201),
+    });
 
     expect(result.success).toBe(false);
   });

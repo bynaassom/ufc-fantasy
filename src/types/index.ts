@@ -78,6 +78,8 @@ export interface Profile {
   division_confirmed: boolean;
   onboarding_completed: boolean;
   notification_preferences: NotificationPreferences;
+  bio?: string | null;
+  favorite_fighter_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -88,6 +90,10 @@ export interface PublicProfileSummary {
   first_name: string;
   last_name: string;
   total_points: number;
+  bio?: string | null;
+  favorite_fighter_id?: string | null;
+  followers_count?: number;
+  following_count?: number;
 }
 
 export interface Event {

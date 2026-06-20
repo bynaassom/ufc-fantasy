@@ -6,6 +6,7 @@ import { useState } from "react";
 import toast from "react-hot-toast";
 import Navbar from "@/components/layout/Navbar";
 import BadgeIcon from "@/components/badges/BadgeIcon";
+import FollowButton from "@/components/profile/FollowButton";
 import { readApiResponse } from "@/lib/api";
 import XpSummary from "@/components/profile/XpSummary";
 import type { ChallengeResponse, CreateChallengePayload } from "@/types/api";
@@ -21,6 +22,10 @@ export default function PublicProfileClient({
   badges,
   rivalry,
   xpSummary,
+  isViewerFollowing = false,
+  followersCount = 0,
+  followingCount = 0,
+  favoriteFighterName,
 }: {
   viewerProfile: Profile;
   profile: PublicProfileSummary;
@@ -37,6 +42,10 @@ export default function PublicProfileClient({
   badges: Badge[];
   rivalry: Rivalry | null;
   xpSummary: XpSummaryType;
+  isViewerFollowing?: boolean;
+  followersCount?: number;
+  followingCount?: number;
+  favoriteFighterName?: string | null;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -122,6 +131,27 @@ export default function PublicProfileClient({
               <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
                 {profile.first_name} {profile.last_name} · {profile.total_points} pontos
               </p>
+
+              {!isMe && (
+                <div className="flex items-center gap-2 mt-3">
+                  <FollowButton userId={profile.id} initialFollowing={isViewerFollowing} />
+                  <span className="font-condensed text-xs" style={{ color: "var(--text-muted)" }}>
+                    {followersCount} seguidor{followersCount !== 1 ? "es" : ""}
+                  </span>
+                </div>
+              )}
+
+              {profile.bio && (
+                <p className="text-sm mt-3" style={{ color: "var(--text)" }}>
+                  {profile.bio}
+                </p>
+              )}
+
+              {favoriteFighterName && (
+                <p className="font-condensed text-xs uppercase tracking-widest mt-3" style={{ color: "var(--text-muted)" }}>
+                  Lutador favorito: {favoriteFighterName}
+                </p>
+              )}
             </div>
 
             <div className="flex flex-wrap gap-3">

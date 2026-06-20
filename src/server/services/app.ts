@@ -71,6 +71,11 @@ import {
   upsertUserPicks,
 } from "@/server/repositories/picks";
 import {
+  followUser,
+  isFollowing,
+  unfollowUser,
+} from "@/server/repositories/follows";
+import {
   findProfileById,
   findPublicProfileByNickname,
   findPublicProfilesByIds,
@@ -1184,11 +1189,17 @@ export async function getMyProfile() {
 
 export async function updateMyProfile(payload: {
   nickname?: string;
+  bio?: string;
+  favoriteFighterId?: string | null;
 }) {
   const { supabase, user } = await requireActiveUser();
 
   try {
-    const profile = await updateProfile(supabase, user.id, payload);
+    const update: Record<string, unknown> = {};
+    if (payload.nickname !== undefined) update.nickname = payload.nickname;
+    if (payload.bio !== undefined) update.bio = payload.bio;
+    if (payload.favoriteFighterId !== undefined) update.favorite_fighter_id = payload.favoriteFighterId;
+    const profile = await updateProfile(supabase, user.id, update);
     return { profile };
   } catch (error: any) {
     if (payload.nickname && error?.message?.toLowerCase().includes("unique")) {
@@ -1446,6 +1457,10 @@ export async function getPublicProfilePageData(nickname: string) {
       badges: [],
       rivalry: null,
       xpSummary,
+      isViewerFollowing: false,
+      followersCount: 0,
+      followingCount: 0,
+      favoriteFighterName: null,
     };
   }
 
@@ -1458,6 +1473,21 @@ export async function getPublicProfilePageData(nickname: string) {
       : Promise.resolve(null),
     getProfileXpSummary(publicProfile.id),
   ]);
+
+  let isViewerFollowing = false;
+  if (publicProfile.id !== profile.id) {
+    isViewerFollowing = await isFollowing(adminSupabase, profile.id, publicProfile.id);
+  }
+
+  let favoriteFighterName: string | null = null;
+  if (publicProfile.favorite_fighter_id) {
+    const { data: fighter } = await adminSupabase
+      .from("fighters")
+      .select("name")
+      .eq("id", publicProfile.favorite_fighter_id)
+      .maybeSingle();
+    favoriteFighterName = fighter?.name || null;
+  }
 
   const challengeableEvent = currentEvent || null;
 
@@ -1505,6 +1535,10 @@ export async function getPublicProfilePageData(nickname: string) {
     badges: recentBadges,
     rivalry,
     xpSummary,
+    isViewerFollowing,
+    followersCount: publicProfile.followers_count || 0,
+    followingCount: publicProfile.following_count || 0,
+    favoriteFighterName,
   };
 }
 

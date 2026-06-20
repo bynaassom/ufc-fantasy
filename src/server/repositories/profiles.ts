@@ -4,6 +4,8 @@ import type { DbClient } from "@/types/database";
 
 type ProfileUpdatePayload = Partial<{
   nickname: string;
+  bio: string | null;
+  favorite_fighter_id: string | null;
   onboarding_completed: boolean;
 }>;
 
@@ -92,7 +94,7 @@ export async function updateProfileBan(
 export async function findPublicProfileByNickname(client: any, nickname: string) {
   const { data, error } = await client
     .from("ranking_profiles")
-    .select("id, nickname, first_name, last_name, total_points")
+    .select("id, nickname, first_name, last_name, total_points, bio, favorite_fighter_id, followers_count, following_count")
     .eq("nickname", nickname)
     .maybeSingle();
 

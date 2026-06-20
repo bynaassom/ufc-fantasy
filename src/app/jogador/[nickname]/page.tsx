@@ -24,6 +24,10 @@ export default async function PublicProfilePage({ params }: Props) {
       badges={data.badges as any[]}
       rivalry={data.rivalry as any}
       xpSummary={data.xpSummary}
+      isViewerFollowing={data.isViewerFollowing}
+      followersCount={data.followersCount}
+      followingCount={data.followingCount}
+      favoriteFighterName={data.favoriteFighterName}
     />
   );
 }
