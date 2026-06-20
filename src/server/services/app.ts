@@ -497,6 +497,33 @@ async function createChallengeNotification(
   return notification;
 }
 
+async function countCorrectWinners(client: any, userId: string, eventId: string): Promise<number> {
+  const { data } = await client
+    .from("picks")
+    .select("points_winner")
+    .eq("user_id", userId)
+    .eq("event_id", eventId)
+    .eq("is_confirmed", true);
+  return (data || []).filter((p: any) => p.points_winner > 0).length;
+}
+
+async function countMatchingPicks(client: any, userIdA: string, userIdB: string, eventId: string): Promise<number> {
+  const { data: picksA } = await client
+    .from("picks")
+    .select("fight_id, picked_winner_id")
+    .eq("user_id", userIdA)
+    .eq("event_id", eventId)
+    .eq("is_confirmed", true);
+  const { data: picksB } = await client
+    .from("picks")
+    .select("fight_id, picked_winner_id")
+    .eq("user_id", userIdB)
+    .eq("event_id", eventId)
+    .eq("is_confirmed", true);
+  const mapB = new Map((picksB || []).map((p: any) => [p.fight_id, p.picked_winner_id]));
+  return (picksA || []).filter((p: any) => mapB.get(p.fight_id) === p.picked_winner_id).length;
+}
+
 async function resolveChallengeLifecycle(client: any, challenge: ChallengeRow) {
   if (!challenge.event) return challenge;
 
@@ -512,19 +539,45 @@ async function resolveChallengeLifecycle(client: any, challenge: ChallengeRow) {
   }
 
   if (challenge.status === "accepted" && challenge.event.status === "completed") {
-    const scoreMap = await getEventScoresMap(
-      client,
-      [challenge.challenger_id, challenge.challenged_id],
-      challenge.event_id,
-    );
-    const challengerPoints = scoreMap.get(challenge.challenger_id) || 0;
-    const challengedPoints = scoreMap.get(challenge.challenged_id) || 0;
-    const winnerUserId = getChallengeLeaderUserId(
-      challengerPoints,
-      challengedPoints,
-      challenge.challenger_id,
-      challenge.challenged_id,
-    );
+    let winnerUserId: string | null;
+    let challengerPoints: number;
+    let challengedPoints: number;
+
+    if (challenge.template_type === "more_winners") {
+      challengerPoints = await countCorrectWinners(client, challenge.challenger_id, challenge.event_id);
+      challengedPoints = await countCorrectWinners(client, challenge.challenged_id, challenge.event_id);
+      winnerUserId = getChallengeLeaderUserId(
+        challengerPoints,
+        challengedPoints,
+        challenge.challenger_id,
+        challenge.challenged_id,
+      );
+    } else if (challenge.template_type === "use_my_picks") {
+      const challengerMatches = await countMatchingPicks(client, challenge.challenger_id, challenge.challenged_id, challenge.event_id);
+      const challengedMatches = await countMatchingPicks(client, challenge.challenged_id, challenge.challenger_id, challenge.event_id);
+      challengerPoints = challengerMatches;
+      challengedPoints = challengedMatches;
+      winnerUserId = getChallengeLeaderUserId(
+        challengerPoints,
+        challengedPoints,
+        challenge.challenger_id,
+        challenge.challenged_id,
+      );
+    } else {
+      const scoreMap = await getEventScoresMap(
+        client,
+        [challenge.challenger_id, challenge.challenged_id],
+        challenge.event_id,
+      );
+      challengerPoints = scoreMap.get(challenge.challenger_id) || 0;
+      challengedPoints = scoreMap.get(challenge.challenged_id) || 0;
+      winnerUserId = getChallengeLeaderUserId(
+        challengerPoints,
+        challengedPoints,
+        challenge.challenger_id,
+        challenge.challenged_id,
+      );
+    }
 
     const updated = await updateChallenge(client, challenge.id, {
       status: "completed",
