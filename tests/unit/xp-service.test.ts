@@ -93,9 +93,9 @@ describe("xp service - computeEventXpForUser", () => {
 
 describe("xp service - awardEventXpForAllUsers", () => {
   it("returns 0/[] when no picks exist for the event", async () => {
-    mockClient.from.mockReturnValueOnce({
-      select: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }),
-    });
+    mockClient.from
+      .mockReturnValueOnce({ select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: { name: "Event", slug: "event" }, error: null }) }) }) })
+      .mockReturnValueOnce({ select: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) });
     const { awardEventXpForAllUsers } = await import("@/server/services/xp");
     const r = await awardEventXpForAllUsers("e1");
     expect(r).toEqual({ awarded: 0, usersAffected: [] });
@@ -107,6 +107,7 @@ describe("xp service - awardEventXpForAllUsers", () => {
     const eventsForU1 = [{ metadata: { accuracy: 1, method_acc: 1, round_acc: 1, fights_with_picks: 1, correct_winners: 1, correct_methods: 1, correct_rounds: 1 }, created_at: "2026-06-01" }];
 
     mockClient.from
+      .mockReturnValueOnce({ select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: { name: "Event", slug: "event" }, error: null }) }) }) })
       .mockReturnValueOnce({ select: () => ({ eq: () => Promise.resolve({ data: pickers, error: null }) }) })
       .mockReturnValueOnce({ select: () => ({ eq: () => ({ eq: () => Promise.resolve({ data: picksForU1, error: null }) }) }) })
       .mockReturnValueOnce({ upsert: () => ({ select: () => ({ maybeSingle: () => Promise.resolve({ data: { id: "x" }, error: null }) }) }) })

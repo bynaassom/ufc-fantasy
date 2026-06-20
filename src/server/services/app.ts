@@ -21,6 +21,7 @@ import { getServiceRoleSupabase } from "@/lib/supabase/service-role";
 import { ApiRouteError } from "@/server/api";
 import { requireActiveUser, requireAdmin } from "@/server/auth/guards";
 import { CACHE_TAGS } from "@/server/cache-tags";
+import { logActivity } from "@/server/services/activity";
 import {
   createChallenge,
   findActiveChallengeBetweenUsers,
@@ -570,6 +571,27 @@ async function resolveChallengeLifecycle(client: any, challenge: ChallengeRow) {
         targetPath: `/desafios/${challenge.id}`,
       });
     }
+
+    try {
+      await logActivity(challenge.challenger_id, "challenge_completed", {
+        challengeId: challenge.id,
+        eventName: challenge.event?.name,
+        eventSlug: challenge.event?.slug,
+        opponentId: challenge.challenged_id,
+        result: winnerUserId === challenge.challenger_id ? "win" : winnerUserId ? "loss" : "draw",
+        score: challengerPoints,
+        opponentScore: challengedPoints,
+      });
+      await logActivity(challenge.challenged_id, "challenge_completed", {
+        challengeId: challenge.id,
+        eventName: challenge.event?.name,
+        eventSlug: challenge.event?.slug,
+        opponentId: challenge.challenger_id,
+        result: winnerUserId === challenge.challenged_id ? "win" : winnerUserId ? "loss" : "draw",
+        score: challengedPoints,
+        opponentScore: challengerPoints,
+      });
+    } catch { /* silent */ }
 
     return {
       ...updated,
@@ -1287,6 +1309,15 @@ export async function saveMyEventPicks(
   }));
 
   await upsertUserPicks(supabase, payload);
+
+  try {
+    await logActivity(user.id, "pick_submitted", {
+      eventName: event.name,
+      eventSlug: event.slug,
+      fightsCount: picks.length,
+    });
+  } catch { /* silent */ }
+
   return { savedCount: payload.length };
 }
 
@@ -1570,6 +1601,16 @@ export async function createUserChallenge(challengedId: string, eventId: string)
     targetPath: `/desafios/${challenge.id}`,
   });
 
+  try {
+    await logActivity(user.id, "challenge_created", {
+      challengeId: challenge.id,
+      eventName: event.name,
+      eventSlug: event.slug,
+      opponentId: challengedId,
+      opponentName: opponent.nickname,
+    });
+  } catch { /* silent */ }
+
   return {
     challenge: (
       await enrichChallenges(adminSupabase, [
@@ -1650,6 +1691,17 @@ export async function respondToChallenge(
     challengeId: challengeWithEvent.id,
     targetPath: `/desafios/${challengeWithEvent.id}`,
   });
+
+  if (action === "accept") {
+    try {
+      await logActivity(user.id, "challenge_accepted", {
+        challengeId: challengeWithEvent.id,
+        eventName: challengeWithEvent.event?.name,
+        eventSlug: challengeWithEvent.event?.slug,
+        opponentId: challengeWithEvent.challenger_id,
+      });
+    } catch { /* silent */ }
+  }
 
   return {
     challenge: (
@@ -2251,6 +2303,14 @@ export async function createGroupWithMember(name: string, description: string | 
     user_id: user.id,
     role: "admin",
   });
+
+  try {
+    await logActivity(user.id, "league_joined", {
+      groupId: group.id,
+      groupName: group.name,
+    });
+  } catch { /* silent */ }
+
   return group;
 }
 
@@ -2273,6 +2333,14 @@ export async function joinGroupByCode(code: string) {
     user_id: user.id,
     role: "member",
   });
+
+  try {
+    await logActivity(user.id, "league_joined", {
+      groupId: group.id,
+      groupName: group.name,
+    });
+  } catch { /* silent */ }
+
   return group;
 }
 
@@ -2305,6 +2373,13 @@ export async function processInviteLink(code: string) {
     user_id: user.id,
     role: "member",
   });
+
+  try {
+    await logActivity(user.id, "league_joined", {
+      groupId: group.id,
+      groupName: group.name,
+    });
+  } catch { /* silent */ }
 
   return { status: "joined" as const, group };
 }

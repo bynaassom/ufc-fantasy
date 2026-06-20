@@ -8,6 +8,7 @@ import {
   updateProfileLevel,
 } from "@/server/repositories/xp";
 import { levelFromXp, titleFromLevel, xpToNextLevel } from "@/lib/level-titles";
+import { logActivity } from "@/server/services/activity";
 
 const XP_REASON = "event_completion";
 
@@ -61,6 +62,14 @@ export async function awardEventXpForAllUsers(eventId: string): Promise<{
 }> {
   const admin: any = await getServiceRoleSupabase();
 
+  const { data: eventData } = await admin
+    .from("events")
+    .select("name, slug")
+    .eq("id", eventId)
+    .single();
+  const eventName = eventData?.name || "—";
+  const eventSlug = eventData?.slug || "—";
+
   const { data: pickers, error: pickersErr } = await admin
     .from("event_picks")
     .select("user_id")
@@ -86,6 +95,17 @@ export async function awardEventXpForAllUsers(eventId: string): Promise<{
       });
       if (!inserted) continue;
       await incrementProfileXp(admin, userId, computed.amount);
+
+      try {
+        await logActivity(userId, "result_scored", {
+          eventName,
+          eventSlug,
+          correctWinners: computed.metadata.correct_winners,
+          totalFights: computed.metadata.fights_with_picks,
+          xpEarned: computed.amount,
+        });
+      } catch { /* silent */ }
+
       usersAffected.push(userId);
       awarded++;
     } catch (err) {
@@ -100,7 +120,22 @@ export async function awardEventXpForAllUsers(eventId: string): Promise<{
 
   for (const userId of usersAffected) {
     try {
-      await recomputeStreakAndLevelForUser(userId);
+      const streakResult = await recomputeStreakAndLevelForUser(userId);
+
+      try {
+        if ([3, 5, 10, 25].includes(streakResult.currentStreak)) {
+          await logActivity(userId, "streak_milestone", {
+            currentStreak: streakResult.currentStreak,
+            bestStreak: streakResult.bestStreak,
+          });
+        }
+        if (streakResult.newLevel > streakResult.oldLevel) {
+          await logActivity(userId, "level_up", {
+            newLevel: streakResult.newLevel,
+            levelTitle: titleFromLevel(streakResult.newLevel),
+          });
+        }
+      } catch { /* silent */ }
     } catch (err) {
       await admin.from("activity_logs").insert({
         user_id: null,
@@ -114,7 +149,12 @@ export async function awardEventXpForAllUsers(eventId: string): Promise<{
   return { awarded, usersAffected };
 }
 
-export async function recomputeStreakAndLevelForUser(userId: string): Promise<void> {
+export async function recomputeStreakAndLevelForUser(userId: string): Promise<{
+  oldLevel: number;
+  newLevel: number;
+  currentStreak: number;
+  bestStreak: number;
+}> {
   const admin: any = await getServiceRoleSupabase();
   const events = await listXpEventsForUser(admin, userId, 100);
 
@@ -138,6 +178,13 @@ export async function recomputeStreakAndLevelForUser(userId: string): Promise<vo
   if (newLevel !== profile.level) {
     await updateProfileLevel(admin, userId, newLevel);
   }
+
+  return {
+    oldLevel: profile.level,
+    newLevel,
+    currentStreak,
+    bestStreak,
+  };
 }
 
 export async function getProfileXpSummary(userId: string): Promise<XpSummary> {
