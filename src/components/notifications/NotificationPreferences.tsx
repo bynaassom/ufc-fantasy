@@ -47,6 +47,31 @@ const SECTIONS: Section[] = [
     title: "Conquistas",
     keys: [
       { key: "badge_earned", label: "Badges", desc: "Notificar quando voce desbloquear um novo badge" },
+      { key: "level_up", label: "Subiu de nivel", desc: "Notificar quando voce subir de nivel" },
+    ],
+  },
+  {
+    title: "Eventos",
+    keys: [
+      { key: "event_recap", label: "Recap de evento", desc: "Resumo do evento enviado apos o encerramento" },
+    ],
+  },
+  {
+    title: "Liga",
+    keys: [
+      { key: "league_rank", label: "Mudanca de posicao na liga", desc: "Notificar quando sua posicao na liga mudar" },
+    ],
+  },
+  {
+    title: "Chat",
+    keys: [
+      { key: "chat_mention", label: "Mencoes no chat", desc: "Notificar quando alguem te mencionar no chat" },
+    ],
+  },
+  {
+    title: "Desafios diretos",
+    keys: [
+      { key: "rivalry_result", label: "Resultado de desafio", desc: "Notificar o resultado de um confronto direto" },
     ],
   },
 ];
