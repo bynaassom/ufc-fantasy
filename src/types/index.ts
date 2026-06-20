@@ -514,3 +514,21 @@ export interface PickDistributionItem {
   winner_picks: WinnerPickSplit[];
   method_picks: MethodPickSplit[];
 }
+
+export interface ChallengeShareData {
+  id: string;
+  challenger: { name: string; nickname: string };
+  challenged: { name: string; nickname: string };
+  eventName: string;
+  eventDate: string;
+  templateType: string | null;
+  templateLabel: string | null;
+  status: "pending" | "accepted" | "completed" | "declined";
+  result?: {
+    winnerId: string | null;
+    winnerNickname: string | null;
+    challengerScore: number;
+    challengedScore: number;
+    isDraw: boolean;
+  };
+}

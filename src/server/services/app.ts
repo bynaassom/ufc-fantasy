@@ -2,6 +2,7 @@ import { unstable_cache } from "next/cache";
 import type {
   Challenge,
   ChallengeFightComparison,
+  ChallengeShareData,
   ChallengeTemplateType,
   Event,
   EventWithFights,
@@ -2628,4 +2629,88 @@ export async function updateMyNotificationPreferences(preferences: NotificationP
     .single();
   if (error) throw error;
   return data?.notification_preferences as NotificationPreferences;
+}
+
+export async function getPublicChallengeShareData(
+  challengeId: string,
+): Promise<ChallengeShareData | null> {
+  const admin = await getAdminSupabase();
+
+  const { data, error } = await admin
+    .from("challenges")
+    .select(`
+      id,
+      status,
+      template_type,
+      challenger:challenger_id(nickname, first_name, last_name),
+      challenged:challenged_id(nickname, first_name, last_name),
+      event:event_id(name, event_date)
+    `)
+    .eq("id", challengeId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+
+  const ch = data as any;
+  const challengerName = ch.challenger
+    ? [ch.challenger.first_name, ch.challenger.last_name].filter(Boolean).join(" ") || ch.challenger.nickname
+    : "—";
+  const challengedName = ch.challenged
+    ? [ch.challenged.first_name, ch.challenged.last_name].filter(Boolean).join(" ") || ch.challenged.nickname
+    : "—";
+
+  const templateLabels: Record<string, string> = {
+    beat_my_score: "Bater minha pontuação",
+    more_winners: "Acerte mais vencedores",
+    use_my_picks: "Use meus picks como gabarito",
+  };
+
+  const result = ch.status === "completed"
+    ? await resolveChallengeShareResult(admin, challengeId)
+    : undefined;
+
+  return {
+    id: ch.id,
+    challenger: { name: challengerName, nickname: ch.challenger?.nickname || "—" },
+    challenged: { name: challengedName, nickname: ch.challenged?.nickname || "—" },
+    eventName: ch.event?.name || "—",
+    eventDate: ch.event?.event_date || "",
+    templateType: ch.template_type || null,
+    templateLabel: ch.template_type ? templateLabels[ch.template_type] || null : null,
+    status: ch.status,
+    result,
+  };
+}
+
+async function resolveChallengeShareResult(
+  admin: any,
+  challengeId: string,
+): Promise<ChallengeShareData["result"]> {
+  const { data } = await admin
+    .from("challenges")
+    .select("challenger_id, challenged_id, winner_id, result, event_id")
+    .eq("id", challengeId)
+    .maybeSingle();
+
+  if (!data?.winner_id) return { winnerId: null, winnerNickname: null, challengerScore: 0, challengedScore: 0, isDraw: data?.result === "draw" };
+
+  const isDraw = data.result === "draw";
+
+  // Get scores from event_scores
+  const { data: scores } = await admin
+    .from("event_scores")
+    .select("user_id, total_points")
+    .eq("event_id", data.event_id)
+    .in("user_id", [data.challenger_id, data.challenged_id]);
+
+  const challengerScore = scores?.find((s: any) => s.user_id === data.challenger_id)?.total_points || 0;
+  const challengedScore = scores?.find((s: any) => s.user_id === data.challenged_id)?.total_points || 0;
+
+  return {
+    winnerId: data.winner_id,
+    winnerNickname: null, // resolved in the caller if needed
+    challengerScore,
+    challengedScore,
+    isDraw,
+  };
 }
