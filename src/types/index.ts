@@ -1,5 +1,41 @@
 import type { CompetitiveDivision } from "@/lib/ufc-weight";
 
+export interface UserFollow {
+  id: string;
+  follower_id: string;
+  following_id: string;
+  created_at: string;
+}
+
+export const ACTIVITY_TYPES = [
+  "pick_submitted",
+  "result_scored",
+  "challenge_created",
+  "challenge_accepted",
+  "challenge_completed",
+  "league_joined",
+  "streak_milestone",
+  "level_up",
+] as const;
+
+export type ActivityType = (typeof ACTIVITY_TYPES)[number];
+
+export interface UserActivity {
+  id: string;
+  user_id: string;
+  type: ActivityType;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface ActivityFeedItem extends UserActivity {
+  profile?: {
+    nickname: string;
+    first_name: string;
+    last_name: string;
+  };
+}
+
 export type FightMethod = "decision" | "submission" | "knockout";
 export type EventStatus = "upcoming" | "live" | "completed";
 export type FightCardType = "main" | "preliminary";
