@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { getMethodLabel } from "@/lib/utils";
+import PickDistributionBar from "@/components/event/PickDistributionBar";
+import type { PickDistributionItem } from "@/types";
 
 interface LiveFighter {
   id: string;
@@ -48,6 +50,7 @@ interface LiveData {
   fights: LiveFight[];
   picks: LivePick[];
   leaderboard?: LiveLeaderboardEntry[];
+  pickDistribution?: PickDistributionItem[];
   myScore?: {
     total_points: number;
     perfect_picks: number;
@@ -87,6 +90,7 @@ export default function LiveFeed({ eventSlug }: { eventSlug: string }) {
   const [status, setStatus] = useState("");
   const [leaderboard, setLeaderboard] = useState<LiveLeaderboardEntry[]>([]);
   const [myScore, setMyScore] = useState<LiveData["myScore"]>(null);
+  const [pickDistribution, setPickDistribution] = useState<PickDistributionItem[]>([]);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
 
   useEffect(() => {
@@ -105,6 +109,7 @@ export default function LiveFeed({ eventSlug }: { eventSlug: string }) {
         setStatus(data.status);
         if (data.leaderboard) setLeaderboard(data.leaderboard);
         if (data.myScore !== undefined) setMyScore(data.myScore);
+        if (data.pickDistribution) setPickDistribution(data.pickDistribution);
 
         if (data.status !== "live") return;
 
@@ -281,60 +286,66 @@ export default function LiveFeed({ eventSlug }: { eventSlug: string }) {
             const isCorrect = entry.pick?.winner_id === entry.fight.winner_id;
             const methodLabel = getMethodLabel(entry.fight.result_method || "");
 
+            const dist = pickDistribution.find((d) => d.fightId === entry.fight.id);
+
             return (
               <div
                 key={entry.id}
-                className="flex items-start gap-3 p-3 animate-in fade-in slide-in-from-top-2 duration-300"
+                className="p-3 animate-in fade-in slide-in-from-top-2 duration-300"
                 style={{
                   backgroundColor: "var(--bg)",
                   border: "1px solid var(--border)",
                 }}
               >
-                {/* Icon / Result badge */}
-                <div
-                  className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
-                  style={{
-                    backgroundColor: isCorrect ? "var(--green)" : "var(--red)",
-                    color: "white",
-                  }}
-                >
-                  {isCorrect ? "✓" : "✗"}
-                </div>
+                <div className="flex items-start gap-3">
+                  {/* Icon / Result badge */}
+                  <div
+                    className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
+                    style={{
+                      backgroundColor: isCorrect ? "var(--green)" : "var(--red)",
+                      color: "white",
+                    }}
+                  >
+                    {isCorrect ? "✓" : "✗"}
+                  </div>
 
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold truncate">{winner.name}</p>
-                  <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
-                    {METHOD_EMOJI[entry.fight.result_method || ""] || ""}{" "}
-                    {methodLabel}
-                    {entry.fight.result_round ? ` - R${entry.fight.result_round}` : ""}
-                  </p>
-                  {entry.pick && (
-                    <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
-                      Seu palpite:{" "}
-                      {isCorrect ? (
-                        <span style={{ color: "var(--green)" }}>
-                          +{entry.totalPoints} pts
-                        </span>
-                      ) : (
-                        <span className="opacity-60">
-                          {entry.pick.winner_id === entry.fight.fighter_a.id
-                            ? entry.fight.fighter_a.name
-                            : entry.fight.fighter_b.name}{" "}
-                          · 0 pts
-                        </span>
-                      )}
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold truncate">{winner.name}</p>
+                    <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                      {METHOD_EMOJI[entry.fight.result_method || ""] || ""}{" "}
+                      {methodLabel}
+                      {entry.fight.result_round ? ` - R${entry.fight.result_round}` : ""}
                     </p>
-                  )}
+                    {entry.pick && (
+                      <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
+                        Seu palpite:{" "}
+                        {isCorrect ? (
+                          <span style={{ color: "var(--green)" }}>
+                            +{entry.totalPoints} pts
+                          </span>
+                        ) : (
+                          <span className="opacity-60">
+                            {entry.pick.winner_id === entry.fight.fighter_a.id
+                              ? entry.fight.fighter_a.name
+                              : entry.fight.fighter_b.name}{" "}
+                            · 0 pts
+                          </span>
+                        )}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Fight order */}
+                  <span
+                    className="flex-shrink-0 text-xs font-mono"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    Luta #{entry.fight.fight_order}
+                  </span>
                 </div>
 
-                {/* Fight order */}
-                <span
-                  className="flex-shrink-0 text-xs font-mono"
-                  style={{ color: "var(--text-secondary)" }}
-                >
-                  Luta #{entry.fight.fight_order}
-                </span>
+                {dist && <PickDistributionBar dist={dist} />}
               </div>
             );
           })}
