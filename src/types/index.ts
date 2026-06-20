@@ -425,6 +425,7 @@ export interface EventRecapData {
   nextEventSlug: string | null;
   xpEarned: number;
   xpAccuracy: number;
+  leagueStandings?: LeagueRecapStanding[];
 }
 
 export interface ChatMessage {

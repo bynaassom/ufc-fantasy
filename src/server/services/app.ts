@@ -137,6 +137,7 @@ import { listUserBadges } from "@/server/repositories/badges";
 import { getRivalry } from "@/server/repositories/rivalries";
 import { getAdminSupabase, getUserSupabase } from "@/server/supabase";
 import { getEventXpForUser, getProfileXpSummary } from "@/server/services/xp";
+import { computeLeagueRecap } from "@/server/services/league-recap";
 
 type RankingProfileRow = Pick<
   Profile,
@@ -1137,6 +1138,15 @@ export async function getEventRecapData(slug: string): Promise<import("@/types")
   const userId = userData?.user?.id;
   const xpEvent = userId ? await getEventXpForUser(userId, event.id) : null;
 
+  let leagueStandings: import("@/types").LeagueRecapStanding[] | undefined;
+  try {
+    if (userId) {
+      leagueStandings = await computeLeagueRecap(userId, event.id);
+    }
+  } catch {
+    leagueStandings = [];
+  }
+
   return {
     event,
     ranking: ranking.map((entry: any, index: number) => ({
@@ -1156,6 +1166,7 @@ export async function getEventRecapData(slug: string): Promise<import("@/types")
     nextEventSlug: (nextEvent as any)?.slug || null,
     xpEarned: xpEvent?.amount ?? 0,
     xpAccuracy: xpEvent?.metadata?.accuracy ?? 0,
+    leagueStandings: leagueStandings || [],
   };
 }
 
