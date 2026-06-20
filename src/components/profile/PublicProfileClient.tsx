@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import Navbar from "@/components/layout/Navbar";
 import BadgeIcon from "@/components/badges/BadgeIcon";
 import FollowButton from "@/components/profile/FollowButton";
+import ChallengeTemplates from "@/components/profile/ChallengeTemplates";
 import { readApiResponse } from "@/lib/api";
 import XpSummary from "@/components/profile/XpSummary";
 import type { ChallengeResponse, CreateChallengePayload } from "@/types/api";
@@ -50,7 +51,17 @@ export default function PublicProfileClient({
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [followersCount, setFollowersCount] = useState(initialFollowersCount);
+  const [nextEventId, setNextEventId] = useState<string | null>(null);
   const isMe = viewerProfile.id === profile.id;
+
+  useEffect(() => {
+    fetch("/api/events?status=upcoming&limit=1")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.data?.[0]) setNextEventId(d.data[0].id);
+      })
+      .catch(() => {});
+  }, []);
 
   async function handleChallenge() {
     if (!currentEvent || !canChallenge) return;
@@ -156,6 +167,14 @@ export default function PublicProfileClient({
                 <p className="font-condensed text-xs uppercase tracking-widest mt-3" style={{ color: "var(--text-muted)" }}>
                   Lutador favorito: {favoriteFighterName}
                 </p>
+              )}
+
+              {!isMe && nextEventId && (
+                <ChallengeTemplates
+                  challengedId={profile.id}
+                  challengedNickname={profile.nickname}
+                  eventId={nextEventId}
+                />
               )}
             </div>
 
