@@ -321,10 +321,7 @@ function buildSyncPlan(
       existing.slug !== payload.slug ||
       existing.event_date !== payload.event_date ||
       (existing.location || "") !== payload.location ||
-      (existing.banner_image_url || null) !== payload.banner_image_url ||
-      (existing.ufc_event_id || null) !== payload.ufc_event_id ||
-      (existing.picks_lock_at || null) !== payload.picks_lock_at ||
-      (existing.picks_open_at || null) !== payload.picks_open_at;
+      (existing.ufc_event_id || null) !== payload.ufc_event_id;
 
     candidates.push({
       source_id: upstreamEvent.id,
@@ -477,9 +474,27 @@ export async function POST(req: NextRequest) {
       } else if (candidate.action === "unchanged") {
         unchanged.push(candidate.name);
       } else {
+        const updatePayload: Record<string, unknown> = {
+          name: candidate.name,
+          slug: candidate.slug,
+          event_date: candidate.event_date,
+          location: candidate.location,
+          ufc_event_id: candidate.source_id,
+        };
+
+        const { data: existingEvent } = await auth.adminSupabase
+          .from("events")
+          .select("banner_image_url")
+          .eq("id", candidate.existing_event.id)
+          .single();
+
+        if (!existingEvent?.banner_image_url && candidate.banner_image_url) {
+          updatePayload.banner_image_url = candidate.banner_image_url;
+        }
+
         const { error } = await auth.adminSupabase
           .from("events")
-          .update(payload)
+          .update(updatePayload)
           .eq("id", candidate.existing_event.id);
 
         if (error) {

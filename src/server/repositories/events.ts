@@ -1,4 +1,3 @@
-import { getPublicEventCutoffIso } from "@/lib/event-sequence";
 import type { DbClient } from "@/types/database";
 
 const EVENT_PUBLIC_FIELDS = `
@@ -54,13 +53,25 @@ export async function getCurrentPublicEvent(client: DbClient) {
     .from("events")
     .select(EVENT_PUBLIC_FIELDS)
     .in("status", ["upcoming", "live"])
-    .gte("event_date", getPublicEventCutoffIso())
     .order("event_date", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+    .limit(2);
 
   if (error) throw error;
-  return data;
+  if (!data || data.length === 0) return null;
+
+  const [first, second] = data;
+
+  if (second?.picks_open_at) {
+    const picksOpenMs = new Date(second.picks_open_at).getTime();
+    if (Number.isFinite(picksOpenMs)) {
+      const cutoffMs = picksOpenMs - 60 * 60 * 1000;
+      if (Date.now() >= cutoffMs) {
+        return second;
+      }
+    }
+  }
+
+  return first;
 }
 
 export async function listRecentEvents(client: DbClient, limit = 20) {
@@ -89,7 +100,6 @@ export async function listUpcomingEvents(client: DbClient, limit = 10) {
     .from("events")
     .select(EVENT_PUBLIC_FIELDS)
     .eq("status", "upcoming")
-    .gte("event_date", getPublicEventCutoffIso())
     .order("event_date", { ascending: true })
     .limit(limit);
 
@@ -159,7 +169,6 @@ export async function getCurrentEventForRanking(client: any) {
     .from("events")
     .select("id, name")
     .in("status", ["upcoming", "live"])
-    .gte("event_date", getPublicEventCutoffIso())
     .order("event_date", { ascending: true })
     .limit(1)
     .maybeSingle();
