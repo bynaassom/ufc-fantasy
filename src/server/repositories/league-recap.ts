@@ -51,6 +51,29 @@ export async function getMemberEventScore(
   return data ? { totalPoints: data.total_points } : null;
 }
 
+export async function getMemberTotalPoints(
+  client: DbClient,
+  userId: string,
+  eventId: string,
+): Promise<number> {
+  const { data: ev } = await client
+    .from("events")
+    .select("event_date")
+    .eq("id", eventId)
+    .single();
+
+  if (!ev) return 0;
+
+  const { data, error } = await client
+    .from("event_scores")
+    .select("total_points, events!inner(event_date)")
+    .eq("user_id", userId)
+    .lte("events.event_date", ev.event_date);
+
+  if (error) return 0;
+  return (data || []).reduce((sum: number, r: any) => sum + (r.total_points || 0), 0);
+}
+
 export async function getPreviousCompletedEventId(
   client: DbClient,
   eventId: string,

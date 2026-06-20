@@ -3,8 +3,10 @@ import {
   getUserLeagueIds,
   getGroupMembers,
   getMemberEventScore,
+  getMemberTotalPoints,
   getPreviousCompletedEventId,
 } from "@/server/repositories/league-recap";
+import { logAdminAction } from "@/lib/admin-audit";
 import type { LeagueRecapStanding, LeagueRecapMember } from "@/types";
 
 export async function computeLeagueRecap(
@@ -33,6 +35,10 @@ export async function computeLeagueRecap(
             members.map((m) => getMemberEventScore(admin, m.userId, prevEventId)),
           )
         : null;
+
+      const totalPoints = await Promise.all(
+        members.map((m) => getMemberTotalPoints(admin, m.userId, eventId)),
+      );
 
       const currentRanked = members
         .map((m, i) => ({ ...m, points: currentScores[i]?.totalPoints ?? 0 }))
@@ -64,12 +70,14 @@ export async function computeLeagueRecap(
           movementDelta = Math.abs(movementDelta);
         }
 
+        const memberIdx = members.findIndex((mb) => mb.userId === m.userId);
+
         return {
           position: currentPos,
           userId: m.userId,
           name: m.name,
           nickname: m.nickname,
-          totalPoints: m.points,
+          totalPoints: memberIdx >= 0 ? totalPoints[memberIdx] ?? 0 : 0,
           eventXp: m.points,
           movement,
           movementDelta,
@@ -82,7 +90,14 @@ export async function computeLeagueRecap(
         groupName: league.group_name,
         members: membersList,
       });
-    } catch {
+    } catch (err) {
+      try {
+        await logAdminAction(admin, {
+          userId,
+          action: "league_recap_compute_failed",
+          details: { groupId: league.group_id, error: String(err) },
+        });
+      } catch { /* silent */ }
       continue;
     }
   }
