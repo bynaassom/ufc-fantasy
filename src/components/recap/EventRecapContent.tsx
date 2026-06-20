@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { formatEventDate } from "@/lib/utils";
 import type { EventRecapData } from "@/types";
+import LeagueRecapSection from "@/components/recap/LeagueRecapSection";
 
 export default function EventRecapContent({ data }: { data: EventRecapData }) {
-  const { event, ranking, aggregateStats, fightStats, nextEventSlug, xpEarned, xpAccuracy } = data;
+  const { event, ranking, aggregateStats, fightStats, nextEventSlug, xpEarned, xpAccuracy, leagueStandings } = data;
 
   return (
     <main className="min-h-[100dvh]" style={{ backgroundColor: "var(--bg)" }}>
@@ -166,6 +167,11 @@ export default function EventRecapContent({ data }: { data: EventRecapData }) {
             ))}
           </div>
         </div>
+
+        {/* League Standings */}
+        {leagueStandings && leagueStandings.length > 0 && (
+          <LeagueRecapSection standings={leagueStandings} />
+        )}
 
         {/* CTA */}
         <div className="mt-8 text-center">
