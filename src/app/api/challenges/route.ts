@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
   try {
     assertSameOriginForMutation(request);
     const body = await parseJsonBody(request, createChallengeSchema);
-    const data = await createUserChallenge(body.challengedId, body.eventId);
+    const data = await createUserChallenge(body.challengedId, body.eventId, body.template);
     return apiSuccess(data);
   } catch (error) {
     return apiErrorFromUnknown(error);

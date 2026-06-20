@@ -2,6 +2,7 @@ import { unstable_cache } from "next/cache";
 import type {
   Challenge,
   ChallengeFightComparison,
+  ChallengeTemplateType,
   Event,
   EventWithFights,
   FightWithFighters,
@@ -1567,7 +1568,11 @@ export async function getPublicProfilePageData(nickname: string) {
   };
 }
 
-export async function createUserChallenge(challengedId: string, eventId: string) {
+export async function createUserChallenge(
+  challengedId: string,
+  eventId: string,
+  template?: ChallengeTemplateType,
+) {
   const { user } = await requireActiveUser();
   const adminSupabase = await getAdminSupabase();
 
@@ -1634,6 +1639,7 @@ export async function createUserChallenge(challengedId: string, eventId: string)
     challenger_id: user.id,
     challenged_id: challengedId,
     status: "pending",
+    template_type: template || null,
   }).catch(async (err) => {
     const recheck = await findActiveChallengeBetweenUsers(
       adminSupabase,

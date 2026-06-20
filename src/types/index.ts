@@ -36,6 +36,8 @@ export interface ActivityFeedItem extends UserActivity {
   };
 }
 
+export type ChallengeTemplateType = "beat_my_score" | "more_winners" | "use_my_picks";
+
 export type FightMethod = "decision" | "submission" | "knockout";
 export type EventStatus = "upcoming" | "live" | "completed";
 export type FightCardType = "main" | "preliminary";
@@ -196,6 +198,7 @@ export interface Challenge {
   challenger_id: string;
   challenged_id: string;
   status: ChallengeStatus;
+  template_type?: ChallengeTemplateType | null;
   winner_user_id?: string | null;
   responded_at?: string | null;
   completed_at?: string | null;
