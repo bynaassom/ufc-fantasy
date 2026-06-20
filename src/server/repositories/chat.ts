@@ -1,4 +1,5 @@
 import type { ChatMessage } from "@/types";
+import { notifyChatMention } from "@/server/services/notifications";
 
 const MESSAGE_FIELDS = `
   id,
@@ -40,6 +41,25 @@ export async function insertMessage(
     .single();
 
   if (error) throw error;
+
+  try {
+    const mentionRegex = /@(\w+)/g;
+    const mentionedNicknames = new Set<string>();
+    let match;
+    while ((match = mentionRegex.exec(content)) !== null) {
+      mentionedNicknames.add(match[1]);
+    }
+
+    const mentionerNickname = data.profile?.nickname || "Anonimo";
+
+    for (const nickname of Array.from(mentionedNicknames)) {
+      if (nickname === mentionerNickname) continue;
+      try {
+        await notifyChatMention(mentionerNickname, nickname, content);
+      } catch { /* silent */ }
+    }
+  } catch { /* silent */ }
+
   return data;
 }
 

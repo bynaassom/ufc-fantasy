@@ -7,6 +7,7 @@ import {
   getPreviousCompletedEventId,
 } from "@/server/repositories/league-recap";
 import { logAdminAction } from "@/lib/admin-audit";
+import { notifyLeagueRankChanged } from "@/server/services/notifications";
 import type { LeagueRecapStanding, LeagueRecapMember } from "@/types";
 
 export async function computeLeagueRecap(
@@ -14,6 +15,14 @@ export async function computeLeagueRecap(
   eventId: string,
 ): Promise<LeagueRecapStanding[]> {
   const admin = await getAdminSupabase();
+
+  const { data: eventData } = await admin
+    .from("events")
+    .select("name, slug")
+    .eq("id", eventId)
+    .single();
+  const eventName = eventData?.name || "—";
+  const eventSlug = eventData?.slug || "—";
 
   const leagues = await getUserLeagueIds(admin, userId);
   if (leagues.length === 0) return [];
@@ -90,6 +99,27 @@ export async function computeLeagueRecap(
         groupName: league.group_name,
         members: membersList,
       });
+
+      try {
+        const currentUserEntry = membersList.find((m) => m.isCurrentUser);
+        const prevPos = currentUserEntry && prevRanked
+          ? prevRankMap.get(userId)
+          : undefined;
+        if (
+          currentUserEntry &&
+          prevPos !== undefined &&
+          currentUserEntry.position !== prevPos
+        ) {
+          await notifyLeagueRankChanged(
+            userId,
+            league.group_name,
+            eventName,
+            eventSlug,
+            currentUserEntry.position,
+            prevPos,
+          );
+        }
+      } catch { /* silent */ }
     } catch (err) {
       try {
         await logAdminAction(admin, {

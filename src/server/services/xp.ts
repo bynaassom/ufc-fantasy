@@ -9,6 +9,7 @@ import {
 } from "@/server/repositories/xp";
 import { levelFromXp, titleFromLevel, xpToNextLevel } from "@/lib/level-titles";
 import { logActivity } from "@/server/services/activity";
+import { notifyEventRecapReady, notifyLevelUp } from "@/server/services/notifications";
 
 const XP_REASON = "event_completion";
 
@@ -134,6 +135,9 @@ export async function awardEventXpForAllUsers(eventId: string): Promise<{
             newLevel: streakResult.newLevel,
             levelTitle: titleFromLevel(streakResult.newLevel),
           });
+          try {
+            await notifyLevelUp(userId, streakResult.newLevel);
+          } catch { /* silent */ }
         }
       } catch { /* silent */ }
     } catch (err) {
@@ -144,6 +148,12 @@ export async function awardEventXpForAllUsers(eventId: string): Promise<{
         suspicious: false,
       });
     }
+  }
+
+  for (const userId of usersAffected) {
+    try {
+      await notifyEventRecapReady(userId, eventName, eventSlug);
+    } catch { /* silent */ }
   }
 
   return { awarded, usersAffected };

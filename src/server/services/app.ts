@@ -112,6 +112,7 @@ import {
 import {
   createNotificationsForUsers,
   notifyActiveUsers,
+  notifyRivalryResult,
   sendBrowserPush,
 } from "@/server/services/notifications";
 import { getNotificationPreferenceKey } from "@/lib/notifications";
@@ -653,6 +654,25 @@ async function resolveChallengeLifecycle(client: any, challenge: ChallengeRow) {
         score: challengedPoints,
         opponentScore: challengerPoints,
       });
+    } catch { /* silent */ }
+
+    try {
+      const eventName = challenge.event?.name || "—";
+      const eventSlug = challenge.event?.slug || "—";
+
+      if (winnerUserId) {
+        const loserUserId = winnerUserId === challenge.challenger_id
+          ? challenge.challenged_id
+          : challenge.challenger_id;
+        const winnerName = winnerUserId === challenge.challenger_id ? challengerName : challengedName;
+        const loserName = winnerUserId === challenge.challenger_id ? challengedName : challengerName;
+
+        await notifyRivalryResult(winnerUserId, loserName, eventName, eventSlug, "win");
+        await notifyRivalryResult(loserUserId, winnerName, eventName, eventSlug, "loss");
+      } else {
+        await notifyRivalryResult(challenge.challenger_id, challengedName, eventName, eventSlug, "draw");
+        await notifyRivalryResult(challenge.challenged_id, challengerName, eventName, eventSlug, "draw");
+      }
     } catch { /* silent */ }
 
     return {
@@ -2606,6 +2626,11 @@ const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   challenge_result: true,
   badge_earned: true,
   event_completed: true,
+  event_recap: true,
+  league_rank: true,
+  chat_mention: true,
+  rivalry_result: true,
+  level_up: true,
 };
 
 export async function getMyNotificationPreferences() {

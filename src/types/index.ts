@@ -247,6 +247,11 @@ export type NotificationPreferences = {
   challenge_result: boolean;
   badge_earned: boolean;
   event_completed: boolean;
+  event_recap: boolean;
+  league_rank: boolean;
+  chat_mention: boolean;
+  rivalry_result: boolean;
+  level_up: boolean;
 };
 
 export interface PublicProfileStats {

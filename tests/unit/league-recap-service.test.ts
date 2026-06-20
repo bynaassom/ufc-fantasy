@@ -6,7 +6,13 @@ const mockGetMemberEventScore = vi.fn();
 const mockGetMemberTotalPoints = vi.fn();
 const mockGetPreviousCompletedEventId = vi.fn();
 const mockLogAdminAction = vi.fn();
-const mockAdminClient = {};
+const mockAdminClient: any = {
+  from: vi.fn(() => mockAdminClient),
+  select: vi.fn(() => mockAdminClient),
+  eq: vi.fn(() => mockAdminClient),
+  single: vi.fn(() => Promise.resolve({ data: null, error: null })),
+  maybeSingle: vi.fn(() => Promise.resolve({ data: null, error: null })),
+};
 
 vi.mock("@/server/supabase", () => ({
   getAdminSupabase: vi.fn(() => Promise.resolve(mockAdminClient)),

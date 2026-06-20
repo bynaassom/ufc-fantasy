@@ -25,6 +25,11 @@ const NOTIFICATION_KEYS: (keyof NotificationPreferences)[] = [
   "challenge_declined",
   "challenge_result",
   "badge_earned",
+  "event_recap",
+  "league_rank",
+  "chat_mention",
+  "rivalry_result",
+  "level_up",
 ];
 
 const updateNotificationPreferencesSchema = z.object(

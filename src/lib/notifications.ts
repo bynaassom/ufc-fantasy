@@ -17,7 +17,12 @@ export type UfcNotificationType =
   | "fight_added"
   | "card_updated"
   | "perfect_pick"
-  | "event_completed";
+  | "event_completed"
+  | "event_recap_ready"
+  | "league_rank_changed"
+  | "chat_mention"
+  | "rivalry_result"
+  | "level_up";
 
 export type PickReminderType = Extract<
   UfcNotificationType,
@@ -49,6 +54,11 @@ export function getNotificationPreferenceKey(
     challenge_declined: "challenge_declined",
     challenge_result: "challenge_result",
     badge_earned: "badge_earned",
+    event_recap_ready: "event_recap",
+    league_rank_changed: "league_rank",
+    chat_mention: "chat_mention",
+    rivalry_result: "rivalry_result",
+    level_up: "level_up",
   };
   return map[type] ?? null;
 }

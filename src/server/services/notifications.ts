@@ -11,17 +11,22 @@ import {
   type PerfectPickRarity,
   type UfcNotificationType,
 } from "@/lib/notifications";
+import { titleFromLevel } from "@/lib/level-titles";
 import { getCurrentPublicEvent } from "@/server/repositories/events";
 import {
+  createNotification,
   createNotificationOnce,
   filterUserIdsByNotificationPreference,
   listActiveNotificationRecipients,
   listConfirmedPickUsersForEvent,
+  shouldNotifyUser,
 } from "@/server/repositories/notifications";
+import { findPublicProfileByNickname } from "@/server/repositories/profiles";
 import {
   deletePushSubscriptionByEndpoint,
   listPushSubscriptionsForUsers,
 } from "@/server/repositories/push-subscriptions";
+import { getAdminSupabase } from "@/server/supabase";
 
 type NotificationEvent = {
   id: string;
@@ -416,4 +421,129 @@ export async function notifyBulkCardChanges(
     },
     deps,
   );
+}
+
+export async function notifyEventRecapReady(
+  userId: string,
+  eventName: string,
+  eventSlug: string,
+) {
+  try {
+    const admin = await getAdminSupabase();
+    if (!(await shouldNotifyUser(admin, userId, "event_recap"))) return;
+    await createNotification(admin, {
+      user_id: userId,
+      type: "event_recap_ready",
+      title: "Recap pronto!",
+      message: `O recap do ${eventName} esta pronto! Veja como voce e suas ligas foram.`,
+      dedupe_key: `${userId}::${eventSlug}::recap_ready`,
+      target_path: `/recap/${eventSlug}`,
+    });
+  } catch { /* silent */ }
+}
+
+export async function notifyLeagueRankChanged(
+  userId: string,
+  groupName: string,
+  eventName: string,
+  eventSlug: string,
+  newPosition: number,
+  previousPosition: number,
+) {
+  try {
+    const admin = await getAdminSupabase();
+    if (!(await shouldNotifyUser(admin, userId, "league_rank"))) return;
+
+    const delta = previousPosition - newPosition;
+    const direction = delta > 0 ? "subiu" : delta < 0 ? "caiu" : "manteve";
+    const deltaText = delta !== 0 ? ` (${delta > 0 ? "+" : ""}${delta} posições)` : "";
+
+    await createNotification(admin, {
+      user_id: userId,
+      type: "league_rank_changed",
+      title: "Ranking da liga atualizado",
+      message: `Voce ${direction} para ${newPosition}º lugar${deltaText} na liga ${groupName} apos o ${eventName}.`,
+      dedupe_key: `${userId}::${eventSlug}::rank_${newPosition}`,
+      target_path: `/recap/${eventSlug}`,
+    });
+  } catch { /* silent */ }
+}
+
+export async function notifyChatMention(
+  mentionerNickname: string,
+  mentionedNickname: string,
+  content: string,
+) {
+  try {
+    const admin = await getAdminSupabase();
+    const mentionedProfile = await findPublicProfileByNickname(admin, mentionedNickname);
+    if (!mentionedProfile) return;
+
+    const shouldSend = await shouldNotifyUser(admin, mentionedProfile.id, "chat_mention");
+    if (!shouldSend) return;
+
+    await createNotification(admin, {
+      user_id: mentionedProfile.id,
+      type: "chat_mention",
+      title: "Menção no chat",
+      message: `${mentionerNickname} mencionou voce: "${content.slice(0, 100)}"`,
+      dedupe_key: `${mentionedProfile.id}::mention::${mentionerNickname}::${content.slice(0, 50)}`,
+      target_path: "/chat",
+    });
+  } catch { /* silent */ }
+}
+
+export async function notifyRivalryResult(
+  userId: string,
+  opponentNickname: string,
+  eventName: string,
+  eventSlug: string,
+  result: "win" | "loss" | "draw",
+) {
+  try {
+    const admin = await getAdminSupabase();
+    if (!(await shouldNotifyUser(admin, userId, "rivalry_result"))) return;
+
+    const title = result === "win"
+      ? "Vitória na rivalidade!"
+      : result === "loss"
+        ? "Derrota na rivalidade"
+        : "Rivalidade empatou";
+
+    const message = result === "win"
+      ? `Voce venceu ${opponentNickname} na rivalidade do ${eventName}.`
+      : result === "loss"
+        ? `${opponentNickname} venceu voce na rivalidade do ${eventName}.`
+        : `Sua rivalidade com ${opponentNickname} no ${eventName} terminou empatada.`;
+
+    await createNotification(admin, {
+      user_id: userId,
+      type: "rivalry_result",
+      title,
+      message,
+      dedupe_key: `${userId}::${eventSlug}::rivalry_${result}`,
+      target_path: `/recap/${eventSlug}`,
+    });
+  } catch { /* silent */ }
+}
+
+export async function notifyLevelUp(
+  userId: string,
+  newLevel: number,
+) {
+  try {
+    const admin = await getAdminSupabase();
+    if (!(await shouldNotifyUser(admin, userId, "level_up"))) return;
+
+    const levelTitle = titleFromLevel(newLevel);
+
+    await createNotification(admin, {
+      user_id: userId,
+      type: "level_up",
+      title: "Level Up!",
+      message: `Voce subiu para o nivel ${newLevel} (${levelTitle}). Continue assim!`,
+      dedupe_key: `${userId}::level_${newLevel}`,
+      target_path: "/perfil",
+    });
+  } catch { /* silent */ }
 }
