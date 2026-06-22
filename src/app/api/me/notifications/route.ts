@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
-import { apiErrorFromUnknown, apiSuccess } from "@/server/api";
+import { NextRequest } from "next/server";
+import { apiErrorFromUnknown, apiSuccess, assertSameOriginForMutation } from "@/server/api";
 import { clearMyNotifications, getMyNotifications } from "@/server/services/app";
 
 export async function GET() {
@@ -12,8 +13,9 @@ export async function GET() {
   }
 }
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
+    assertSameOriginForMutation(request);
     await clearMyNotifications();
     return apiSuccess({ cleared: true });
   } catch (error) {
