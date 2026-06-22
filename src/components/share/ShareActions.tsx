@@ -266,6 +266,8 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
         console.warn("Canvas share composition failed, trying DOM capture", err);
       }
 
+      await new Promise((r) => setTimeout(r, 50));
+
       try {
         const { toBlob, toPng } = await import("html-to-image");
 
@@ -294,6 +296,8 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
       } catch (err) {
         console.warn("html-to-image failed, trying html2canvas", err);
       }
+
+      await new Promise((r) => setTimeout(r, 50));
 
       try {
         const html2canvas = (await import("html2canvas")).default;

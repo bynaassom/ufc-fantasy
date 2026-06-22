@@ -36,7 +36,7 @@ export async function middleware(request: NextRequest) {
   if (pathname.startsWith("/api/")) {
     const key = getRateLimitKey(request);
     const config = getRateLimitConfig(pathname);
-    const result = checkRateLimit(key, config);
+    const result = await checkRateLimit(key, config);
     const response = result.allowed
       ? NextResponse.next({ request })
       : NextResponse.json(

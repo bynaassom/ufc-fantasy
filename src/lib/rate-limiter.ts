@@ -1,4 +1,41 @@
-const store = new Map<string, { count: number; resetAt: number }>();
+export type RateLimitEntry = { count: number; resetAt: number };
+
+/**
+ * Implement this interface to plug in a shared store (Redis, Supabase, Vercel KV, etc.)
+ * for consistent rate limiting across serverless function instances.
+ *
+ * On serverless platforms (Vercel, AWS Lambda), the default in-memory Map is
+ * per-function-instance — rate limits reset on cold starts and are inconsistent
+ * under concurrency.
+ */
+export interface RateLimitStore {
+  get(key: string): RateLimitEntry | undefined | Promise<RateLimitEntry | undefined>;
+  set(key: string, entry: RateLimitEntry): void | Promise<void>;
+}
+
+const DEFAULT_STORE = new Map<string, RateLimitEntry>();
+
+let usingDefaultStore = true;
+
+let store: RateLimitStore = {
+  get(key) {
+    const now = Date.now();
+    const entry = DEFAULT_STORE.get(key);
+    if (entry && now >= entry.resetAt) {
+      DEFAULT_STORE.delete(key);
+      return undefined;
+    }
+    return entry;
+  },
+  set(key, entry) {
+    DEFAULT_STORE.set(key, entry);
+  },
+};
+
+export function setRateLimitStore(customStore: RateLimitStore) {
+  store = customStore;
+  usingDefaultStore = false;
+}
 
 const ONE_MINUTE_MS = 60_000;
 
@@ -17,11 +54,11 @@ const CLEANUP_INTERVAL_MS = 5 * 60_000;
 let cleanupTimer: ReturnType<typeof setInterval> | null = null;
 
 function ensureCleanupTimer() {
-  if (cleanupTimer) return;
+  if (cleanupTimer || !usingDefaultStore) return;
   cleanupTimer = setInterval(() => {
     const now = Date.now();
-    store.forEach((entry, key) => {
-      if (now >= entry.resetAt) store.delete(key);
+    DEFAULT_STORE.forEach((entry, key) => {
+      if (now >= entry.resetAt) DEFAULT_STORE.delete(key);
     });
   }, CLEANUP_INTERVAL_MS);
   if (typeof cleanupTimer === "object" && "unref" in cleanupTimer) {
@@ -29,17 +66,18 @@ function ensureCleanupTimer() {
   }
 }
 
-export function checkRateLimit(
+export async function checkRateLimit(
   key: string,
   config: RateLimitConfig = DEFAULT_CONFIG,
-): { allowed: boolean; remaining: number; resetAt: number } {
+): Promise<{ allowed: boolean; remaining: number; resetAt: number }> {
   ensureCleanupTimer();
   const now = Date.now();
-  const entry = store.get(key);
+  const entry = await store.get(key);
 
   if (!entry || now >= entry.resetAt) {
-    store.set(key, { count: 1, resetAt: now + config.windowMs });
-    return { allowed: true, remaining: config.maxRequests - 1, resetAt: now + config.windowMs };
+    const newEntry = { count: 1, resetAt: now + config.windowMs };
+    await store.set(key, newEntry);
+    return { allowed: true, remaining: config.maxRequests - 1, resetAt: newEntry.resetAt };
   }
 
   if (entry.count >= config.maxRequests) {

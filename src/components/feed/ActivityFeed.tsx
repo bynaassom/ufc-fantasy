@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import type { ActivityFeedItem } from "@/types";
 import { adminGet } from "@/components/admin/shared";
 
@@ -51,14 +51,14 @@ export default function ActivityFeed() {
   const [items, setItems] = useState<ActivityFeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasMore, setHasMore] = useState(false);
-  const [cursor, setCursor] = useState<string | null>(null);
+  const cursorRef = useRef<string | null>(null);
   const [error, setError] = useState(false);
 
   const fetchFeed = useCallback(async (reset = false) => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (!reset && cursor) params.set("before", cursor);
+      if (!reset && cursorRef.current) params.set("before", cursorRef.current);
       params.set("limit", "20");
       const data = await adminGet<{
         items: ActivityFeedItem[];
@@ -73,14 +73,14 @@ export default function ActivityFeed() {
             ),
       );
       setHasMore(data.hasMore);
-      setCursor(data.nextCursor);
+      cursorRef.current = data.nextCursor;
       setError(false);
     } catch {
       setError(true);
     } finally {
       setLoading(false);
     }
-  }, [cursor]);
+  }, []);
 
   useEffect(() => {
     fetchFeed(true);

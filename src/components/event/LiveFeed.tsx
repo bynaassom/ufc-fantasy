@@ -93,13 +93,24 @@ export default function LiveFeed({ eventSlug }: { eventSlug: string }) {
   const [pickDistribution, setPickDistribution] = useState<PickDistributionItem[]>([]);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
 
+  const abortRef = useRef<AbortController | null>(null);
+
   useEffect(() => {
     let mounted = true;
     let timeoutId: ReturnType<typeof setTimeout>;
 
     async function poll() {
+      if (document.visibilityState === "hidden") {
+        if (mounted) timeoutId = setTimeout(poll, 20000);
+        return;
+      }
+
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
       try {
-        const res = await fetch(`/api/events/${eventSlug}/live`);
+        const res = await fetch(`/api/events/${eventSlug}/live`, { signal: controller.signal });
         if (!res.ok) throw new Error("fetch failed");
         const json = await res.json();
         if (json.error) throw new Error(json.error);
@@ -130,8 +141,8 @@ export default function LiveFeed({ eventSlug }: { eventSlug: string }) {
         if (newEntries.length > 0) {
           setEntries((prev) => [...newEntries.reverse(), ...prev]);
         }
-      } catch {
-        setError(true);
+      } catch (err: any) {
+        if (err?.name !== "AbortError") setError(true);
       }
 
       if (mounted) {
@@ -139,11 +150,22 @@ export default function LiveFeed({ eventSlug }: { eventSlug: string }) {
       }
     }
 
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        clearTimeout(timeoutId);
+        poll();
+      }
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     poll();
 
     return () => {
       mounted = false;
       clearTimeout(timeoutId);
+      abortRef.current?.abort();
+      abortRef.current = null;
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [eventSlug]);
 

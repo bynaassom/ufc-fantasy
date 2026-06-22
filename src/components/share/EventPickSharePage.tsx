@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { formatEventDate } from "@/lib/utils";
 import PublicShareHeader from "@/components/share/PublicShareHeader";
 import ShareActions from "@/components/share/ShareActions";
@@ -47,7 +47,7 @@ export default function EventPickSharePage({ data, shareUrl, bannerDataUrl, shar
   const cardRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [cardScale, setCardScale] = useState(0.65);
-  const pickMap = new Map((picks || []).map((pick: any) => [pick.fight_id, pick]));
+  const pickMap = useMemo(() => new Map((picks || []).map((pick: any) => [pick.fight_id, pick])), [picks]);
 
   useEffect(() => {
     const el = wrapperRef.current;

@@ -21,6 +21,7 @@ export default function ChallengeTemplates({
   eventId: string;
 }) {
   const [loading, setLoading] = useState<string | null>(null);
+  const [sentTemplates, setSentTemplates] = useState<Set<string>>(new Set());
 
   async function sendChallenge(template: ChallengeTemplateType) {
     setLoading(template);
@@ -29,6 +30,7 @@ export default function ChallengeTemplates({
         method: "POST",
         body: JSON.stringify({ challengedId, eventId, template }),
       });
+      setSentTemplates((prev) => new Set(prev).add(template));
       toast.success(`Desafio enviado para ${challengedNickname}!`);
     } catch (err: any) {
       toast.error(err.message);
@@ -43,29 +45,31 @@ export default function ChallengeTemplates({
         Desafiar para...
       </p>
       <div className="grid gap-2">
-        {TEMPLATES.map((t) => (
+        {TEMPLATES.map((t) => {
+          const sent = sentTemplates.has(t.type);
+          return (
           <button
             key={t.type}
             onClick={() => sendChallenge(t.type)}
-            disabled={loading === t.type}
+            disabled={loading === t.type || sent}
             className="flex items-start gap-3 p-3 text-left transition-all"
             style={{
               backgroundColor: "var(--bg-elevated)",
               border: "1px solid var(--border)",
-              opacity: loading === t.type ? 0.5 : 1,
+              opacity: loading === t.type || sent ? 0.5 : 1,
             }}
           >
             <span className="text-lg mt-0.5">{t.icon}</span>
             <div>
               <div className="font-condensed font-700 text-sm uppercase" style={{ color: "var(--red)" }}>
-                {loading === t.type ? "Enviando..." : t.label}
+                {loading === t.type ? "Enviando..." : sent ? "Desafio enviado" : t.label}
               </div>
               <div className="font-condensed text-xs" style={{ color: "var(--text-muted)" }}>
                 {t.desc}
               </div>
             </div>
           </button>
-        ))}
+        )})}
       </div>
     </div>
   );

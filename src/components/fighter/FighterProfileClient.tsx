@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import type { Fighter } from "@/types";
 import type { FighterFormEntry, FighterPickStats } from "@/server/repositories/fighter-profile";
 
@@ -40,9 +41,13 @@ export default function FighterProfileClient({ fighter, form, pickStats, slug }:
       {/* Hero */}
       <div className="flex flex-col items-center mb-8">
         {fighter.headshot_url && (
-          <img
+          <Image
             src={fighter.headshot_url}
             alt={fighter.name}
+            width={128}
+            height={128}
+            sizes="128px"
+            priority={false}
             className="w-32 h-32 rounded-full object-cover mb-4"
             style={{ border: "4px solid var(--red)" }}
           />

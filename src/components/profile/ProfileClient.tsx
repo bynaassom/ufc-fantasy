@@ -123,14 +123,12 @@ export default function ProfileClient({
 
   const inputStyle: React.CSSProperties = {
     backgroundColor: "var(--bg-elevated)",
-    border: "1px solid var(--border)",
     color: "var(--text)",
     fontFamily: "inherit",
     outline: "none",
     width: "100%",
     padding: "12px 16px",
     fontSize: "14px",
-    transition: "border-color 0.15s",
   };
 
   const labelClass =
@@ -249,9 +247,8 @@ export default function ProfileClient({
                 minLength={3}
                 maxLength={20}
                 required
+                className="border border-[var(--border)] focus:border-[var(--red)] transition-colors"
                 style={inputStyle}
-                onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
-                onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
               />
               <p className="text-xs mt-1.5" style={{ color: "var(--text-muted)" }}>
                 3–20 caracteres · letras, números e _ · atual:{" "}
@@ -287,9 +284,8 @@ export default function ProfileClient({
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 placeholder="••••••••"
+                className="border border-[var(--border)] focus:border-[var(--red)] transition-colors"
                 style={inputStyle}
-                onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
-                onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
               />
             </div>
             <div>
@@ -303,9 +299,8 @@ export default function ProfileClient({
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="Mínimo 8 caracteres"
+                className="border border-[var(--border)] focus:border-[var(--red)] transition-colors"
                 style={inputStyle}
-                onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
-                onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
               />
               {fieldErrors.new_password && (
                 <p className="text-xs mt-1" style={{ color: "var(--red)" }} role="alert">
@@ -323,9 +318,8 @@ export default function ProfileClient({
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Repita a nova senha"
+                className="border border-[var(--border)] focus:border-[var(--red)] transition-colors"
                 style={inputStyle}
-                onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
-                onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
               />
               {fieldErrors.confirm_password && (
                 <p className="text-xs mt-1" style={{ color: "var(--red)" }} role="alert">
