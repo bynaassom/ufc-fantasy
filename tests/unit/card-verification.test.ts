@@ -1,8 +1,6 @@
 import {
   buildVerifiedCardPlan,
   getDueCardVerificationWindow,
-  parseSherdogEventCardHtml,
-  pickSherdogEventUrl,
   type VerificationFight,
 } from "@/lib/card-verification";
 
@@ -74,65 +72,15 @@ describe("card-verification", () => {
     ).toBeNull();
   });
 
-  it("finds the closest Sherdog event from the upcoming page", () => {
-    const html = `
-      <a href="/events/UFC-Fight-Night-278-Muhammad-vs-Bonfim-112060">
-        UFC Fight Night 278 - Muhammad vs. Bonfim
-      </a>
-      <a href="/events/UFC-White-House-Freedom-250-Topuria-vs-Gaethje-111990">
-        UFC White House - Freedom 250: Topuria vs. Gaethje
-      </a>
-    `;
-
-    expect(pickSherdogEventUrl(html, "UFC Fight Night: Muhammad vs Bonfim")).toBe(
-      "https://www.sherdog.com/events/UFC-Fight-Night-278-Muhammad-vs-Bonfim-112060",
-    );
-  });
-
-  it("parses Sherdog main event and undercard fight pairs", () => {
-    const html = `
-      <div class="fight" itemprop="subEvent">
-        <b>MAIN EVENT</b>
-        <div class="fighter left_side"><span itemprop="name">Belal Muhammad</span></div>
-        <div class="fighter right_side"><span itemprop="name">Gabriel Bonfim</span></div>
-        <span class="weight_class">Welterweight</span>
-      </div>
-      <table class="new_table event">
-        <tr itemprop="subEvent">
-          <td><span itemprop="name">Bruno Silva</span></td>
-          <td><span itemprop="name">Marc-Andre Barriault</span></td>
-          <td class="weight_class">Middleweight</td>
-        </tr>
-      </table>
-    `;
-
-    expect(parseSherdogEventCardHtml(html)).toEqual([
-      {
-        fighter_a_name: "Belal Muhammad",
-        fighter_b_name: "Gabriel Bonfim",
-        is_main_event: true,
-        weight_class: "Welterweight",
-      },
-      {
-        fighter_a_name: "Bruno Silva",
-        fighter_b_name: "Marc-Andre Barriault",
-        is_main_event: false,
-        weight_class: "Middleweight",
-      },
-    ]);
-  });
-
-  it("confirms five rounds when UFC and Sherdog agree it is the main event", () => {
+  it("applies official card metadata when UFCStats confirms the matchup", () => {
     const plan = buildVerifiedCardPlan({
       window: "t72",
       currentFights: [currentFight],
       ufcFights: [ufcFight],
-      sherdogFights: [
+      ufcStatsFights: [
         {
           fighter_a_name: "Belal Muhammad",
           fighter_b_name: "Gabriel Bonfim",
-          is_main_event: true,
-          weight_class: "Welterweight",
         },
       ],
     });
@@ -158,7 +106,7 @@ describe("card-verification", () => {
       window: "t72",
       currentFights: [{ ...currentFight, is_title_fight: true, total_rounds: 5 }],
       ufcFights: [{ ...ufcFight, card_type: "preliminary", fight_order: 2, total_rounds: 3 }],
-      sherdogFights: [],
+      ufcStatsFights: [],
     });
 
     expect(plan.updated).toEqual([]);
@@ -176,7 +124,7 @@ describe("card-verification", () => {
         window: "t72",
         currentFights: [currentFight],
         ufcFights: [],
-        sherdogFights: [],
+        ufcStatsFights: [],
       }).removed,
     ).toEqual([]);
 
@@ -185,7 +133,7 @@ describe("card-verification", () => {
         window: "t18",
         currentFights: [currentFight],
         ufcFights: [],
-        sherdogFights: [],
+        ufcStatsFights: [],
       }).removed,
     ).toEqual([
       {
@@ -200,15 +148,15 @@ describe("card-verification", () => {
       window: "t18",
       currentFights: [currentFight],
       ufcFights: [],
-      sherdogFights: [],
-      sherdogAvailable: false,
+      ufcStatsFights: [],
+      ufcStatsAvailable: false,
     });
 
     expect(plan.added).toEqual([]);
     expect(plan.updated).toEqual([]);
     expect(plan.removed).toEqual([]);
     expect(plan.alerts).toEqual([
-      "Sherdog indisponível; nenhuma alteração automática aplicada",
+      "UFCStats indisponível; nenhuma alteração automática aplicada",
     ]);
   });
 });

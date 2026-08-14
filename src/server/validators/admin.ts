@@ -12,9 +12,6 @@ export const adminEventSchema = z.object({
   banner_object_position: z.string().optional().default("center"),
   ufc_event_id: z.string().optional().default(""),
   ufc_stats_url: z.string().optional().default(""),
-  espn_fightcenter_url: z.string().optional().default(""),
-  sherdog_event_url: z.string().optional().default(""),
-  tapology_event_url: z.string().optional().default(""),
   status: z.enum(["upcoming", "live", "completed"]).optional(),
 });
 

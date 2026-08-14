@@ -4,16 +4,22 @@ import type { DbClient } from "@/types/database";
 import {
   buildVerifiedCardPlan,
   getDueCardVerificationWindow,
-  inspectUfcStatsEventCard,
-  scrapeSherdogEventCard,
   type VerificationFight,
 } from "@/lib/card-verification";
+import {
+  fetchUfcStatsHtml,
+  parseUfcStatsEventCard,
+} from "@/lib/ufc-results-sync";
 import { logAdminAction } from "@/lib/admin-audit";
 import {
   ensureFighter,
   resolveEventUrlCandidates,
   scrapeUfcEventCard,
 } from "@/lib/ufc-card-sync";
+import {
+  extractUfcLiveEventId,
+  fetchUfcLiveEvent,
+} from "@/lib/ufc-live-api";
 import { CACHE_TAGS } from "@/server/cache-tags";
 import { notifyBulkCardChanges } from "@/server/services/notifications";
 
@@ -33,8 +39,40 @@ async function scrapeOfficialCard(event: VerificationEvent) {
 
   for (const url of candidates) {
     try {
+      const response = await fetch(url, {
+        cache: "no-store",
+        headers: { Accept: "text/html,application/xhtml+xml" },
+      });
+      if (!response.ok) throw new Error(`UFC.com HTTP ${response.status}`);
+      const html = await response.text();
+      const liveEventId = extractUfcLiveEventId(html);
+
+      if (liveEventId) {
+        const official = await fetchUfcLiveEvent(liveEventId);
+        const fights = official.event.fights.map((fight) => ({
+          fmid: fight.fightId,
+          fighter_a: { name: fight.fighterA.name, country: "", headshot_url: "" },
+          fighter_b: { name: fight.fighterB.name, country: "", headshot_url: "" },
+          card_type: fight.cardType,
+          fight_order: fight.fightOrder,
+          weight_class: fight.weightClass,
+          is_title_fight: fight.isTitleFight,
+          total_rounds: fight.totalRounds,
+          ufc_matchup_url: `${url}#${fight.fightId}`,
+        }));
+        if (fights.length) {
+          return {
+            url,
+            apiUrl: official.url,
+            apiEventId: official.event.eventId,
+            fights,
+            errors,
+          };
+        }
+      }
+
       const fights = await scrapeUfcEventCard(url);
-      if (fights.length) return { url, fights, errors };
+      if (fights.length) return { url, apiUrl: null, apiEventId: null, fights, errors };
       errors.push(`${url}: nenhuma luta encontrada`);
     } catch (error) {
       errors.push(`${url}: ${error instanceof Error ? error.message : "falha desconhecida"}`);
@@ -50,17 +88,22 @@ async function runEventVerification(
   window: "t72" | "t18",
 ) {
   const official = await scrapeOfficialCard(event);
-  const [sherdogResult, ufcStats] = await Promise.all([
-    scrapeSherdogEventCard(event.name)
-      .then((value) => ({ available: true as const, ...value, error: null }))
-      .catch((error) => ({
-        available: false as const,
-        eventUrl: null,
-        fights: [],
-        error: error instanceof Error ? error.message : "falha desconhecida",
-      })),
-    inspectUfcStatsEventCard(event.ufc_stats_url),
-  ]);
+  const ufcStats = event.ufc_stats_url
+    ? await fetchUfcStatsHtml(event.ufc_stats_url)
+        .then((html) => {
+          const fights = parseUfcStatsEventCard(html);
+          return {
+            available: fights.length > 0,
+            fights,
+            reason: fights.length ? null : "nenhuma luta publicada",
+          };
+        })
+        .catch((error) => ({
+          available: false,
+          fights: [],
+          reason: error instanceof Error ? error.message : "falha desconhecida",
+        }))
+    : { available: false, fights: [], reason: "URL não configurada" };
 
   const { data: currentFights, error: currentFightsError } = await adminSupabase
     .from("fights")
@@ -76,8 +119,8 @@ async function runEventVerification(
     window,
     currentFights: (currentFights || []) as VerificationFight[],
     ufcFights: official.fights,
-    sherdogFights: sherdogResult.fights,
-    sherdogAvailable: sherdogResult.available,
+    ufcStatsFights: ufcStats.fights,
+    ufcStatsAvailable: ufcStats.available,
   });
 
   for (const fight of plan.added) {
@@ -136,16 +179,17 @@ async function runEventVerification(
     event_name: event.name,
     window,
     sources: {
-      ufc: { available: true, url: official.url, fight_count: official.fights.length },
-      sherdog: {
-        available: sherdogResult.available,
-        url: sherdogResult.eventUrl,
-        fight_count: sherdogResult.fights.length,
-        error: sherdogResult.error,
+      ufc: {
+        available: true,
+        url: official.url,
+        api_url: official.apiUrl,
+        api_event_id: official.apiEventId,
+        fight_count: official.fights.length,
       },
       ufc_stats: {
         available: ufcStats.available,
-        fight_count: ufcStats.fightCount,
+        url: event.ufc_stats_url || null,
+        fight_count: ufcStats.fights.length,
         reason: ufcStats.reason,
       },
     },

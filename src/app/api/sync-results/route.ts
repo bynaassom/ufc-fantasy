@@ -11,14 +11,14 @@ import {
 } from "@/lib/ufc-results-sync";
 import {
   buildResultConsensusUpdates,
-  parseEspnFightCenterResults,
-  parseSherdogEventResults,
-  parseTapologyEventResults,
   parseUfcOfficialEventResults,
   type ConsensusUpdate,
-  type ResultSourceId,
   type ResultSourceSet,
 } from "@/lib/fight-result-sources";
+import {
+  extractUfcLiveEventId,
+  fetchUfcLiveEvent,
+} from "@/lib/ufc-live-api";
 import { resolveEventUrlCandidates } from "@/lib/ufc-card-sync";
 import { isAllowedScrapeUrl } from "@/lib/security";
 import { blockedResultSource } from "@/lib/result-source-url";
@@ -37,9 +37,6 @@ type ResultSyncEvent = {
   event_date?: string | null;
   ufc_event_id?: string | null;
   ufc_stats_url?: string | null;
-  espn_fightcenter_url?: string | null;
-  sherdog_event_url?: string | null;
-  tapology_event_url?: string | null;
 };
 
 const RESULT_SOURCE_HEADERS = {
@@ -56,10 +53,7 @@ const EVENT_RESULT_SOURCE_SELECT = `
   name,
   event_date,
   ufc_event_id,
-  ufc_stats_url,
-  espn_fightcenter_url,
-  sherdog_event_url,
-  tapology_event_url
+  ufc_stats_url
 `;
 
 async function scrapeUfcStats(url: string): Promise<UfcStatsResult[]> {
@@ -78,46 +72,6 @@ async function fetchResultHtml(url: string) {
 
 function looksLikeBotChallenge(html: string) {
   return /Just a moment|Checking your browser|cf-chl|cloudflare/i.test(html);
-}
-
-async function scrapeSource(
-  source: ResultSourceId,
-  label: string,
-  url: string,
-  parser: (html: string) => UfcStatsResult[],
-): Promise<ResultSourceSet> {
-  const blockedSource = blockedResultSource(source, label, url);
-  if (blockedSource) return blockedSource;
-
-  try {
-    const html = await fetchResultHtml(url);
-    if (looksLikeBotChallenge(html)) {
-      return {
-        source,
-        label,
-        url,
-        results: [],
-        error: "desafio anti-bot detectado",
-      };
-    }
-
-    const results = parser(html);
-    return {
-      source,
-      label,
-      url,
-      results,
-      error: results.length ? null : "sem resultados publicados",
-    };
-  } catch (error: any) {
-    return {
-      source,
-      label,
-      url,
-      results: [],
-      error: error?.message || "falha ao buscar fonte",
-    };
-  }
 }
 
 async function scrapeUfcStatsSource(url: string): Promise<ResultSourceSet> {
@@ -153,14 +107,65 @@ async function scrapeOfficialUfcSource(
   for (const url of candidates) {
     if (!isAllowedScrapeUrl(url)) continue;
 
-    const source = await scrapeSource(
-      "ufc",
-      "UFC.com",
-      url,
-      parseUfcOfficialEventResults,
-    );
-    if (source.results.length) return source;
-    attempted.push(source);
+    try {
+      const html = await fetchResultHtml(url);
+      if (looksLikeBotChallenge(html)) {
+        attempted.push({
+          source: "ufc",
+          label: "UFC.com",
+          url,
+          results: [],
+          error: "desafio anti-bot detectado",
+        });
+        continue;
+      }
+
+      const liveEventId = extractUfcLiveEventId(html);
+      if (liveEventId) {
+        try {
+          const official = await fetchUfcLiveEvent(liveEventId);
+          const source: ResultSourceSet = {
+            source: "ufc",
+            label: "UFC API oficial",
+            url: official.url,
+            results: official.event.results,
+            error: official.event.results.length
+              ? null
+              : `evento ${official.event.status}; sem resultados publicados`,
+          };
+          if (source.results.length) return source;
+          attempted.push(source);
+          continue;
+        } catch (error) {
+          attempted.push({
+            source: "ufc",
+            label: "UFC API oficial",
+            url,
+            results: [],
+            error: error instanceof Error ? error.message : "falha na API oficial",
+          });
+        }
+      }
+
+      const htmlResults = parseUfcOfficialEventResults(html);
+      const source: ResultSourceSet = {
+        source: "ufc",
+        label: "UFC.com",
+        url,
+        results: htmlResults,
+        error: htmlResults.length ? null : "sem resultados publicados",
+      };
+      if (source.results.length) return source;
+      attempted.push(source);
+    } catch (error) {
+      attempted.push({
+        source: "ufc",
+        label: "UFC.com",
+        url,
+        results: [],
+        error: error instanceof Error ? error.message : "falha ao buscar UFC.com",
+      });
+    }
   }
 
   return attempted[0] || null;
@@ -175,39 +180,6 @@ async function collectResultSources(event: ResultSyncEvent) {
 
   const officialUfcSource = await scrapeOfficialUfcSource(event);
   if (officialUfcSource) sources.push(officialUfcSource);
-
-  if (event.espn_fightcenter_url) {
-    sources.push(
-      await scrapeSource(
-        "espn",
-        "ESPN FightCenter",
-        event.espn_fightcenter_url,
-        parseEspnFightCenterResults,
-      ),
-    );
-  }
-
-  if (event.sherdog_event_url) {
-    sources.push(
-      await scrapeSource(
-        "sherdog",
-        "Sherdog",
-        event.sherdog_event_url,
-        parseSherdogEventResults,
-      ),
-    );
-  }
-
-  if (event.tapology_event_url) {
-    sources.push(
-      await scrapeSource(
-        "tapology",
-        "Tapology",
-        event.tapology_event_url,
-        parseTapologyEventResults,
-      ),
-    );
-  }
 
   return sources;
 }
@@ -368,15 +340,12 @@ export async function POST(req: NextRequest) {
         event_date,
         picks_lock_at,
         ufc_event_id,
-        ufc_stats_url,
-        espn_fightcenter_url,
-        sherdog_event_url,
-        tapology_event_url
+        ufc_stats_url
       `,
       )
       .in("status", ["upcoming", "live"])
       .or(
-        "ufc_stats_url.not.is.null,ufc_event_id.not.is.null,espn_fightcenter_url.not.is.null,sherdog_event_url.not.is.null,tapology_event_url.not.is.null",
+        "ufc_stats_url.not.is.null,ufc_event_id.not.is.null",
       )
       .gte("event_date", getPublicEventCutoffIso(now))
       .order("event_date", { ascending: true })

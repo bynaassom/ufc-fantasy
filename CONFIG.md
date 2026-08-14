@@ -79,6 +79,7 @@ Configure os jobs como `POST` e envie `Content-Type: application/json` com body 
 
 `/api/sync-events` continua existindo para uso admin/manual; para cron externo, prefira `/api/cron/sync-events`.
 Os jobs são executados pelo cron-job.org; o plano Hobby da Vercel não é usado para agendamento.
+O job de notificações também limpa status antigos: após uma janela de segurança de 8 horas a partir do main card, eventos ainda marcados como `upcoming` ou `live` passam para `completed`.
 
 ## Odds
 

@@ -53,14 +53,14 @@ describe("groupAdminEvents", () => {
     ]);
   });
 
-  it("keeps live events in the current group even if their start time has passed", () => {
+  it("keeps a live event current during the safe event window", () => {
     const groups = groupAdminEvents(
       [
         {
           id: "live",
           name: "Live Event",
           status: "live",
-          event_date: "2026-06-03T01:00:00.000Z",
+          event_date: "2026-06-03T08:00:00.000Z",
         },
       ],
       new Date("2026-06-03T12:00:00.000Z"),
@@ -70,5 +70,33 @@ describe("groupAdminEvents", () => {
       label: "Atual e próximos",
       events: [{ id: "live" }],
     });
+  });
+
+  it("moves stale live and upcoming events to previous groups", () => {
+    const groups = groupAdminEvents(
+      [
+        {
+          id: "stale-live",
+          name: "Stale Live",
+          status: "live",
+          event_date: "2026-06-02T22:00:00.000Z",
+        },
+        {
+          id: "stale-upcoming",
+          name: "Stale Upcoming",
+          status: "upcoming",
+          event_date: "2026-06-02T20:00:00.000Z",
+        },
+      ],
+      new Date("2026-06-03T12:00:00.000Z"),
+    );
+
+    expect(groups[0]).toMatchObject({
+      label: "Anteriores · 2026 · Junho",
+    });
+    expect(groups[0].events.map((event) => event.id)).toEqual([
+      "stale-live",
+      "stale-upcoming",
+    ]);
   });
 });

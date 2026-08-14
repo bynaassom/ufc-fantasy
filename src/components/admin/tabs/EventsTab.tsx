@@ -150,10 +150,7 @@ function EventoPendencias({
       currentEvents.filter(
         (event) =>
           !event.ufc_stats_url &&
-          !event.ufc_event_id &&
-          !event.espn_fightcenter_url &&
-          !event.sherdog_event_url &&
-          !event.tapology_event_url,
+          !event.ufc_event_id,
       ),
     [currentEvents],
   );
@@ -479,7 +476,7 @@ function EventoPendencias({
 
       <Section
         title="Eventos sem fonte de resultado"
-        description="Eventos atuais sem UFCStats, UFC.com, ESPN, Sherdog ou Tapology."
+        description="Eventos atuais sem UFC.com ou UFCStats configurados."
         count={eventsWithoutResultSources.length}
       >
         {eventsWithoutResultSources.length === 0 ? (
@@ -660,9 +657,6 @@ function EventoManual({ onEventsChanged }: { onEventsChanged: () => void }) {
     banner_image_url: "",
     ufc_event_id: "",
     ufc_stats_url: "",
-    espn_fightcenter_url: "",
-    sherdog_event_url: "",
-    tapology_event_url: "",
   });
 
   async function handleSubmit(e: React.FormEvent) {
@@ -685,9 +679,6 @@ function EventoManual({ onEventsChanged }: { onEventsChanged: () => void }) {
         banner_image_url: "",
         ufc_event_id: "",
         ufc_stats_url: "",
-        espn_fightcenter_url: "",
-        sherdog_event_url: "",
-        tapology_event_url: "",
       });
     } catch (error: any) {
       toast.error(error.message);
@@ -745,7 +736,7 @@ function EventoManual({ onEventsChanged }: { onEventsChanged: () => void }) {
           placeholder: "https://...",
         },
         {
-          label: "URL/ID UFC.com",
+          label: "URL UFC.com",
           key: "ufc_event_id",
           type: "text",
           placeholder: "https://www.ufc.com/event/...",
@@ -755,24 +746,6 @@ function EventoManual({ onEventsChanged }: { onEventsChanged: () => void }) {
           key: "ufc_stats_url",
           type: "text",
           placeholder: "http://www.ufcstats.com/event-details/...",
-        },
-        {
-          label: "URL ESPN FightCenter",
-          key: "espn_fightcenter_url",
-          type: "text",
-          placeholder: "https://www.espn.com/mma/fightcenter/...",
-        },
-        {
-          label: "URL Sherdog",
-          key: "sherdog_event_url",
-          type: "text",
-          placeholder: "https://www.sherdog.com/events/...",
-        },
-        {
-          label: "URL Tapology",
-          key: "tapology_event_url",
-          type: "text",
-          placeholder: "https://www.tapology.com/fightcenter/events/...",
         },
       ].map(({ label, key, type, required, placeholder, options }) => (
         <div key={key}>
@@ -806,6 +779,18 @@ function EventoManual({ onEventsChanged }: { onEventsChanged: () => void }) {
           )}
         </div>
       ))}
+      <div
+        className="border-l-2 px-4 py-3"
+        style={{ borderColor: "var(--red)", background: "var(--bg-card)" }}
+      >
+        <p className="font-condensed text-xs font-700 uppercase tracking-widest">
+          Checagem oficial automática
+        </p>
+        <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
+          O ID da API é detectado pela URL do UFC.com. Card, horários, status e
+          resultados são cruzados com o UFCStats.
+        </p>
+      </div>
       {form.timing_mode === "automatic" && (
         <p className="text-xs" style={{ color: "var(--text-muted)" }}>
           O fechamento será calculado 30 minutos antes do início das preliminares.
@@ -988,15 +973,8 @@ function EventoEditar({
             type: "datetime-local",
           },
           { label: "Banner URL", key: "banner_image_url", type: "text" },
-          { label: "URL/ID UFC.com", key: "ufc_event_id", type: "text" },
+          { label: "URL UFC.com", key: "ufc_event_id", type: "text" },
           { label: "URL UFCStats", key: "ufc_stats_url", type: "text" },
-          {
-            label: "URL ESPN FightCenter",
-            key: "espn_fightcenter_url",
-            type: "text",
-          },
-          { label: "URL Sherdog", key: "sherdog_event_url", type: "text" },
-          { label: "URL Tapology", key: "tapology_event_url", type: "text" },
           ].map(({ label, key, type, options }) => {
           const k = key as keyof EventEditForm;
           const updater = (val: string) => setEditForm((prev) => {
@@ -1041,6 +1019,18 @@ function EventoEditar({
             )}
           </div>
         )})}
+        <div
+          className="border-l-2 px-4 py-3"
+          style={{ borderColor: "var(--red)", background: "var(--bg-card)" }}
+        >
+          <p className="font-condensed text-xs font-700 uppercase tracking-widest">
+            Checagem oficial automática
+          </p>
+          <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
+            O ID da API é detectado pela URL do UFC.com. Divergências com o
+            UFCStats bloqueiam a importação automática do resultado.
+          </p>
+        </div>
         {editForm.timing_mode === "automatic" && (
           <p className="text-xs" style={{ color: "var(--text-muted)" }}>
             Picks fecham automaticamente 30 minutos antes das preliminares.

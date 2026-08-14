@@ -1,4 +1,9 @@
 import { WEIGHT_CLASS_PT } from "@/lib/ufc-weight";
+import {
+  extractUfcLiveEventId,
+  fetchUfcLiveEvent,
+  type UfcLiveEventStatus,
+} from "@/lib/ufc-live-api";
 
 // UFC unofficial API integration
 // Uses the beta.ufc.com API when available and falls back to scraping
@@ -16,6 +21,8 @@ export interface UFCEvent {
   image?: string;
   eventUrl?: string;
   prelimsStartAt?: string;
+  officialApiEventId?: string;
+  status?: UfcLiveEventStatus;
   cards: UFCCard[];
 }
 
@@ -168,10 +175,8 @@ function parseEventPageTitle(html: string) {
 async function enrichUpcomingEventNames(events: UFCEvent[]): Promise<UFCEvent[]> {
   return Promise.all(
     events.map(async (event) => {
-      if (!needsFullEventTitle(event.name)) return event;
-
       try {
-        const response = await fetch(absolutizeUfcUrl(event.id), {
+        const response = await fetch(absolutizeUfcUrl(event.eventUrl || event.id), {
           next: { revalidate: 3600 },
           headers: { Accept: "text/html,application/xhtml+xml" },
         });
@@ -179,11 +184,20 @@ async function enrichUpcomingEventNames(events: UFCEvent[]): Promise<UFCEvent[]>
 
         const html = await response.text();
         const fullTitle = parseEventPageTitle(html);
-        if (!fullTitle) return event;
+        const liveEventId = extractUfcLiveEventId(html);
+        const official = liveEventId
+          ? await fetchUfcLiveEvent(liveEventId).catch(() => null)
+          : null;
 
         return {
           ...event,
-          name: fullTitle,
+          name:
+            official?.event.name ||
+            (needsFullEventTitle(event.name) && fullTitle ? fullTitle : event.name),
+          location: official?.event.location || event.location,
+          prelimsStartAt: official?.event.prelimsStartAt || event.prelimsStartAt,
+          officialApiEventId: official?.event.eventId || liveEventId || undefined,
+          status: official?.event.status || event.status,
         };
       } catch {
         return event;
@@ -332,6 +346,9 @@ function mergeUpcomingEventMetadata(primaryEvents: UFCEvent[], pageEvents: UFCEv
       image: event.image || closestMatch.image,
       eventUrl: event.eventUrl || closestMatch.eventUrl,
       prelimsStartAt: event.prelimsStartAt || closestMatch.prelimsStartAt,
+      officialApiEventId:
+        event.officialApiEventId || closestMatch.officialApiEventId,
+      status: event.status || closestMatch.status,
     };
   });
 }

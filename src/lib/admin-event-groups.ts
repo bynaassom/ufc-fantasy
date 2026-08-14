@@ -25,8 +25,7 @@ export function groupAdminEvents<T extends AdminEventLike>(
   const currentAndUpcoming = events
     .filter(
       (event) =>
-        event.status === "live" ||
-        new Date(event.event_date).getTime() >= now.getTime(),
+        event.status !== "completed" && !shouldAutoEndEvent(event, now),
     )
     .sort(
       (left, right) =>
@@ -35,8 +34,7 @@ export function groupAdminEvents<T extends AdminEventLike>(
   const previous = events
     .filter(
       (event) =>
-        event.status !== "live" &&
-        new Date(event.event_date).getTime() < now.getTime(),
+        event.status === "completed" || shouldAutoEndEvent(event, now),
     )
     .sort(
       (left, right) =>
@@ -63,3 +61,4 @@ export function groupAdminEvents<T extends AdminEventLike>(
 
   return groups;
 }
+import { shouldAutoEndEvent } from "@/lib/event-lifecycle";

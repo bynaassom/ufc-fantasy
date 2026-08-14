@@ -1,8 +1,25 @@
 import type { DbClient } from "@/types/database";
 import {
+  EVENT_AUTO_END_HOURS_AFTER_MAIN_CARD,
   getNextPicksOpenAt,
   shouldCompleteEvent,
 } from "@/lib/event-lifecycle";
+
+export async function finalizeStaleEvents(client: DbClient, now = new Date()) {
+  const cutoff = new Date(
+    now.getTime() - EVENT_AUTO_END_HOURS_AFTER_MAIN_CARD * 60 * 60_000,
+  ).toISOString();
+
+  const { data, error } = await client
+    .from("events")
+    .update({ status: "completed" })
+    .in("status", ["upcoming", "live"])
+    .lte("event_date", cutoff)
+    .select("id, name, slug, event_date, status");
+
+  if (error) throw new Error(error.message);
+  return data || [];
+}
 
 export async function promoteDueEventsToLive(client: DbClient, now = new Date()) {
   const { data: existingLive, error: liveError } = await client
@@ -99,6 +116,7 @@ export async function completeEventIfAllResultsConfirmed(
 }
 
 export async function dispatchEventLifecycle(client: DbClient, now = new Date()) {
+  const expired = await finalizeStaleEvents(client, now);
   const promoted = await promoteDueEventsToLive(client, now);
   const { data: liveEvents, error } = await client
     .from("events")
@@ -113,5 +131,5 @@ export async function dispatchEventLifecycle(client: DbClient, now = new Date())
     if (result.completed) completed.push(result);
   }
 
-  return { promoted, completed };
+  return { expired, promoted, completed };
 }

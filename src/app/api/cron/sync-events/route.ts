@@ -63,6 +63,9 @@ export async function POST(req: NextRequest) {
         image: event.image || match?.image,
         eventUrl: event.eventUrl || match?.eventUrl || "",
         prelimsStartAt: event.prelimsStartAt || match?.prelimsStartAt,
+        status: event.status || match?.status || "upcoming",
+        officialApiEventId:
+          event.officialApiEventId || match?.officialApiEventId,
       };
     });
 
@@ -71,13 +74,15 @@ export async function POST(req: NextRequest) {
     let cardSynced = 0;
 
     for (const event of merged) {
+      const sourceId = event.eventUrl || event.id;
       let existing: any = null;
       try {
         const result = await adminSupabase
           .from("events")
-          .select("id, name, slug, ufc_event_id, ufc_stats_url, timing_mode, picks_open_at")
-          .eq("ufc_event_id", event.id)
-          .single();
+          .select("id, name, slug, status, ufc_event_id, ufc_stats_url, timing_mode, picks_open_at")
+          .in("ufc_event_id", Array.from(new Set([sourceId, event.id])))
+          .limit(1)
+          .maybeSingle();
         existing = result.data;
       } catch { /* not found */ }
 
@@ -86,7 +91,10 @@ export async function POST(req: NextRequest) {
           event_date: event.date,
           prelims_start_at: event.prelimsStartAt,
         });
-        const update: Record<string, unknown> = { name: event.name };
+        const update: Record<string, unknown> = {
+          name: event.name,
+          status: event.status,
+        };
         if (existing.timing_mode !== "manual" && automaticTiming) {
           update.event_date = event.date;
           update.prelims_start_at = event.prelimsStartAt || null;
@@ -120,8 +128,8 @@ export async function POST(req: NextRequest) {
             timing_mode: "automatic",
             location: event.location || "",
             banner_image_url: event.image || null,
-            ufc_event_id: event.id,
-            status: "upcoming",
+            ufc_event_id: sourceId,
+            status: event.status,
             picks_lock_at: timing.picksLockAt,
             picks_open_at: timing.picksOpenAt,
           })

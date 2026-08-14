@@ -9,6 +9,11 @@ export interface UfcStatsResult {
   round: number;
 }
 
+export interface UfcStatsCardFight {
+  fighter_a_name: string;
+  fighter_b_name: string;
+}
+
 type FetchLike = (
   input: RequestInfo | URL,
   init?: RequestInit,
@@ -243,6 +248,30 @@ function extractFighterNamesFromRow(rowHtml: string) {
   }
 
   return fighterNames;
+}
+
+export function parseUfcStatsEventCard(html: string): UfcStatsCardFight[] {
+  const fights: UfcStatsCardFight[] = [];
+  const seen = new Set<string>();
+  const rowRegex = /<tr\b[^>]*>([\s\S]*?)<\/tr>/gi;
+  let rowMatch;
+
+  while ((rowMatch = rowRegex.exec(html)) !== null) {
+    if (!rowMatch[1].includes("fighter-details")) continue;
+    const names = extractFighterNamesFromRow(rowMatch[1]);
+    if (names.length < 2) continue;
+
+    const key = names
+      .slice(0, 2)
+      .map((name) => tokenizeName(name).join(" "))
+      .sort()
+      .join("::");
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    fights.push({ fighter_a_name: names[0], fighter_b_name: names[1] });
+  }
+
+  return fights;
 }
 
 function parseResultsFromHtmlTable(html: string) {

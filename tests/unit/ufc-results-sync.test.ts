@@ -2,10 +2,29 @@ import {
   fetchUfcStatsHtml,
   mapMethod,
   namesMatch,
+  parseUfcStatsEventCard,
   parseUfcStatsEventResults,
 } from "@/lib/ufc-results-sync";
 
 describe("ufc-results-sync", () => {
+  it("extracts matchup pairs from an upcoming UFCStats card", () => {
+    const html = `
+      <table><tbody><tr class="b-fight-details__table-row">
+        <td>
+          <a href="http://ufcstats.com/fighter-details/a">Islam Makhachev</a>
+          <a href="http://ufcstats.com/fighter-details/b">Ian Machado Garry</a>
+        </td>
+      </tr></tbody></table>
+    `;
+
+    expect(parseUfcStatsEventCard(html)).toEqual([
+      {
+        fighter_a_name: "Islam Makhachev",
+        fighter_b_name: "Ian Machado Garry",
+      },
+    ]);
+  });
+
   it("matches names with accents, apostrophes, and suffixes", () => {
     expect(namesMatch("José Ochoa", "Jose Ochoa")).toBe(true);
     expect(namesMatch("Lone'er Kavanagh", "Loneer Kavanagh")).toBe(true);

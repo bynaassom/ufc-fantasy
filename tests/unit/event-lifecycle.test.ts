@@ -1,5 +1,6 @@
 import {
   getNextPicksOpenAt,
+  shouldAutoEndEvent,
   shouldCompleteEvent,
   shouldPromoteEventToLive,
 } from "@/lib/event-lifecycle";
@@ -21,6 +22,29 @@ describe("event lifecycle", () => {
       shouldPromoteEventToLive(
         { ...event, status: "completed" },
         new Date("2026-06-06T23:00:00.000Z"),
+      ),
+    ).toBe(false);
+  });
+
+  it("automatically ends stale upcoming or live events after the safety window", () => {
+    const now = new Date("2026-06-07T12:00:00.000Z");
+
+    expect(
+      shouldAutoEndEvent(
+        { status: "live", event_date: "2026-06-07T04:00:00.000Z" },
+        now,
+      ),
+    ).toBe(true);
+    expect(
+      shouldAutoEndEvent(
+        { status: "upcoming", event_date: "2026-06-07T08:00:00.000Z" },
+        now,
+      ),
+    ).toBe(false);
+    expect(
+      shouldAutoEndEvent(
+        { status: "completed", event_date: "2026-06-06T04:00:00.000Z" },
+        now,
       ),
     ).toBe(false);
   });

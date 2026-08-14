@@ -1854,9 +1854,6 @@ export async function getAdminEvent(eventId: string) {
 const EVENT_RESULT_SOURCE_FIELDS = [
   "ufc_event_id",
   "ufc_stats_url",
-  "espn_fightcenter_url",
-  "sherdog_event_url",
-  "tapology_event_url",
 ] as const;
 
 function normalizeEventSourceFields(payload: Record<string, unknown>) {
@@ -1898,9 +1895,6 @@ export async function createAdminEvent(payload: {
   banner_image_url?: string;
   ufc_event_id?: string;
   ufc_stats_url?: string;
-  espn_fightcenter_url?: string;
-  sherdog_event_url?: string;
-  tapology_event_url?: string;
   status?: "upcoming" | "live" | "completed";
 }) {
   const adminSupabase = await getAdminSupabase();

@@ -9,14 +9,6 @@ const HOST_PROTOCOL_RULES: Record<string, string[]> = {
   // O UFCStats ainda expõe URLs reais em http em vários fluxos do site.
   "ufcstats.com": ["http:", "https:"],
   "www.ufcstats.com": ["http:", "https:"],
-  "sherdog.com": ["https:"],
-  "www.sherdog.com": ["https:"],
-  "espn.com": ["https:"],
-  "www.espn.com": ["https:"],
-  "espn.com.br": ["https:"],
-  "www.espn.com.br": ["https:"],
-  "tapology.com": ["https:"],
-  "www.tapology.com": ["https:"],
   "api.the-odds-api.com": ["https:"],
 };
 

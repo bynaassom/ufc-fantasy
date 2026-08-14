@@ -3,6 +3,10 @@ import Image from "next/image";
 import { getLandingPageData } from "@/server/services/app";
 import BrandLogo from "@/components/ui/BrandLogo";
 
+// A landing lê dados atualizados do evento em runtime. Evita consultar o banco
+// durante o build do CI, onde credenciais de produção não devem ser necessárias.
+export const dynamic = "force-dynamic";
+
 export default async function LandingPage() {
   const { currentEvent, momentumStats } = await getLandingPageData();
   const bannerUrl = currentEvent?.banner_image_url || null;

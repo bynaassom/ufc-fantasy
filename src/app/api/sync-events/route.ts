@@ -87,6 +87,7 @@ type ExistingEvent = {
   banner_image_url?: string | null;
   picks_lock_at?: string | null;
   picks_open_at?: string | null;
+  status?: "upcoming" | "live" | "completed" | null;
 };
 
 type SyncAction = "create" | "update" | "unchanged";
@@ -110,6 +111,7 @@ type SyncCandidate = {
   banner_image_url: string | null;
   picks_lock_at: string;
   picks_open_at: string;
+  status: "upcoming" | "live" | "completed";
   action: SyncAction;
   matched_by: MatchStrategy;
   existing_event: Pick<
@@ -156,7 +158,7 @@ async function loadExistingEvents(adminSupabase: Awaited<ReturnType<typeof creat
   const { data, error } = await adminSupabase
     .from("events")
     .select(
-      "id, name, slug, ufc_event_id, event_date, prelims_start_at, timing_mode, location, banner_image_url, picks_lock_at, picks_open_at",
+      "id, name, slug, ufc_event_id, event_date, prelims_start_at, timing_mode, location, banner_image_url, picks_lock_at, picks_open_at, status",
     )
     .order("event_date", { ascending: true });
 
@@ -257,14 +259,15 @@ function buildSyncPlan(
     const upstreamPrelimsStartAt = toIsoOrNull(upstreamEvent.prelimsStartAt);
     const dateKey = getDateKey(eventDate);
     const matchupKey = getMatchupKey(upstreamEvent.name);
+    const upstreamSourceId = upstreamEvent.eventUrl || upstreamEvent.id;
 
     let matchedBy: MatchStrategy = null;
     let existing =
-      byUfcId.get(upstreamEvent.id) ||
+      byUfcId.get(upstreamSourceId) ||
       bySlug.get(slug) ||
       null;
 
-    if (existing === byUfcId.get(upstreamEvent.id) && existing) {
+    if (existing === byUfcId.get(upstreamSourceId) && existing) {
       matchedBy = "ufc_event_id";
     } else if (existing === bySlug.get(slug) && existing) {
       matchedBy = "slug";
@@ -323,8 +326,8 @@ function buildSyncPlan(
       timing_mode: timingMode,
       location: upstreamEvent.location || "",
       banner_image_url: upstreamEvent.image || null,
-      ufc_event_id: upstreamEvent.id,
-      status: "upcoming" as const,
+      ufc_event_id: upstreamSourceId,
+      status: upstreamEvent.status || ("upcoming" as const),
       picks_lock_at: picksLockAt,
       picks_open_at: picksOpenAt,
     };
@@ -339,11 +342,12 @@ function buildSyncPlan(
       (existing.location || "") !== payload.location ||
       (existing.banner_image_url || null) !== payload.banner_image_url ||
       (existing.ufc_event_id || null) !== payload.ufc_event_id ||
+      (existing.status || "upcoming") !== payload.status ||
       (existing.picks_lock_at || null) !== payload.picks_lock_at ||
       (existing.picks_open_at || null) !== payload.picks_open_at;
 
     candidates.push({
-      source_id: upstreamEvent.id,
+      source_id: payload.ufc_event_id,
       name: payload.name,
       slug: payload.slug,
       event_url:
@@ -355,6 +359,7 @@ function buildSyncPlan(
       banner_image_url: payload.banner_image_url,
       picks_lock_at: payload.picks_lock_at,
       picks_open_at: payload.picks_open_at,
+      status: payload.status,
       action: !existing ? "create" : changed ? "update" : "unchanged",
       matched_by: matchedBy,
       existing_event: existing
@@ -474,7 +479,7 @@ export async function POST(req: NextRequest) {
         location: candidate.location,
         banner_image_url: candidate.banner_image_url,
         ufc_event_id: candidate.source_id,
-        status: "upcoming" as const,
+        status: candidate.status,
         picks_lock_at: candidate.picks_lock_at,
         picks_open_at: candidate.picks_open_at,
       };

@@ -8,6 +8,21 @@ type FightResultLike = {
   result_confirmed?: boolean | null;
 };
 
+export const EVENT_AUTO_END_HOURS_AFTER_MAIN_CARD = 8;
+
+export function shouldAutoEndEvent(event: EventLifecycleLike, now = new Date()) {
+  if (!event.event_date || !["upcoming", "live"].includes(event.status || "")) {
+    return false;
+  }
+
+  const mainCardStartsAt = new Date(event.event_date).getTime();
+  if (!Number.isFinite(mainCardStartsAt)) return false;
+
+  const automaticEndAt =
+    mainCardStartsAt + EVENT_AUTO_END_HOURS_AFTER_MAIN_CARD * 60 * 60_000;
+  return automaticEndAt <= now.getTime();
+}
+
 export function shouldPromoteEventToLive(event: EventLifecycleLike, now = new Date()) {
   const startsAt = event.prelims_start_at || event.event_date;
   if (event.status !== "upcoming" || !startsAt) return false;

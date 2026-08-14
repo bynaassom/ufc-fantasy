@@ -117,7 +117,7 @@ Use cron-job.org ou serviço equivalente. Todos os jobs abaixo usam `POST`.
 - Endpoint: `POST /api/cron/notifications`
 - Header: `Authorization: Bearer <NOTIFICATIONS_CRON_SECRET>`
 - Frequência no cron-job.org: a cada 5 minutos
-- Função: envia notificações, promove eventos para `live` no início das preliminares, completa eventos quando todos os resultados forem confirmados e tenta fallback de sync-results durante janelas ativas.
+- Função: envia notificações, promove eventos para `live` no início das preliminares, completa eventos quando todos os resultados forem confirmados e encerra como fallback eventos ainda `upcoming/live` 8 horas após o início do main card.
 
 No cron-job.org, configure chamadas `POST` e envie o secret correspondente no header `Authorization` conforme descrito acima.
 

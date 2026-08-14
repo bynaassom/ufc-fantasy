@@ -107,9 +107,6 @@ export type AdminEventPayload = {
   banner_object_position?: string;
   ufc_event_id?: string;
   ufc_stats_url?: string;
-  espn_fightcenter_url?: string;
-  sherdog_event_url?: string;
-  tapology_event_url?: string;
   status?: "upcoming" | "live" | "completed";
 };
 
