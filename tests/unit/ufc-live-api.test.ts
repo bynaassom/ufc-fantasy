@@ -1,4 +1,5 @@
 import {
+  buildUfcAutomaticTimingUpdate,
   buildUfcLiveEventUrl,
   extractUfcLiveEventId,
   parseUfcLiveEventPayload,
@@ -116,6 +117,21 @@ describe("ufc-live-api", () => {
     expect(
       new Date(parsed!.startTime!).getTime() - 30 * 60 * 1000,
     ).toBe(new Date("2026-08-15T21:00:00.000Z").getTime());
+    expect(
+      buildUfcAutomaticTimingUpdate(
+        { timing_mode: "automatic", picks_open_at: null },
+        parsed!,
+      ),
+    ).toEqual({
+      event_date: "2026-08-15T21:30:00.000Z",
+      prelims_start_at: "2026-08-15T21:30:00.000Z",
+      picks_lock_at: "2026-08-15T21:00:00.000Z",
+      picks_open_at: "2026-08-15T09:30:00.000Z",
+      status: "completed",
+    });
+    expect(
+      buildUfcAutomaticTimingUpdate({ timing_mode: "manual" }, parsed!),
+    ).toBeNull();
   });
 
   it("keeps an upcoming event resultless", () => {

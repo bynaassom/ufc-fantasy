@@ -11,6 +11,10 @@ import {
   scrapeUfcEventCard,
 } from "@/lib/ufc-card-sync";
 import { readUpdateCardRequest } from "@/lib/update-card-request";
+import {
+  buildUfcAutomaticTimingUpdate,
+  fetchUfcLiveEventFromPage,
+} from "@/lib/ufc-live-api";
 import { assertSameOriginForMutation } from "@/server/api";
 import { CACHE_TAGS } from "@/server/cache-tags";
 import { notifyBulkCardChanges } from "@/server/services/notifications";
@@ -64,7 +68,9 @@ export async function POST(req: NextRequest) {
 
   const { data: event } = await adminSupabase
     .from("events")
-    .select("id, name, slug, ufc_event_id, event_date")
+    .select(
+      "id, name, slug, status, ufc_event_id, event_date, prelims_start_at, timing_mode, picks_lock_at, picks_open_at",
+    )
     .eq("id", event_id)
     .single();
 
@@ -117,6 +123,52 @@ export async function POST(req: NextRequest) {
     await adminSupabase.from("events").update({ slug: resolvedSlug }).eq("id", event_id);
   }
 
+  let eventTiming: Record<string, unknown> = {
+    updated: false,
+    reason: event.timing_mode === "manual" ? "controle manual" : null,
+  };
+  if (event.timing_mode !== "manual") {
+    try {
+      const official = await fetchUfcLiveEventFromPage(resolvedUrl);
+      const timingUpdate = buildUfcAutomaticTimingUpdate(event, official.event);
+
+      if (timingUpdate) {
+        const changed =
+          event.event_date !== timingUpdate.event_date ||
+          (event.prelims_start_at || null) !== timingUpdate.prelims_start_at ||
+          (event.picks_lock_at || null) !== timingUpdate.picks_lock_at ||
+          (event.picks_open_at || null) !== timingUpdate.picks_open_at ||
+          event.status !== timingUpdate.status ||
+          event.ufc_event_id !== resolvedUrl;
+
+        if (changed) {
+          const { error: timingError } = await adminSupabase
+            .from("events")
+            .update({ ...timingUpdate, ufc_event_id: resolvedUrl })
+            .eq("id", event_id);
+          if (timingError) throw new Error(timingError.message);
+          revalidateTag(CACHE_TAGS.events, "max");
+        }
+
+        eventTiming = {
+          updated: changed,
+          api_event_id: official.event.eventId,
+          api_url: official.url,
+          time_zone: official.event.timeZone,
+          ...timingUpdate,
+        };
+      }
+    } catch (error) {
+      eventTiming = {
+        updated: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "falha ao sincronizar horários oficiais",
+      };
+    }
+  }
+
   const { data: currentFights } = await adminSupabase
     .from("fights")
     .select(
@@ -147,6 +199,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       preview: true,
+      event_timing: eventTiming,
       resolved_url: resolvedUrl,
       attempted_urls: candidateUrls,
       attempted_errors: attemptedErrors,
@@ -235,6 +288,7 @@ export async function POST(req: NextRequest) {
     resolved_url: resolvedUrl,
     attempted_urls: candidateUrls,
     attempted_errors: attemptedErrors,
+    event_timing: eventTiming,
     log,
   });
 }

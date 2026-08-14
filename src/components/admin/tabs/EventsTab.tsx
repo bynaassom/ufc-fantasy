@@ -62,6 +62,7 @@ export default function EventsTab({
           setSelectedEventId={setSelectedEventId}
           eventFights={eventFights}
           loadFights={loadFights}
+          onEventsChanged={onEventsChanged}
         />
       );
     case "ops-lote":
@@ -814,6 +815,7 @@ function EventoEditar({
   setSelectedEventId,
   eventFights,
   loadFights,
+  onEventsChanged,
 }: any) {
   const [editForm, setEditForm] = useState<EventEditForm | null>(null);
   const [fights, setFights] = useState<any[]>([]);
@@ -1426,6 +1428,18 @@ function EventoEditar({
                   toast.error(data.error);
                 } else {
                   setDiff(data);
+                  if (data.event_timing?.updated) {
+                    const refreshed = await adminGet<{ event: any }>(
+                      `/api/admin/events/${selectedEventId}`,
+                    );
+                    setEditForm(toEventEditForm(refreshed.event));
+                    onEventsChanged();
+                    toast.success("Horários oficiais atualizados!");
+                  } else if (data.event_timing?.error) {
+                    toast.error(
+                      `Card verificado, mas os horários não foram atualizados: ${data.event_timing.error}`,
+                    );
+                  }
                 }
               } catch (e: any) {
                 toast.error(e.message);
@@ -1606,6 +1620,13 @@ function EventoEditar({
                       setDiff(null);
                       setRemoveIds([]);
                       loadFights(selectedEventId);
+                      if (data.event_timing?.updated) {
+                        const refreshed = await adminGet<{ event: any }>(
+                          `/api/admin/events/${selectedEventId}`,
+                        );
+                        setEditForm(toEventEditForm(refreshed.event));
+                        onEventsChanged();
+                      }
                     }
                   } catch (e: any) {
                     toast.error(e.message);

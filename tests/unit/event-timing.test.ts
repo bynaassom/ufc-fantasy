@@ -1,5 +1,8 @@
 import { getAutomatedEventTiming } from "@/lib/event-timing";
-import { parseUpcomingEventsFromHtml } from "@/lib/ufc-api";
+import {
+  applyOfficialUfcEventMetadata,
+  parseUpcomingEventsFromHtml,
+} from "@/lib/ufc-api";
 
 describe("event timing automation", () => {
   it("locks picks 30 minutes before the earliest preliminary segment", () => {
@@ -31,6 +34,35 @@ describe("event timing automation", () => {
 
     expect(parseUpcomingEventsFromHtml(html)[0]).toMatchObject({
       prelimsStartAt: new Date(1786829400 * 1000).toISOString(),
+    });
+  });
+
+  it("lets the official live API override the main-card date", () => {
+    const event = applyOfficialUfcEventMetadata(
+      {
+        id: "/event/ufc-330",
+        name: "UFC 330",
+        date: "2026-08-16T01:00:00.000Z",
+        location: "",
+        cards: [],
+      },
+      {
+        eventId: "1317",
+        name: "UFC 330: Makhachev vs. Machado Garry",
+        startTime: "2026-08-15T21:30:00.000Z",
+        timeZone: "GMT-04:00",
+        prelimsStartAt: "2026-08-15T21:30:00.000Z",
+        status: "upcoming",
+        location: "Philadelphia, Pennsylvania, USA",
+        fights: [],
+        results: [],
+      },
+    );
+
+    expect(event).toMatchObject({
+      date: "2026-08-15T21:30:00.000Z",
+      prelimsStartAt: "2026-08-15T21:30:00.000Z",
+      officialApiEventId: "1317",
     });
   });
 });

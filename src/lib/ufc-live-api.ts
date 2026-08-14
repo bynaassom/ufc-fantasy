@@ -1,4 +1,5 @@
 import { mapMethod, type UfcStatsResult } from "@/lib/ufc-results-sync";
+import { getAutomatedEventTiming } from "@/lib/event-timing";
 
 const UFC_LIVE_API_BASE =
   "https://d29dxerjsp82wz.cloudfront.net/api/v3/event/live";
@@ -75,6 +76,14 @@ export type UfcLiveEvent = {
   location: string;
   fights: UfcLiveCardFight[];
   results: UfcStatsResult[];
+};
+
+export type UfcAutomaticTimingUpdate = {
+  event_date: string;
+  prelims_start_at: string;
+  picks_lock_at: string;
+  picks_open_at: string;
+  status: UfcLiveEventStatus;
 };
 
 function toIso(value?: string | null) {
@@ -235,6 +244,31 @@ export function parseUfcLiveEventPayload(payload: unknown): UfcLiveEvent | null 
   };
 }
 
+export function buildUfcAutomaticTimingUpdate(
+  current: {
+    timing_mode?: "automatic" | "manual" | null;
+    picks_open_at?: string | null;
+  },
+  official: UfcLiveEvent,
+): UfcAutomaticTimingUpdate | null {
+  if (current.timing_mode === "manual" || !official.startTime) return null;
+
+  const prelimsStartAt = official.prelimsStartAt || official.startTime;
+  const timing = getAutomatedEventTiming({
+    event_date: official.startTime,
+    prelims_start_at: prelimsStartAt,
+  });
+  if (!timing) return null;
+
+  return {
+    event_date: official.startTime,
+    prelims_start_at: prelimsStartAt,
+    picks_lock_at: timing.picksLockAt,
+    picks_open_at: current.picks_open_at || timing.picksOpenAt,
+    status: official.status,
+  };
+}
+
 export async function fetchUfcLiveEvent(eventId: string | number) {
   const url = buildUfcLiveEventUrl(eventId);
   const response = await fetch(url, {
@@ -246,4 +280,16 @@ export async function fetchUfcLiveEvent(eventId: string | number) {
   const event = parseUfcLiveEventPayload(await response.json());
   if (!event) throw new Error("Resposta inválida da API oficial do UFC");
   return { url, event };
+}
+
+export async function fetchUfcLiveEventFromPage(pageUrl: string) {
+  const pageResponse = await fetch(pageUrl, {
+    cache: "no-store",
+    headers: { Accept: "text/html,application/xhtml+xml" },
+  });
+  if (!pageResponse.ok) throw new Error(`UFC.com HTTP ${pageResponse.status}`);
+
+  const eventId = extractUfcLiveEventId(await pageResponse.text());
+  if (!eventId) throw new Error("ID da API oficial não encontrado no UFC.com");
+  return fetchUfcLiveEvent(eventId);
 }

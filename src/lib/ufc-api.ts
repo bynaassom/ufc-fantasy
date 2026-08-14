@@ -2,6 +2,7 @@ import { WEIGHT_CLASS_PT } from "@/lib/ufc-weight";
 import {
   extractUfcLiveEventId,
   fetchUfcLiveEvent,
+  type UfcLiveEvent,
   type UfcLiveEventStatus,
 } from "@/lib/ufc-live-api";
 
@@ -172,6 +173,21 @@ function parseEventPageTitle(html: string) {
   return null;
 }
 
+export function applyOfficialUfcEventMetadata(
+  event: UFCEvent,
+  official: UfcLiveEvent,
+): UFCEvent {
+  return {
+    ...event,
+    name: official.name || event.name,
+    date: official.startTime || event.date,
+    location: official.location || event.location,
+    prelimsStartAt: official.prelimsStartAt || official.startTime || event.prelimsStartAt,
+    officialApiEventId: official.eventId,
+    status: official.status,
+  };
+}
+
 async function enrichUpcomingEventNames(events: UFCEvent[]): Promise<UFCEvent[]> {
   return Promise.all(
     events.map(async (event) => {
@@ -189,16 +205,15 @@ async function enrichUpcomingEventNames(events: UFCEvent[]): Promise<UFCEvent[]>
           ? await fetchUfcLiveEvent(liveEventId).catch(() => null)
           : null;
 
-        return {
+        const titledEvent = {
           ...event,
           name:
-            official?.event.name ||
-            (needsFullEventTitle(event.name) && fullTitle ? fullTitle : event.name),
-          location: official?.event.location || event.location,
-          prelimsStartAt: official?.event.prelimsStartAt || event.prelimsStartAt,
-          officialApiEventId: official?.event.eventId || liveEventId || undefined,
-          status: official?.event.status || event.status,
+            needsFullEventTitle(event.name) && fullTitle ? fullTitle : event.name,
+          officialApiEventId: liveEventId || undefined,
         };
+        return official
+          ? applyOfficialUfcEventMetadata(titledEvent, official.event)
+          : titledEvent;
       } catch {
         return event;
       }
@@ -341,14 +356,19 @@ function mergeUpcomingEventMetadata(primaryEvents: UFCEvent[], pageEvents: UFCEv
 
     return {
       ...event,
+      date: closestMatch.officialApiEventId ? closestMatch.date : event.date,
       name: needsFullEventTitle(event.name) ? closestMatch.name : event.name,
       location: event.location || closestMatch.location,
       image: event.image || closestMatch.image,
       eventUrl: event.eventUrl || closestMatch.eventUrl,
-      prelimsStartAt: event.prelimsStartAt || closestMatch.prelimsStartAt,
+      prelimsStartAt: closestMatch.officialApiEventId
+        ? closestMatch.prelimsStartAt
+        : event.prelimsStartAt || closestMatch.prelimsStartAt,
       officialApiEventId:
         event.officialApiEventId || closestMatch.officialApiEventId,
-      status: event.status || closestMatch.status,
+      status: closestMatch.officialApiEventId
+        ? closestMatch.status
+        : event.status || closestMatch.status,
     };
   });
 }
