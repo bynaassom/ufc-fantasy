@@ -4,7 +4,7 @@ App web/PWA para picks de eventos do UFC, com ranking, ligas, desafios, chat, no
 
 ## Stack
 
-- Next.js 14, React 18 e TypeScript
+- Next.js 16, React 19 e TypeScript
 - Tailwind CSS com tema claro/escuro via CSS variables
 - Supabase Auth, Postgres e RLS
 - Vitest e Playwright
@@ -82,6 +82,7 @@ Migrations recentes importantes:
 - `20260615000001_transactional_sync.sql`
 - `20260615000002_fix_transactional_sync_rpc.sql`
 - `20260615000003_badge_manual_awards.sql`
+- `20260814000000_event_timing_and_security.sql`
 
 ## Admin
 
@@ -101,8 +102,8 @@ Use cron-job.org ou serviço equivalente. Todos os jobs abaixo usam `POST`.
 
 - Endpoint: `POST /api/cron/sync-events`
 - Header: `Authorization: Bearer <SYNC_SECRET>`
-- Frequência sugerida: diariamente
-- Função: cria/sincroniza eventos futuros, tenta descobrir URL do UFCStats e sincroniza card.
+- Frequência no cron-job.org: diariamente
+- Função: cria/sincroniza eventos futuros, lê o início das preliminares na UFC.com, deriva o lock 30 minutos antes, tenta descobrir URL do UFCStats e sincroniza o card.
 
 ### Sincronizar Resultados
 
@@ -115,8 +116,10 @@ Use cron-job.org ou serviço equivalente. Todos os jobs abaixo usam `POST`.
 
 - Endpoint: `POST /api/cron/notifications`
 - Header: `Authorization: Bearer <NOTIFICATIONS_CRON_SECRET>`
-- Frequência sugerida: a cada 5 minutos
-- Função: envia notificações, promove eventos para `live`, completa eventos quando todos os resultados forem confirmados e tenta fallback de sync-results durante janelas ativas.
+- Frequência no cron-job.org: a cada 5 minutos
+- Função: envia notificações, promove eventos para `live` no início das preliminares, completa eventos quando todos os resultados forem confirmados e tenta fallback de sync-results durante janelas ativas.
+
+No cron-job.org, configure chamadas `POST` e envie o secret correspondente no header `Authorization` conforme descrito acima.
 
 ### Verificação Do Card
 

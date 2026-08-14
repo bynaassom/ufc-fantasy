@@ -122,6 +122,7 @@ import {
   getLeagueStats,
 } from "@/server/repositories/stats";
 import { completeEventIfAllResultsConfirmed } from "@/server/services/event-lifecycle";
+import { getAutomatedEventTiming } from "@/lib/event-timing";
 import {
   requireAdminPageProfile,
   requirePageUserProfile,
@@ -1052,7 +1053,11 @@ export async function getEventRecapData(slug: string): Promise<import("@/types")
     .slice()
     .sort((a: any, b: any) => a.fight_order - b.fight_order)
     .map((fight: any) => {
-      const dist = pickDistribution[fight.id] || { fighter_a: 0, fighter_b: 0 };
+      const byWinner = pickDistribution[fight.id] || {};
+      const dist = {
+        fighter_a: byWinner[fight.fighter_a_id] || 0,
+        fighter_b: byWinner[fight.fighter_b_id] || 0,
+      };
       const total = dist.fighter_a + dist.fighter_b;
       const perfectCount = dist.fighter_a + dist.fighter_b > 0
         ? (fight.result_confirmed && fight.winner_id === fight.fighter_a_id ? dist.fighter_a
@@ -1230,6 +1235,19 @@ export async function saveMyEventPicks(
   const event = await findEventBySlugForPickValidation(supabase, slug);
   if (!event) {
     throw new ApiRouteError(404, "EVENT_NOT_FOUND", "Evento não encontrado.");
+  }
+
+  const now = Date.now();
+  const opensAt = event.picks_open_at
+    ? new Date(event.picks_open_at).getTime()
+    : Number.NEGATIVE_INFINITY;
+  const locksAt = new Date(event.picks_lock_at).getTime();
+  if (!Number.isFinite(locksAt) || now < opensAt || now >= locksAt) {
+    throw new ApiRouteError(
+      409,
+      "PICKS_CLOSED",
+      "Os picks deste evento não estão abertos para edição.",
+    );
   }
 
   assertValidEventPicks(event, picks);
@@ -1850,6 +1868,22 @@ function normalizeEventSourceFields(payload: Record<string, unknown>) {
     }
   }
 
+  if (normalized.prelims_start_at === "") normalized.prelims_start_at = null;
+
+  if (normalized.timing_mode === "automatic" && normalized.event_date) {
+    const timing = getAutomatedEventTiming({
+      event_date: String(normalized.event_date),
+      prelims_start_at:
+        typeof normalized.prelims_start_at === "string"
+          ? normalized.prelims_start_at
+          : null,
+    });
+    if (timing) {
+      normalized.picks_lock_at = timing.picksLockAt;
+      if (!normalized.picks_open_at) normalized.picks_open_at = timing.picksOpenAt;
+    }
+  }
+
   return normalized;
 }
 
@@ -1857,6 +1891,8 @@ export async function createAdminEvent(payload: {
   name: string;
   location?: string;
   event_date: string;
+  prelims_start_at?: string;
+  timing_mode?: "automatic" | "manual";
   picks_lock_at?: string;
   picks_open_at?: string;
   banner_image_url?: string;
@@ -2071,7 +2107,8 @@ export async function setAdminFightResult(
   const fight = await findFightById(adminSupabase, fightId);
   const winnerId =
     payload.winner_side === "a" ? fight.fighter_a_id : fight.fighter_b_id;
-  const resultRound = payload.method === "decision" ? 3 : payload.round;
+  const resultRound =
+    payload.method === "decision" ? fight.total_rounds : payload.round;
 
   await updateFight(adminSupabase, fightId, {
     winner_id: winnerId,
@@ -2297,9 +2334,18 @@ export async function getEnrichedMyGroups(): Promise<import("@/types").EnrichedG
 }
 
 export async function getGroupDetail(groupId: string): Promise<GroupWithMembers | null> {
+  const { user } = await requireActiveUser();
   const adminSupabase = await getAdminSupabase();
   const group = await findGroupById(adminSupabase, groupId);
   if (!group) return null;
+  const membership = await getGroupMember(adminSupabase, groupId, user.id);
+  if (!membership) {
+    throw new ApiRouteError(
+      403,
+      "GROUP_MEMBERSHIP_REQUIRED",
+      "Você precisa participar desta liga para visualizar seus detalhes.",
+    );
+  }
   const [members, currentSeason] = await Promise.all([
     listGroupMembers(adminSupabase, groupId),
     getCurrentSeason(adminSupabase),

@@ -49,8 +49,8 @@ export async function POST(request: NextRequest) {
 
     revalidatePath("/ranking");
     revalidatePath("/home");
-    revalidateTag(CACHE_TAGS.ranking);
-    revalidateTag(CACHE_TAGS.events);
+    revalidateTag(CACHE_TAGS.ranking, "max");
+    revalidateTag(CACHE_TAGS.events, "max");
     const eventSlug = (fight?.event as any)?.slug;
     if (eventSlug) {
       revalidatePath(`/event/${eventSlug}`);

@@ -15,21 +15,21 @@ const DEFAULT_CONFIG: RateLimitConfig = {
 export function checkRateLimit(
   key: string,
   config: RateLimitConfig = DEFAULT_CONFIG,
-): { allowed: boolean; remaining: number; resetAt: number } {
+): { allowed: boolean; remaining: number; resetAt: number; limit: number } {
   const now = Date.now();
   const entry = store.get(key);
 
   if (!entry || now >= entry.resetAt) {
     store.set(key, { count: 1, resetAt: now + config.windowMs });
-    return { allowed: true, remaining: config.maxRequests - 1, resetAt: now + config.windowMs };
+    return { allowed: true, remaining: config.maxRequests - 1, resetAt: now + config.windowMs, limit: config.maxRequests };
   }
 
   if (entry.count >= config.maxRequests) {
-    return { allowed: false, remaining: 0, resetAt: entry.resetAt };
+    return { allowed: false, remaining: 0, resetAt: entry.resetAt, limit: config.maxRequests };
   }
 
   entry.count += 1;
-  return { allowed: true, remaining: config.maxRequests - entry.count, resetAt: entry.resetAt };
+  return { allowed: true, remaining: config.maxRequests - entry.count, resetAt: entry.resetAt, limit: config.maxRequests };
 }
 
 export function getRateLimitKey(request: Request): string {
@@ -47,7 +47,10 @@ const STRICT_CONFIG: RateLimitConfig = {
 const STRICT_PREFIXES = ["/api/challenges", "/api/picks"];
 
 export function getRateLimitConfig(pathname: string): RateLimitConfig {
-  if (STRICT_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
+  if (
+    STRICT_PREFIXES.some((prefix) => pathname.startsWith(prefix)) ||
+    /^\/api\/events\/[^/]+\/picks(?:\/|$)/.test(pathname)
+  ) {
     return STRICT_CONFIG;
   }
   return DEFAULT_CONFIG;
@@ -55,9 +58,9 @@ export function getRateLimitConfig(pathname: string): RateLimitConfig {
 
 export function applyRateLimitHeaders(
   headers: Headers,
-  result: { allowed: boolean; remaining: number; resetAt: number },
+  result: { allowed: boolean; remaining: number; resetAt: number; limit: number },
 ) {
-  headers.set("X-RateLimit-Limit", String(DEFAULT_CONFIG.maxRequests));
+  headers.set("X-RateLimit-Limit", String(result.limit));
   headers.set("X-RateLimit-Remaining", String(result.remaining));
   headers.set("X-RateLimit-Reset", String(Math.ceil(result.resetAt / 1000)));
 }

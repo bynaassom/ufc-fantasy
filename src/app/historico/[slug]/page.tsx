@@ -7,12 +7,11 @@ import type { FightWithFighters, Pick } from "@/types";
 import { getHistoryEventPageData } from "@/server/services/app";
 
 interface HistoricoEventoPageProps {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }
 
-export default async function HistoricoEventoPage({
-  params,
-}: HistoricoEventoPageProps) {
+export default async function HistoricoEventoPage(props: HistoricoEventoPageProps) {
+  const params = await props.params;
   const { profile, event, picks, score } = await getHistoryEventPageData(
     params.slug,
   );

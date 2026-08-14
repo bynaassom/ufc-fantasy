@@ -55,6 +55,18 @@
     --bg-overlay-20: rgba(245, 245, 240, 0.2);
 }
 
+.brand-logo-light {
+    display: none;
+}
+
+.light .brand-logo-dark {
+    display: none;
+}
+
+.light .brand-logo-light {
+    display: block;
+}
+
 * {
     box-sizing: border-box;
     padding: 0;

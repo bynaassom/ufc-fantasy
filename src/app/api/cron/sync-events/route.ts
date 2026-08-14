@@ -5,6 +5,28 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { syncScrapedCardForEvent } from "@/lib/ufc-card-sync";
 import { discoverUfcStatsUrl } from "@/lib/ufc-stats-discovery";
 import { fetchUpcomingUFCEvents, fetchUpcomingUFCEventsFromPage } from "@/lib/ufc-api";
+import { getAutomatedEventTiming } from "@/lib/event-timing";
+
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function getEventSlug(event: { eventUrl?: string; name: string }) {
+  if (event.eventUrl) {
+    try {
+      const fromPath = new URL(event.eventUrl).pathname.match(/\/event\/([^/?#]+)/i)?.[1];
+      if (fromPath) return fromPath.toLowerCase();
+    } catch {
+      // Usa o nome como fallback.
+    }
+  }
+  return slugify(event.name);
+}
 
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
@@ -40,6 +62,7 @@ export async function POST(req: NextRequest) {
         location: event.location || match?.location || "",
         image: event.image || match?.image,
         eventUrl: event.eventUrl || match?.eventUrl || "",
+        prelimsStartAt: event.prelimsStartAt || match?.prelimsStartAt,
       };
     });
 
@@ -52,27 +75,38 @@ export async function POST(req: NextRequest) {
       try {
         const result = await adminSupabase
           .from("events")
-          .select("id, name, slug, ufc_event_id, ufc_stats_url")
+          .select("id, name, slug, ufc_event_id, ufc_stats_url, timing_mode, picks_open_at")
           .eq("ufc_event_id", event.id)
           .single();
         existing = result.data;
       } catch { /* not found */ }
 
       if (existing) {
-        if (existing.name !== event.name) {
-          await adminSupabase.from("events").update({ name: event.name }).eq("id", existing.id);
+        const automaticTiming = getAutomatedEventTiming({
+          event_date: event.date,
+          prelims_start_at: event.prelimsStartAt,
+        });
+        const update: Record<string, unknown> = { name: event.name };
+        if (existing.timing_mode !== "manual" && automaticTiming) {
+          update.event_date = event.date;
+          update.prelims_start_at = event.prelimsStartAt || null;
+          update.picks_lock_at = automaticTiming.picksLockAt;
+          update.picks_open_at = existing.picks_open_at || automaticTiming.picksOpenAt;
+          update.timing_mode = "automatic";
+        }
+        if (existing.name !== event.name || Object.keys(update).length > 1) {
+          await adminSupabase.from("events").update(update).eq("id", existing.id);
           updated++;
         }
         continue;
       }
 
-      const slug = (event.eventUrl || event.name)
-        .toLowerCase()
-        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-        .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-
-      const picksLockAt = new Date(new Date(event.date).getTime() - 30 * 60 * 1000).toISOString();
-      const picksOpenAt = new Date(new Date(event.date).getTime() - 12 * 60 * 60 * 1000).toISOString();
+      const slug = getEventSlug(event);
+      const timing = getAutomatedEventTiming({
+        event_date: event.date,
+        prelims_start_at: event.prelimsStartAt,
+      });
+      if (!timing) continue;
 
       let createdEvent: any = null;
       try {
@@ -82,12 +116,14 @@ export async function POST(req: NextRequest) {
             name: event.name,
             slug,
             event_date: event.date,
+            prelims_start_at: event.prelimsStartAt || null,
+            timing_mode: "automatic",
             location: event.location || "",
             banner_image_url: event.image || null,
             ufc_event_id: event.id,
             status: "upcoming",
-            picks_lock_at: picksLockAt,
-            picks_open_at: picksOpenAt,
+            picks_lock_at: timing.picksLockAt,
+            picks_open_at: timing.picksOpenAt,
           })
           .select("id")
           .single();

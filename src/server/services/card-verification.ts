@@ -128,7 +128,7 @@ async function runEventVerification(
         `Notificação não enviada: ${error instanceof Error ? error.message : "falha desconhecida"}`,
       );
     }
-    revalidateTag(CACHE_TAGS.events);
+    revalidateTag(CACHE_TAGS.events, "max");
   }
 
   return {

@@ -30,7 +30,7 @@ function matchAuthRoute(pathname: string): boolean {
   return AUTH_ROUTES.has(pathname);
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   if (pathname.startsWith("/api/")) {

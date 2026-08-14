@@ -64,7 +64,7 @@ async function dispatch(request: NextRequest) {
   const adminSupabase = await getAdminSupabase();
   const lifecycle = await dispatchEventLifecycle(adminSupabase);
   if (lifecycle.promoted.length || lifecycle.completed.length) {
-    revalidateTag(CACHE_TAGS.events);
+    revalidateTag(CACHE_TAGS.events, "max");
     revalidatePath("/home");
     revalidatePath("/admin");
     revalidatePath("/ranking");

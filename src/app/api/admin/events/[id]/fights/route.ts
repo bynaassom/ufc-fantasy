@@ -14,10 +14,11 @@ import { getAdminSupabase } from "@/server/supabase";
 import { adminFightSchema } from "@/server/validators/admin";
 
 type Params = {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 };
 
-export async function GET(_: NextRequest, { params }: Params) {
+export async function GET(_: NextRequest, props: Params) {
+  const params = await props.params;
   try {
     await requireAdmin();
     const adminSupabase = await getAdminSupabase();
@@ -28,7 +29,8 @@ export async function GET(_: NextRequest, { params }: Params) {
   }
 }
 
-export async function POST(request: NextRequest, { params }: Params) {
+export async function POST(request: NextRequest, props: Params) {
+  const params = await props.params;
   try {
     assertSameOriginForMutation(request);
     await requireAdmin();

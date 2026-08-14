@@ -39,6 +39,8 @@ export interface EventEditForm {
   name: string;
   location: string;
   event_date: string;
+  prelims_start_at: string;
+  timing_mode: "automatic" | "manual";
   picks_lock_at: string;
   picks_open_at: string;
   banner_image_url: string;

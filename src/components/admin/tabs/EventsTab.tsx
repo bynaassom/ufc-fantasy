@@ -653,6 +653,8 @@ function EventoManual({ onEventsChanged }: { onEventsChanged: () => void }) {
     name: "",
     location: "",
     event_date: "",
+    prelims_start_at: "",
+    timing_mode: "automatic" as "automatic" | "manual",
     picks_lock_at: "",
     picks_open_at: "",
     banner_image_url: "",
@@ -676,6 +678,8 @@ function EventoManual({ onEventsChanged }: { onEventsChanged: () => void }) {
         name: "",
         location: "",
         event_date: "",
+        prelims_start_at: "",
+        timing_mode: "automatic",
         picks_lock_at: "",
         picks_open_at: "",
         banner_image_url: "",
@@ -712,6 +716,17 @@ function EventoManual({ onEventsChanged }: { onEventsChanged: () => void }) {
           key: "event_date",
           type: "datetime-local",
           required: true,
+        },
+        {
+          label: "Início das Preliminares (UTC)",
+          key: "prelims_start_at",
+          type: "datetime-local",
+        },
+        {
+          label: "Controle dos horários",
+          key: "timing_mode",
+          type: "select",
+          options: ["automatic", "manual"],
         },
         {
           label: "Picks fecham em (UTC)",
@@ -759,23 +774,43 @@ function EventoManual({ onEventsChanged }: { onEventsChanged: () => void }) {
           type: "text",
           placeholder: "https://www.tapology.com/fightcenter/events/...",
         },
-      ].map(({ label, key, type, required, placeholder }) => (
+      ].map(({ label, key, type, required, placeholder, options }) => (
         <div key={key}>
           <label className={lbl} style={{ color: "var(--text-secondary)" }}>
             {label}
           </label>
-          <input
-            required={required}
-            type={type}
-            value={(form as any)[key]}
-            placeholder={placeholder}
-            onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
-            style={inp}
-            onFocus={focus}
-            onBlur={blur}
-          />
+          {type === "select" ? (
+            <select
+              value={(form as any)[key]}
+              onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+              style={sel}
+              onFocus={focus}
+              onBlur={blur}
+            >
+              {options!.map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
+          ) : (
+            <input
+              required={required}
+              type={type}
+              value={(form as any)[key]}
+              placeholder={placeholder}
+              disabled={key === "picks_lock_at" && form.timing_mode === "automatic"}
+              onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+              style={{ ...inp, opacity: key === "picks_lock_at" && form.timing_mode === "automatic" ? 0.55 : 1 }}
+              onFocus={focus}
+              onBlur={blur}
+            />
+          )}
         </div>
       ))}
+      {form.timing_mode === "automatic" && (
+        <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+          O fechamento será calculado 30 minutos antes do início das preliminares.
+        </p>
+      )}
       <button
         type="submit"
         className="w-full py-3 font-condensed font-900 text-sm uppercase tracking-widest text-white"
@@ -932,6 +967,17 @@ function EventoEditar({
             type: "datetime-local",
           },
           {
+            label: "Início das Preliminares (UTC)",
+            key: "prelims_start_at",
+            type: "datetime-local",
+          },
+          {
+            label: "Controle dos horários",
+            key: "timing_mode",
+            type: "select",
+            options: ["automatic", "manual"],
+          },
+          {
             label: "Picks fecham em (UTC)",
             key: "picks_lock_at",
             type: "datetime-local",
@@ -980,14 +1026,26 @@ function EventoEditar({
               <input
                 type={type}
                 value={editForm[k]}
+                disabled={key === "picks_lock_at" && editForm.timing_mode === "automatic"}
                 onChange={(e) => updater(e.target.value)}
-                style={inp}
+                style={{
+                  ...inp,
+                  opacity:
+                    key === "picks_lock_at" && editForm.timing_mode === "automatic"
+                      ? 0.55
+                      : 1,
+                }}
                 onFocus={focus}
                 onBlur={blur}
               />
             )}
           </div>
         )})}
+        {editForm.timing_mode === "automatic" && (
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+            Picks fecham automaticamente 30 minutos antes das preliminares.
+          </p>
+        )}
         {editForm.banner_image_url && (
           <div>
             <label className={lbl} style={{ color: "var(--text-secondary)" }}>

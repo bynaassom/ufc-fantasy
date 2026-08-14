@@ -3,12 +3,13 @@ import ChallengeDetailClient from "@/components/challenges/ChallengeDetailClient
 import { getChallengeDetailPageData } from "@/server/services/app";
 
 type Props = {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 };
 
 export const dynamic = "force-dynamic";
 
-export default async function ChallengeDetailPage({ params }: Props) {
+export default async function ChallengeDetailPage(props: Props) {
+  const params = await props.params;
   const data = await getChallengeDetailPageData(params.id);
 
   if (!data.challenge) {

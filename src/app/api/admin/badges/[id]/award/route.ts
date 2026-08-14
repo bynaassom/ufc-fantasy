@@ -22,7 +22,8 @@ async function getBadgeId(params: Params["params"]) {
   return z.string().uuid().parse(resolved.id);
 }
 
-export async function POST(request: NextRequest, { params }: Params) {
+export async function POST(request: NextRequest, props: Params) {
+  const params = await props.params;
   try {
     assertSameOriginForMutation(request);
     const { adminSupabase } = await requireAdmin();
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest, { params }: Params) {
       body.userIds,
     );
 
-    revalidateTag(CACHE_TAGS.badges);
+    revalidateTag(CACHE_TAGS.badges, "max");
     revalidatePath("/admin");
     revalidatePath("/profile");
 

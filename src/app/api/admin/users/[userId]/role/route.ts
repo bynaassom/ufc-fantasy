@@ -12,10 +12,11 @@ import { toggleAdminUserRole } from "@/server/services/app";
 import { adminRoleToggleSchema } from "@/server/validators/admin";
 
 type Params = {
-  params: { userId: string };
+  params: Promise<{ userId: string }>;
 };
 
-export async function POST(request: NextRequest, { params }: Params) {
+export async function POST(request: NextRequest, props: Params) {
+  const params = await props.params;
   try {
     assertSameOriginForMutation(request);
     await requireAdmin();

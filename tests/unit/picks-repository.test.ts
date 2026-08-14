@@ -1,5 +1,6 @@
 import {
   countConfirmedPicksForFight,
+  getPickDistributionForEvent,
   listPerfectPickUsersForFight,
 } from "@/server/repositories/picks";
 
@@ -48,5 +49,21 @@ describe("picks repository", () => {
     });
     expect(query.eq).toHaveBeenCalledWith("fight_id", "fight-1");
     expect(query.eq).toHaveBeenCalledWith("is_confirmed", true);
+  });
+
+  it("groups pick distribution by fighter id for each fight", async () => {
+    const query = createQuery({
+      data: [
+        { fight_id: "fight-1", picked_winner_id: "fighter-a" },
+        { fight_id: "fight-1", picked_winner_id: "fighter-a" },
+        { fight_id: "fight-1", picked_winner_id: "fighter-b" },
+      ],
+      error: null,
+    });
+    const client = { from: vi.fn(() => query) };
+
+    await expect(getPickDistributionForEvent(client, "event-1")).resolves.toEqual({
+      "fight-1": { "fighter-a": 2, "fighter-b": 1 },
+    });
   });
 });

@@ -40,7 +40,7 @@ export async function findGroupById(client: DbClient, groupId: string) {
     .from("groups")
     .select("*")
     .eq("id", groupId)
-    .single();
+    .maybeSingle();
   if (error) throw error;
   return data;
 }
@@ -67,7 +67,9 @@ export async function listGroupsForUser(client: DbClient, userId: string) {
 export async function listGroupMembers(client: DbClient, groupId: string) {
   const { data, error } = await client
     .from("group_members")
-    .select("*, profile:profiles(*)")
+    .select(
+      "id, group_id, user_id, role, joined_at, profile:profiles(id, nickname, first_name, last_name, total_points, division)",
+    )
     .eq("group_id", groupId);
   if (error) throw error;
   return data || [];

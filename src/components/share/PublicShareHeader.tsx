@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { createAuthClient } from "@/lib/supabase/client";
-import Image from "next/image";
 import Link from "next/link";
+import BrandLogo from "@/components/ui/BrandLogo";
 
 export default function PublicShareHeader() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -19,7 +19,7 @@ export default function PublicShareHeader() {
     <header style={{ borderBottom: "1px solid var(--border)" }}>
       <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
         <Link href="/" className="flex items-center">
-          <Image src="/logo-dark.svg" alt="UFC Fantasy" width={113} height={20} className="h-5 w-auto" priority />
+          <BrandLogo priority />
         </Link>
         <Link
           href={isLoggedIn ? "/home" : "/register"}

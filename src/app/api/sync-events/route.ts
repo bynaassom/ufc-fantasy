@@ -13,6 +13,7 @@ import { syncScrapedCardForEvent } from "@/lib/ufc-card-sync";
 import { discoverUfcStatsUrl } from "@/lib/ufc-stats-discovery";
 import { assertSameOriginForMutation } from "@/server/api";
 import { CACHE_TAGS } from "@/server/cache-tags";
+import { getAutomatedEventTiming } from "@/lib/event-timing";
 
 function slugify(value: string) {
   return value
@@ -51,14 +52,6 @@ function toIsoOrNull(value?: string | null) {
   return parsed.toISOString();
 }
 
-function subtractMinutes(iso: string, minutes: number) {
-  return new Date(new Date(iso).getTime() - minutes * 60 * 1000).toISOString();
-}
-
-function subtractHours(iso: string, hours: number) {
-  return new Date(new Date(iso).getTime() - hours * 60 * 60 * 1000).toISOString();
-}
-
 function getDateKey(iso: string) {
   return iso.slice(0, 10);
 }
@@ -88,6 +81,8 @@ type ExistingEvent = {
   slug: string;
   ufc_event_id?: string | null;
   event_date: string;
+  prelims_start_at?: string | null;
+  timing_mode?: "automatic" | "manual" | null;
   location?: string | null;
   banner_image_url?: string | null;
   picks_lock_at?: string | null;
@@ -109,6 +104,8 @@ type SyncCandidate = {
   slug: string;
   event_url: string;
   event_date: string;
+  prelims_start_at: string | null;
+  timing_mode: "automatic" | "manual";
   location: string;
   banner_image_url: string | null;
   picks_lock_at: string;
@@ -159,7 +156,7 @@ async function loadExistingEvents(adminSupabase: Awaited<ReturnType<typeof creat
   const { data, error } = await adminSupabase
     .from("events")
     .select(
-      "id, name, slug, ufc_event_id, event_date, location, banner_image_url, picks_lock_at, picks_open_at",
+      "id, name, slug, ufc_event_id, event_date, prelims_start_at, timing_mode, location, banner_image_url, picks_lock_at, picks_open_at",
     )
     .order("event_date", { ascending: true });
 
@@ -214,6 +211,7 @@ function mergeUpstreamEventSources(apiEvents: UFCEvent[], pageEvents: UFCEvent[]
         event.eventUrl ||
         nearestMatch?.eventUrl ||
         `https://www.ufc.com.br/event/${slugify(event.name)}`,
+      prelimsStartAt: event.prelimsStartAt || nearestMatch?.prelimsStartAt,
     };
   });
 }
@@ -256,8 +254,7 @@ function buildSyncPlan(
     if (!eventDate) continue;
 
     const slug = getEventSlug(upstreamEvent);
-    const picksLockAt = subtractMinutes(eventDate, 30);
-    const picksOpenAt = subtractHours(eventDate, 12);
+    const upstreamPrelimsStartAt = toIsoOrNull(upstreamEvent.prelimsStartAt);
     const dateKey = getDateKey(eventDate);
     const matchupKey = getMatchupKey(upstreamEvent.name);
 
@@ -302,10 +299,28 @@ function buildSyncPlan(
       }
     }
 
+    const timingMode: "automatic" | "manual" =
+      existing?.timing_mode === "manual" ? "manual" : "automatic";
+    const prelimsStartAt =
+      timingMode === "manual"
+        ? existing?.prelims_start_at || upstreamPrelimsStartAt
+        : upstreamPrelimsStartAt;
+    const automaticTiming = getAutomatedEventTiming({
+      event_date: eventDate,
+      prelims_start_at: prelimsStartAt,
+    });
+    const picksLockAt =
+      timingMode === "manual" && existing?.picks_lock_at
+        ? existing.picks_lock_at
+        : automaticTiming!.picksLockAt;
+    const picksOpenAt = existing?.picks_open_at || automaticTiming!.picksOpenAt;
+
     const payload = {
       name: upstreamEvent.name,
       slug,
       event_date: eventDate,
+      prelims_start_at: prelimsStartAt,
+      timing_mode: timingMode,
       location: upstreamEvent.location || "",
       banner_image_url: upstreamEvent.image || null,
       ufc_event_id: upstreamEvent.id,
@@ -319,6 +334,8 @@ function buildSyncPlan(
       existing.name !== payload.name ||
       existing.slug !== payload.slug ||
       existing.event_date !== payload.event_date ||
+      (existing.prelims_start_at || null) !== payload.prelims_start_at ||
+      (existing.timing_mode || "automatic") !== payload.timing_mode ||
       (existing.location || "") !== payload.location ||
       (existing.banner_image_url || null) !== payload.banner_image_url ||
       (existing.ufc_event_id || null) !== payload.ufc_event_id ||
@@ -332,6 +349,8 @@ function buildSyncPlan(
       event_url:
         upstreamEvent.eventUrl || `https://www.ufc.com.br/event/${payload.slug}`,
       event_date: payload.event_date,
+      prelims_start_at: payload.prelims_start_at,
+      timing_mode: payload.timing_mode,
       location: payload.location,
       banner_image_url: payload.banner_image_url,
       picks_lock_at: payload.picks_lock_at,
@@ -450,6 +469,8 @@ export async function POST(req: NextRequest) {
         name: candidate.name,
         slug: candidate.slug,
         event_date: candidate.event_date,
+        prelims_start_at: candidate.prelims_start_at,
+        timing_mode: candidate.timing_mode,
         location: candidate.location,
         banner_image_url: candidate.banner_image_url,
         ufc_event_id: candidate.source_id,
@@ -543,7 +564,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    revalidateTag(CACHE_TAGS.events);
+    revalidateTag(CACHE_TAGS.events, "max");
     revalidatePath("/admin");
 
     return NextResponse.json({

@@ -3,10 +3,11 @@ import PublicProfileClient from "@/components/profile/PublicProfileClient";
 import { getPublicProfilePageData } from "@/server/services/app";
 
 type Props = {
-  params: { nickname: string };
+  params: Promise<{ nickname: string }>;
 };
 
-export default async function PublicProfilePage({ params }: Props) {
+export default async function PublicProfilePage(props: Props) {
+  const params = await props.params;
   const data = await getPublicProfilePageData(params.nickname);
 
   if (!data.publicProfile || !data.stats) {

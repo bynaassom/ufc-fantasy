@@ -8,10 +8,8 @@ import {
 } from "@/server/api";
 import { hideChatMessage } from "@/server/services/chat";
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } },
-) {
+export async function DELETE(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     assertSameOriginForMutation(request);
     await hideChatMessage(params.id);

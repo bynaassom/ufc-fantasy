@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import dynamic from "next/dynamic";
 import Navbar from "@/components/layout/Navbar";
 import EventPicksClient from "@/components/event/EventPicksClient";
+import LiveFeed from "@/components/event/LiveFeed";
 import {
   formatEventDate,
   isPicksLocked,
@@ -12,17 +12,14 @@ import {
 } from "@/lib/utils";
 import { getEventPageData } from "@/server/services/app";
 
-const LiveFeed = dynamic(() => import("@/components/event/LiveFeed"), {
-  ssr: false,
-});
-
 interface EventPageProps {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }
 
 export const revalidate = 30; // revalida a cada 30s, e imediatamente via revalidatePath
 
-export default async function EventPage({ params }: EventPageProps) {
+export default async function EventPage(props: EventPageProps) {
+  const params = await props.params;
   const { profile, event, existingPicks } = await getEventPageData(params.slug);
   if (!event) {
     notFound();

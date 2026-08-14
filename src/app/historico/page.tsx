@@ -9,11 +9,12 @@ export const revalidate = 3600;
 
 const ITEMS_PER_PAGE = 15;
 
-export default async function HistoricoPage({
-  searchParams,
-}: {
-  searchParams: { page?: string };
-}) {
+export default async function HistoricoPage(
+  props: {
+    searchParams: Promise<{ page?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const currentPage = Math.max(1, Number(searchParams.page) || 1);
   const { profile, events, scoresMap } = await getHistoryPageData();
   const historyEvents = events as FantasyEvent[];

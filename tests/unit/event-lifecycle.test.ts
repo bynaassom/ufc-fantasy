@@ -25,6 +25,21 @@ describe("event lifecycle", () => {
     ).toBe(false);
   });
 
+  it("uses the first preliminary card start instead of the main card time", () => {
+    const event = {
+      status: "upcoming",
+      event_date: "2026-06-06T22:00:00.000Z",
+      prelims_start_at: "2026-06-06T19:00:00.000Z",
+    };
+
+    expect(
+      shouldPromoteEventToLive(event, new Date("2026-06-06T18:59:59.000Z")),
+    ).toBe(false);
+    expect(
+      shouldPromoteEventToLive(event, new Date("2026-06-06T19:00:00.000Z")),
+    ).toBe(true);
+  });
+
   it("only completes events with at least one fight and every result confirmed", () => {
     expect(shouldCompleteEvent([])).toBe(false);
     expect(shouldCompleteEvent([{ result_confirmed: true }])).toBe(true);

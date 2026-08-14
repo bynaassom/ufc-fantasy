@@ -15,10 +15,11 @@ import { setAdminFightResult } from "@/server/services/app";
 import { adminFightResultSchema } from "@/server/validators/admin";
 
 type Params = {
-  params: { fightId: string };
+  params: Promise<{ fightId: string }>;
 };
 
-export async function POST(request: NextRequest, { params }: Params) {
+export async function POST(request: NextRequest, props: Params) {
+  const params = await props.params;
   try {
     assertSameOriginForMutation(request);
     const { adminSupabase, user } = await requireAdmin();
@@ -27,8 +28,8 @@ export async function POST(request: NextRequest, { params }: Params) {
 
     revalidatePath("/ranking");
     revalidatePath("/home");
-    revalidateTag(CACHE_TAGS.ranking);
-    revalidateTag(CACHE_TAGS.events);
+    revalidateTag(CACHE_TAGS.ranking, "max");
+    revalidateTag(CACHE_TAGS.events, "max");
     const eventSlug = (data.fight?.event as any)?.slug;
     if (eventSlug) {
       revalidatePath(`/event/${eventSlug}`);

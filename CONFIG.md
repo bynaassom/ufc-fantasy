@@ -78,6 +78,7 @@ Configure os jobs como `POST` e envie `Content-Type: application/json` com body 
 | Verificação do card | `/api/cron/card-verification` | `Authorization: Bearer <SYNC_SECRET>` | A cada 1h |
 
 `/api/sync-events` continua existindo para uso admin/manual; para cron externo, prefira `/api/cron/sync-events`.
+Os jobs são executados pelo cron-job.org; o plano Hobby da Vercel não é usado para agendamento.
 
 ## Odds
 

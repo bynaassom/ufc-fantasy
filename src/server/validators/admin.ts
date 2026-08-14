@@ -4,6 +4,8 @@ export const adminEventSchema = z.object({
   name: z.string().min(1),
   location: z.string().optional().default(""),
   event_date: z.string().min(1),
+  prelims_start_at: z.string().optional(),
+  timing_mode: z.enum(["automatic", "manual"]).optional(),
   picks_lock_at: z.string().optional().default(""),
   picks_open_at: z.string().optional().default(""),
   banner_image_url: z.string().optional().default(""),

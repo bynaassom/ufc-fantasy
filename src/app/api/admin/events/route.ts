@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     await requireAdmin();
     const body = await parseJsonBody(request, adminEventSchema);
     const event = await createAdminEvent(body);
-    revalidateTag(CACHE_TAGS.events);
+    revalidateTag(CACHE_TAGS.events, "max");
     revalidatePath("/admin");
     if (event?.slug) {
       revalidatePath(`/event/${event.slug}`);

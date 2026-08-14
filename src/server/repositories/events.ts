@@ -77,7 +77,7 @@ export async function listRecentEvents(client: DbClient, limit = 20) {
 export async function listAdminEvents(client: DbClient) {
   const { data, error } = await client
     .from("events")
-    .select(EVENT_PUBLIC_FIELDS)
+    .select(`${EVENT_PUBLIC_FIELDS}, prelims_start_at, timing_mode`)
     .order("event_date", { ascending: false });
 
   if (error) throw error;

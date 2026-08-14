@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -14,6 +13,7 @@ import ThemeToggle from "@/components/ui/ThemeToggle";
 import ChatDrawer from "@/components/chat/ChatDrawer";
 import ChatFab from "@/components/chat/ChatFab";
 import { useChatDrawer } from "@/stores/chat-drawer";
+import BrandLogo from "@/components/ui/BrandLogo";
 
 interface NavbarProps {
   profile: Profile;
@@ -102,16 +102,7 @@ export default function Navbar({ profile }: NavbarProps) {
     if (href === "/home") return pathname === href;
     return pathname.startsWith(href + "/") || pathname === href;
   };
-  const logo = (
-    <Image
-      src="/logo-dark.svg"
-      alt="UFC Fantasy"
-      width={113}
-      height={20}
-      className="h-5 w-auto"
-      priority
-    />
-  );
+  const logo = <BrandLogo priority />;
 
   return (
     <>

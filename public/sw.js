@@ -1,11 +1,8 @@
-const CACHE = "ufc-fantasy-v1";
+const CACHE = "ufc-fantasy-v2";
 const STATIC_ASSETS = [
-  "/",
-  "/home",
-  "/ranking",
-  "/desafios",
-  "/historico",
+  "/offline.html",
   "/manifest.webmanifest",
+  "/app-icon.svg",
   "/logo-dark.svg",
   "/logo-light.svg",
   "/favicon.ico",
@@ -46,19 +43,22 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // HTML pages: network-first
+  // Páginas autenticadas nunca entram no cache: evita exibir dados de outra sessão.
   if (request.headers.get("Accept")?.includes("text/html")) {
     event.respondWith(
       fetch(request)
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE).then((cache) => cache.put(request, copy));
-          return response;
-        })
-        .catch(() => caches.match(request).then((cached) => cached || fetch(request))),
+        .catch(() => caches.match("/offline.html")),
     );
     return;
   }
+
+  const isStaticAsset =
+    STATIC_ASSETS.includes(url.pathname) ||
+    url.pathname.startsWith("/_next/static/") ||
+    /\.(?:css|js|svg|png|jpg|jpeg|gif|webp|ico|woff2?)$/i.test(url.pathname);
+
+  // Não armazena payloads RSC nem outras respostas dinâmicas da aplicação.
+  if (!isStaticAsset) return;
 
   // Static assets: cache-first
   event.respondWith(
@@ -92,7 +92,7 @@ self.addEventListener("push", (event) => {
   const title = payload.title || "UFC Fantasy";
   const options = {
     body: payload.body || "Tem novidade no app.",
-    icon: "/PNG/logo-dark.png",
+    icon: "/app-icon.svg",
     badge: "/favicon.ico",
     tag: payload.tag || "ufc-fantasy",
     data: {

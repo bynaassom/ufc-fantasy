@@ -6,10 +6,11 @@ import { getEventRecapData } from "@/server/services/app";
 import { requirePageUserProfile } from "@/server/services/page-auth";
 
 type Params = {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 };
 
-export async function generateMetadata({ params }: Params): Promise<Metadata> {
+export async function generateMetadata(props: Params): Promise<Metadata> {
+  const params = await props.params;
   const supabaseModule = await import("@/lib/supabase/server");
   const supabase = await supabaseModule.createClient();
   const { data } = await supabase.from("events").select("name").eq("slug", params.slug).maybeSingle();
@@ -18,7 +19,8 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   };
 }
 
-export default async function RecapPage({ params }: Params) {
+export default async function RecapPage(props: Params) {
+  const params = await props.params;
   const { profile } = await requirePageUserProfile();
   const data = await getEventRecapData(params.slug);
   if (!data) notFound();

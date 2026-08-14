@@ -4,11 +4,12 @@ import { requirePageUserProfile } from "@/server/services/page-auth";
 import Navbar from "@/components/layout/Navbar";
 import GroupDetailClient from "@/components/groups/GroupDetailClient";
 
-type Props = { params: { id: string } };
+type Props = { params: Promise<{ id: string }> };
 
 export const dynamic = "force-dynamic";
 
-export default async function GroupDetailPage({ params }: Props) {
+export default async function GroupDetailPage(props: Props) {
+  const params = await props.params;
   const { profile } = await requirePageUserProfile();
   const group = await getGroupDetail(params.id);
   if (!group) notFound();

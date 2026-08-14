@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createAuthClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
+import BrandLogo from "@/components/ui/BrandLogo";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -77,14 +77,7 @@ export default function LoginPage() {
       <header style={{ borderBottom: "1px solid var(--border)" }}>
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
-            <Image
-              src="/logo-dark.svg"
-              alt="UFC Fantasy"
-              width={113}
-              height={20}
-              className="h-7 w-auto"
-              priority
-            />
+            <BrandLogo className="h-7 w-auto" priority />
           </Link>
         </div>
       </header>

@@ -15,10 +15,11 @@ import {
 import { adminFightPatchSchema } from "@/server/validators/admin";
 
 type Params = {
-  params: { fightId: string };
+  params: Promise<{ fightId: string }>;
 };
 
-export async function PATCH(request: NextRequest, { params }: Params) {
+export async function PATCH(request: NextRequest, props: Params) {
+  const params = await props.params;
   try {
     assertSameOriginForMutation(request);
     await requireAdmin();
@@ -30,7 +31,8 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: Params) {
+export async function DELETE(request: NextRequest, props: Params) {
+  const params = await props.params;
   try {
     assertSameOriginForMutation(request);
     await requireAdmin();

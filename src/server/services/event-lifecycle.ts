@@ -16,9 +16,11 @@ export async function promoteDueEventsToLive(client: DbClient, now = new Date())
 
   const { data: dueEvents, error } = await client
     .from("events")
-    .select("id, name, slug")
+    .select("id, name, slug, event_date, prelims_start_at")
     .eq("status", "upcoming")
-    .lte("event_date", now.toISOString())
+    .or(
+      `prelims_start_at.lte.${now.toISOString()},and(prelims_start_at.is.null,event_date.lte.${now.toISOString()})`,
+    )
     .order("event_date", { ascending: false })
     .limit(1);
   if (error) throw new Error(error.message);

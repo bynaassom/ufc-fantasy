@@ -20,11 +20,12 @@ type RankingRow = {
 
 export const dynamic = "force-dynamic";
 
-export default async function RankingPage({
-  searchParams,
-}: {
-  searchParams: { tab?: string; event?: string; page?: string };
-}) {
+export default async function RankingPage(
+  props: {
+    searchParams: Promise<{ tab?: string; event?: string; page?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const tab =
     searchParams.tab === "evento"
       ? "evento"

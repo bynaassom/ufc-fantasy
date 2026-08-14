@@ -9,10 +9,11 @@ import {
 import { markMyNotificationRead } from "@/server/services/app";
 
 type Params = {
-  params: { notificationId: string };
+  params: Promise<{ notificationId: string }>;
 };
 
-export async function PATCH(_request: NextRequest, { params }: Params) {
+export async function PATCH(_request: NextRequest, props: Params) {
+  const params = await props.params;
   try {
     assertSameOriginForMutation(_request);
     const data = await markMyNotificationRead(params.notificationId);

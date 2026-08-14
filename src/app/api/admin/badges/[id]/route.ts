@@ -17,7 +17,8 @@ async function getBadgeId(params: Params["params"]) {
   return z.string().uuid().parse(resolved.id);
 }
 
-export async function GET(_: NextRequest, { params }: Params) {
+export async function GET(_: NextRequest, props: Params) {
+  const params = await props.params;
   try {
     const { adminSupabase } = await requireAdmin();
     const badge = await getAdminBadge(adminSupabase, await getBadgeId(params));
@@ -28,7 +29,8 @@ export async function GET(_: NextRequest, { params }: Params) {
   }
 }
 
-export async function PATCH(request: NextRequest, { params }: Params) {
+export async function PATCH(request: NextRequest, props: Params) {
+  const params = await props.params;
   try {
     assertSameOriginForMutation(request);
     const { adminSupabase } = await requireAdmin();
@@ -44,7 +46,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const badge = await updateAdminBadge(adminSupabase, badgeId, updates);
     if (!badge) throw new ApiRouteError(404, "BADGE_NOT_FOUND", "Badge não encontrado.");
 
-    revalidateTag(CACHE_TAGS.badges);
+    revalidateTag(CACHE_TAGS.badges, "max");
     revalidatePath("/admin");
     revalidatePath("/profile");
 
@@ -54,14 +56,15 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: Params) {
+export async function DELETE(request: NextRequest, props: Params) {
+  const params = await props.params;
   try {
     assertSameOriginForMutation(request);
     const { adminSupabase } = await requireAdmin();
     const deleted = await deleteAdminBadge(adminSupabase, await getBadgeId(params));
     if (!deleted) throw new ApiRouteError(404, "BADGE_NOT_FOUND", "Badge não encontrado.");
 
-    revalidateTag(CACHE_TAGS.badges);
+    revalidateTag(CACHE_TAGS.badges, "max");
     revalidatePath("/admin");
     revalidatePath("/profile");
 

@@ -17,7 +17,7 @@ export async function PATCH(request: NextRequest) {
     assertSameOriginForMutation(request);
     const body = await parseJsonBody(request, updateMyProfileSchema);
     const data = await updateMyProfile(body);
-    revalidateTag(CACHE_TAGS.ranking);
+    revalidateTag(CACHE_TAGS.ranking, "max");
     return apiSuccess(data);
   } catch (error) {
     return apiErrorFromUnknown(error);

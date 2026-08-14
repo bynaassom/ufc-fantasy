@@ -6,13 +6,14 @@ import { buildPublicUrl, normalizePublicOrigin } from "@/lib/public-url";
 import { getPublicEventResultShareData } from "@/server/services/app";
 
 type Params = {
-  params: {
+  params: Promise<{
     slug: string;
     nickname: string;
-  };
+  }>;
 };
 
-export async function generateMetadata({ params }: Params): Promise<Metadata> {
+export async function generateMetadata(props: Params): Promise<Metadata> {
+  const params = await props.params;
   const data = await getPublicEventResultShareData(params.slug, params.nickname);
   if (!data) {
     return {
@@ -27,10 +28,11 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   };
 }
 
-export default async function ShareEventResultPage({ params }: Params) {
+export default async function ShareEventResultPage(props: Params) {
+  const params = await props.params;
   const data = await getPublicEventResultShareData(params.slug, params.nickname);
   if (!data) notFound();
-  const requestHeaders = headers();
+  const requestHeaders = await headers();
   const requestOrigin = normalizePublicOrigin(
     requestHeaders.get("x-forwarded-host") || requestHeaders.get("host"),
   );

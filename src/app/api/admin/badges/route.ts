@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
       notification_message: body.notification_message || null,
     });
 
-    revalidateTag(CACHE_TAGS.badges);
+    revalidateTag(CACHE_TAGS.badges, "max");
     revalidatePath("/admin");
     revalidatePath("/profile");
 

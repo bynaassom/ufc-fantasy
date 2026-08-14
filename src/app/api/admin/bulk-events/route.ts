@@ -204,7 +204,7 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  revalidateTag(CACHE_TAGS.events);
+  revalidateTag(CACHE_TAGS.events, "max");
   revalidatePath("/admin");
 
   return NextResponse.json({

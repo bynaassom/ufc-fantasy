@@ -12,10 +12,11 @@ import { reorderAdminEventFights } from "@/server/services/app";
 import { adminFightReorderSchema } from "@/server/validators/admin";
 
 type Params = {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 };
 
-export async function POST(request: NextRequest, { params }: Params) {
+export async function POST(request: NextRequest, props: Params) {
+  const params = await props.params;
   try {
     assertSameOriginForMutation(request);
     await requireAdmin();

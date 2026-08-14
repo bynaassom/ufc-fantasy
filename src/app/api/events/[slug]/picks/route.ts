@@ -11,10 +11,11 @@ import { saveMyEventPicks } from "@/server/services/app";
 import { saveEventPicksSchema } from "@/server/validators/picks";
 
 type Params = {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 };
 
-export async function PUT(request: NextRequest, { params }: Params) {
+export async function PUT(request: NextRequest, props: Params) {
+  const params = await props.params;
   try {
     assertSameOriginForMutation(request);
     const body = await parseJsonBody(request, saveEventPicksSchema);

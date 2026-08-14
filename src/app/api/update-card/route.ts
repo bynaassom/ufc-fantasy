@@ -228,7 +228,7 @@ export async function POST(req: NextRequest) {
     batchId: randomUUID(),
   });
 
-  revalidateTag(CACHE_TAGS.events);
+  revalidateTag(CACHE_TAGS.events, "max");
 
   return NextResponse.json({
     ok: true,

@@ -111,6 +111,8 @@ export default function EventPickSharePage({ data, shareUrl }: { data: ShareData
                 }}
               >
                 {hasBanner && (
+                  // Imagem literal necessária para o html-to-image capturar o card.
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={event.banner_image_url!}
                     alt=""

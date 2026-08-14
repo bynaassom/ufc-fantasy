@@ -6,7 +6,7 @@ import { ThemeProvider } from "@/components/ui/ThemeProvider";
 import "./globals.css";
 
 const sairaCondensed = Saira_Condensed({
-  weight: ["400", "500", "600", "700"],
+  weight: ["400", "500", "600", "700", "800", "900"],
   subsets: ["latin"],
   display: "swap",
   variable: "--font-saira-condensed",
@@ -48,6 +48,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR" suppressHydrationWarning className={sairaCondensed.variable}>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('ufc-fantasy-theme');if(t!=='light'&&t!=='dark'){t=matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'}document.documentElement.classList.add(t)}catch(e){document.documentElement.classList.add('dark')}})();`,
+          }}
+        />
+      </head>
       <body className="font-sans">
         <ThemeProvider>
           <ErrorBoundary>{children}</ErrorBoundary>

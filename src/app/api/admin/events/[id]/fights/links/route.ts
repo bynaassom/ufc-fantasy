@@ -12,10 +12,11 @@ import { updateAdminFightLinks } from "@/server/services/app";
 import { adminFightLinksBatchSchema } from "@/server/validators/admin";
 
 type Params = {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 };
 
-export async function PATCH(request: NextRequest, { params }: Params) {
+export async function PATCH(request: NextRequest, props: Params) {
+  const params = await props.params;
   try {
     assertSameOriginForMutation(request);
     await requireAdmin();

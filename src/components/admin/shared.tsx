@@ -64,6 +64,8 @@ export function toEventEditForm(data: any): EventEditForm {
     name: data?.name || "",
     location: data?.location || "",
     event_date: data?.event_date ? data.event_date.slice(0, 16) : "",
+    prelims_start_at: data?.prelims_start_at ? data.prelims_start_at.slice(0, 16) : "",
+    timing_mode: data?.timing_mode || "automatic",
     picks_lock_at: data?.picks_lock_at ? data.picks_lock_at.slice(0, 16) : "",
     picks_open_at: data?.picks_open_at ? data.picks_open_at.slice(0, 16) : "",
     banner_image_url: data?.banner_image_url || "",

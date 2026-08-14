@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { getLandingPageData } from "@/server/services/app";
+import BrandLogo from "@/components/ui/BrandLogo";
 
 export default async function LandingPage() {
   const { currentEvent, momentumStats } = await getLandingPageData();
@@ -32,14 +33,7 @@ export default async function LandingPage() {
       <header style={{ borderBottom: "1px solid var(--border)" }}>
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Image
-              src="/logo-dark.svg"
-              alt="UFC Fantasy"
-              width={113}
-              height={20}
-              className="h-5 w-auto"
-              priority
-            />
+            <BrandLogo priority />
           </div>
           <div className="flex items-center gap-3">
             <Link

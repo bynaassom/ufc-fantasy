@@ -58,6 +58,8 @@ export interface Event {
   name: string;
   slug: string;
   event_date: string;
+  prelims_start_at?: string | null;
+  timing_mode?: "automatic" | "manual";
   location?: string;
   banner_image_url?: string;
   banner_object_position?: string;

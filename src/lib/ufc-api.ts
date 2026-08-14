@@ -15,6 +15,7 @@ export interface UFCEvent {
   location: string;
   image?: string;
   eventUrl?: string;
+  prelimsStartAt?: string;
   cards: UFCCard[];
 }
 
@@ -191,7 +192,7 @@ async function enrichUpcomingEventNames(events: UFCEvent[]): Promise<UFCEvent[]>
   );
 }
 
-function parseUpcomingEventsFromHtml(html: string): UFCEvent[] {
+export function parseUpcomingEventsFromHtml(html: string): UFCEvent[] {
   const upcomingStart = html.indexOf('id="events-list-upcoming"');
   const pastStart = html.indexOf('id="events-list-past"');
   const section =
@@ -207,6 +208,8 @@ function parseUpcomingEventsFromHtml(html: string): UFCEvent[] {
     const href = card.match(/c-card-event--result__headline"><a href="([^"]+)"/)?.[1];
     const headline = card.match(/c-card-event--result__headline"><a [^>]+>([\s\S]*?)<\/a>/)?.[1];
     const timestamp = card.match(/data-main-card-timestamp="([^"]+)"/)?.[1];
+    const prelimsTimestamp = card.match(/data-prelims-card-timestamp="([^"]+)"/)?.[1];
+    const earlyPrelimsTimestamp = card.match(/data-early-card-timestamp="([^"]+)"/)?.[1];
     const image =
       card.match(/<img[^>]+src="([^"]+EVENT-ART[^"]+)"/)?.[1] ||
       card.match(/<img[^>]+src="([^"]+)"/)?.[1];
@@ -216,6 +219,10 @@ function parseUpcomingEventsFromHtml(html: string): UFCEvent[] {
     if (!href || !headline || !timestamp) continue;
 
     const date = new Date(Number(timestamp) * 1000).toISOString();
+    const firstPrelimsTimestamp = [earlyPrelimsTimestamp, prelimsTimestamp]
+      .map(Number)
+      .filter((value) => Number.isFinite(value) && value > 0)
+      .sort((a, b) => a - b)[0];
     const location = [stripTags(venue || ""), stripTags(address || "")]
       .filter(Boolean)
       .join(", ");
@@ -227,6 +234,9 @@ function parseUpcomingEventsFromHtml(html: string): UFCEvent[] {
       location,
       image: image || undefined,
       eventUrl: absolutizeUfcUrl(href),
+      prelimsStartAt: firstPrelimsTimestamp
+        ? new Date(firstPrelimsTimestamp * 1000).toISOString()
+        : undefined,
       cards: [],
     });
   }
@@ -321,6 +331,7 @@ function mergeUpcomingEventMetadata(primaryEvents: UFCEvent[], pageEvents: UFCEv
       location: event.location || closestMatch.location,
       image: event.image || closestMatch.image,
       eventUrl: event.eventUrl || closestMatch.eventUrl,
+      prelimsStartAt: event.prelimsStartAt || closestMatch.prelimsStartAt,
     };
   });
 }

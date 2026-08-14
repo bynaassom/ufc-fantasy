@@ -1,6 +1,7 @@
 type EventLifecycleLike = {
   status?: string | null;
   event_date?: string | null;
+  prelims_start_at?: string | null;
 };
 
 type FightResultLike = {
@@ -8,8 +9,9 @@ type FightResultLike = {
 };
 
 export function shouldPromoteEventToLive(event: EventLifecycleLike, now = new Date()) {
-  if (event.status !== "upcoming" || !event.event_date) return false;
-  const eventTime = new Date(event.event_date).getTime();
+  const startsAt = event.prelims_start_at || event.event_date;
+  if (event.status !== "upcoming" || !startsAt) return false;
+  const eventTime = new Date(startsAt).getTime();
   return Number.isFinite(eventTime) && eventTime <= now.getTime();
 }
 

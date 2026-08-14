@@ -594,8 +594,8 @@ export async function POST(req: NextRequest) {
   revalidatePath("/ranking");
   revalidatePath("/home");
   revalidatePath("/admin");
-  revalidateTag(CACHE_TAGS.ranking);
-  revalidateTag(CACHE_TAGS.events);
+  revalidateTag(CACHE_TAGS.ranking, "max");
+  revalidateTag(CACHE_TAGS.events, "max");
   Array.from(slugsToRevalidate).forEach((slug) => {
     revalidatePath(`/event/${slug}`);
   });

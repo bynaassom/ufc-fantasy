@@ -4,10 +4,11 @@ import PublicShareHeader from "@/components/share/PublicShareHeader";
 import { processInviteLink } from "@/server/services/app";
 
 type Params = {
-  params: { code: string };
+  params: Promise<{ code: string }>;
 };
 
-export default async function ConvitePage({ params }: Params) {
+export default async function ConvitePage(props: Params) {
+  const params = await props.params;
   const result = await processInviteLink(params.code);
 
   if (result.status === "invalid") {

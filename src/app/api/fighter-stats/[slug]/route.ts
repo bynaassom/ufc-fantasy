@@ -274,10 +274,8 @@ async function fetchAthletePage(slug: string) {
   return res.text();
 }
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { slug: string } },
-) {
+export async function GET(req: NextRequest, props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const { slug } = params;
   const fighterName = req.nextUrl.searchParams.get("name");
 

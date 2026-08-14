@@ -19,4 +19,18 @@ describe("adminEventSchema", () => {
       tapology_event_url: "https://www.tapology.com/fightcenter/events/123",
     });
   });
+
+  it("accepts automatic timing metadata", () => {
+    const parsed = adminEventSchema.parse({
+      name: "UFC Test",
+      event_date: "2026-08-16T02:00",
+      prelims_start_at: "2026-08-15T22:00",
+      timing_mode: "automatic",
+    });
+
+    expect(parsed).toMatchObject({
+      prelims_start_at: "2026-08-15T22:00",
+      timing_mode: "automatic",
+    });
+  });
 });

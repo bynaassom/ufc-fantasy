@@ -120,6 +120,8 @@ export default function EventResultSharePage({ data, shareUrl }: { data: ShareDa
                 }}
               >
                 {hasBanner && (
+                  // Imagem literal necessária para o html-to-image capturar o card.
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={event.banner_image_url!}
                     alt=""

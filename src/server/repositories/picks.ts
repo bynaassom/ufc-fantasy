@@ -116,12 +116,13 @@ export async function getPickDistributionForEvent(client: any, eventId: string) 
     .eq("is_confirmed", true);
 
   if (error) throw error;
-  const distribution: Record<string, { fighter_a: number; fighter_b: number }> = {};
+  const distribution: Record<string, Record<string, number>> = {};
   for (const row of data || []) {
     if (!distribution[row.fight_id]) {
-      distribution[row.fight_id] = { fighter_a: 0, fighter_b: 0 };
+      distribution[row.fight_id] = {};
     }
-    distribution[row.fight_id][row.picked_winner_id as keyof typeof distribution[string]] += 1;
+    distribution[row.fight_id][row.picked_winner_id] =
+      (distribution[row.fight_id][row.picked_winner_id] || 0) + 1;
   }
   return distribution;
 }

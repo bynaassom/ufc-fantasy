@@ -50,9 +50,19 @@ export function isAllowedScrapeUrl(url: string): boolean {
 }
 
 export function applySecurityHeaders(headers: Headers) {
+  const scriptSources = ["'self'", "'unsafe-inline'"];
+  if (process.env.NODE_ENV !== "production") scriptSources.push("'unsafe-eval'");
+
   headers.set("X-Content-Type-Options", "nosniff");
   headers.set("X-Frame-Options", "DENY");
+  headers.set("Cross-Origin-Opener-Policy", "same-origin");
   headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  if (process.env.NODE_ENV === "production") {
+    headers.set(
+      "Strict-Transport-Security",
+      "max-age=63072000; includeSubDomains; preload",
+    );
+  }
   headers.set(
     "Permissions-Policy",
     "camera=(), microphone=(), geolocation=(), browsing-topics=()",
@@ -61,7 +71,7 @@ export function applySecurityHeaders(headers: Headers) {
     "Content-Security-Policy",
     [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      `script-src ${scriptSources.join(" ")}`,
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com data:",
       "img-src 'self' data: blob: https:",

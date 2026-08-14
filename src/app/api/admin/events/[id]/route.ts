@@ -14,10 +14,11 @@ import { getAdminEvent, updateAdminEventById } from "@/server/services/app";
 import { adminEventSchema } from "@/server/validators/admin";
 
 type Params = {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 };
 
-export async function GET(_: NextRequest, { params }: Params) {
+export async function GET(_: NextRequest, props: Params) {
+  const params = await props.params;
   try {
     await requireAdmin();
     const event = await getAdminEvent(params.id);
@@ -27,13 +28,14 @@ export async function GET(_: NextRequest, { params }: Params) {
   }
 }
 
-export async function PATCH(request: NextRequest, { params }: Params) {
+export async function PATCH(request: NextRequest, props: Params) {
+  const params = await props.params;
   try {
     assertSameOriginForMutation(request);
     await requireAdmin();
     const body = await parseJsonBody(request, adminEventSchema.partial());
     const event = await updateAdminEventById(params.id, body);
-    revalidateTag(CACHE_TAGS.events);
+    revalidateTag(CACHE_TAGS.events, "max");
     revalidatePath("/admin");
     if (event?.slug) {
       revalidatePath(`/event/${event.slug}`);
