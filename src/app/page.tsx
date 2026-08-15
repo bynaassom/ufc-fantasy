@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { getLandingPageData } from "@/server/services/app";
 import BrandLogo from "@/components/ui/BrandLogo";
+import { formatEventDate } from "@/lib/utils";
 
 // A landing lê dados atualizados do evento em runtime. Evita consultar o banco
 // durante o build do CI, onde credenciais de produção não devem ser necessárias.
@@ -28,6 +29,7 @@ export default async function LandingPage() {
       value: momentumStats.scoring.perfectPicks,
     },
   ];
+  const visibleStats = stats.filter((item) => item.value > 0);
 
   return (
     <main
@@ -115,7 +117,8 @@ export default async function LandingPage() {
                 className="font-condensed font-700 uppercase tracking-widest text-lg mb-8"
                 style={{ color: "var(--text-secondary)" }}
               >
-                {currentEvent.name} · {currentEvent.location}
+                {currentEvent.name} · {formatEventDate(currentEvent.event_date)}
+                {currentEvent.location ? ` · ${currentEvent.location}` : ""}
               </p>
             )}
             <Link
@@ -135,18 +138,26 @@ export default async function LandingPage() {
                 <path d="M5 12h14M12 5l7 7-7 7" />
               </svg>
             </Link>
-            <div className="mt-8 grid max-w-2xl grid-cols-2 gap-px md:grid-cols-4" style={{ backgroundColor: "var(--border)" }}>
-              {stats.map((item) => (
-                <div key={item.label} className="p-3" style={{ backgroundColor: "var(--bg-card)" }}>
-                  <p className="font-condensed font-900 text-2xl leading-none" style={{ color: "var(--red)" }}>
-                    {item.value}
-                  </p>
-                  <p className="mt-1 font-condensed font-700 text-[10px] uppercase tracking-widest" style={{ color: "var(--text-secondary)" }}>
-                    {item.label}
-                  </p>
-                </div>
-              ))}
-            </div>
+            {visibleStats.length > 0 && (
+              <div
+                className={`mt-8 grid gap-px ${visibleStats.length === 1 ? "grid-cols-1" : "grid-cols-2 md:grid-cols-4"}`}
+                style={{
+                  backgroundColor: "var(--border)",
+                  maxWidth: visibleStats.length === 1 ? "20rem" : "42rem",
+                }}
+              >
+                {visibleStats.map((item) => (
+                  <div key={item.label} className="p-3" style={{ backgroundColor: "var(--bg-card)" }}>
+                    <p className="font-condensed font-900 text-2xl leading-none" style={{ color: "var(--red)" }}>
+                      {item.value}
+                    </p>
+                    <p className="mt-1 font-condensed font-700 text-xs uppercase tracking-widest" style={{ color: "var(--text-secondary)" }}>
+                      {item.label}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </section>

@@ -1,8 +1,13 @@
-const CACHE = "ufc-fantasy-v2";
+const CACHE = "ufc-fantasy-v3";
 const STATIC_ASSETS = [
   "/offline.html",
   "/manifest.webmanifest",
   "/app-icon.svg",
+  "/app-icon-maskable.svg",
+  "/app-icon-192.png",
+  "/app-icon-512.png",
+  "/app-icon-maskable-512.png",
+  "/apple-touch-icon.png",
   "/logo-dark.svg",
   "/logo-light.svg",
   "/favicon.ico",
@@ -92,8 +97,8 @@ self.addEventListener("push", (event) => {
   const title = payload.title || "UFC Fantasy";
   const options = {
     body: payload.body || "Tem novidade no app.",
-    icon: "/app-icon.svg",
-    badge: "/favicon.ico",
+    icon: "/app-icon-192.png",
+    badge: "/app-icon-192.png",
     tag: payload.tag || "ufc-fantasy",
     data: {
       url: payload.targetPath || "/home",

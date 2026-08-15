@@ -59,9 +59,9 @@ export default function GroupsClient({ groups }: { groups: EnrichedGroup[] }) {
       );
       const enriched: EnrichedGroup = {
         ...group,
-        member_count: 0,
+        member_count: 1,
         champion: null,
-        my_rank: null,
+        my_rank: 1,
       };
       setList((prev) => [enriched, ...prev]);
       setShowJoin(false);
@@ -107,7 +107,15 @@ export default function GroupsClient({ groups }: { groups: EnrichedGroup[] }) {
             border: "1px solid var(--border)",
           }}
         >
+          <label
+            htmlFor="league-name"
+            className="block font-condensed font-700 text-xs uppercase tracking-widest"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            Nome da liga
+          </label>
           <input
+            id="league-name"
             name="name"
             placeholder="Nome da liga"
             required
@@ -119,7 +127,15 @@ export default function GroupsClient({ groups }: { groups: EnrichedGroup[] }) {
               border: "1px solid var(--border)",
             }}
           />
+          <label
+            htmlFor="league-description"
+            className="block font-condensed font-700 text-xs uppercase tracking-widest"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            Descrição <span className="normal-case tracking-normal">(opcional)</span>
+          </label>
           <input
+            id="league-description"
             name="description"
             placeholder="Descrição (opcional)"
             maxLength={200}
@@ -161,15 +177,19 @@ export default function GroupsClient({ groups }: { groups: EnrichedGroup[] }) {
             border: "1px solid var(--border)",
           }}
         >
-          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+          <label htmlFor="league-code" className="text-xs" style={{ color: "var(--text-secondary)" }}>
             Digite o código de 8 caracteres da liga:
-          </p>
+          </label>
           <input
+            id="league-code"
             name="code"
             placeholder="Ex: ABC123XY"
             required
             minLength={8}
             maxLength={8}
+            autoCapitalize="characters"
+            autoCorrect="off"
+            spellCheck={false}
             className="w-full px-3 py-2 text-sm font-mono uppercase"
             style={{
               backgroundColor: "var(--bg)",
@@ -212,60 +232,63 @@ export default function GroupsClient({ groups }: { groups: EnrichedGroup[] }) {
       ) : (
         <div className="space-y-3">
           {list.map((g) => (
-            <Link
+            <div
               key={g.id}
-              href={`/ligas/${g.id}`}
-              className="block p-4 hover:opacity-80 transition-opacity"
               style={{
                 backgroundColor: "var(--bg-card)",
                 border: "1px solid var(--border)",
                 borderLeft: "3px solid var(--red)",
               }}
             >
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <p
-                    className="font-condensed font-900 uppercase tracking-wide truncate"
-                    style={{ color: "var(--text)" }}
-                  >
-                    {g.name}
-                  </p>
-                  {g.description && (
-                    <p className="text-sm mt-1 truncate" style={{ color: "var(--text-secondary)" }}>
-                      {g.description}
+              <Link
+                href={`/ligas/${g.id}`}
+                className="block p-4 hover-bg-elevated transition-colors"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p
+                      className="font-condensed font-900 uppercase tracking-wide truncate"
+                      style={{ color: "var(--text)" }}
+                    >
+                      {g.name}
                     </p>
+                    {g.description && (
+                      <p className="text-sm mt-1 truncate" style={{ color: "var(--text-secondary)" }}>
+                        {g.description}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex-shrink-0 text-right">
+                    <p className="font-condensed font-900 text-lg leading-none" style={{ color: "var(--red)" }}>
+                      {g.member_count}
+                    </p>
+                    <p className="font-condensed font-700 text-xs uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
+                      membros
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs" style={{ color: "var(--text-muted)" }}>
+                  {g.my_rank && (
+                    <span className="font-condensed font-700 uppercase tracking-widest">
+                      Seu rank: #{g.my_rank}
+                    </span>
+                  )}
+                  {g.champion && (
+                    <span className="font-condensed font-700 uppercase tracking-widest">
+                      Líder: {g.champion.nickname} · {g.champion.total_points} pts
+                    </span>
                   )}
                 </div>
-                <div className="flex-shrink-0 text-right">
-                  <p className="font-condensed font-900 text-lg leading-none" style={{ color: "var(--red)" }}>
-                    {g.member_count}
-                  </p>
-                  <p className="font-condensed font-700 text-[10px] uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
-                    membros
-                  </p>
-                </div>
-              </div>
+              </Link>
 
-              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs" style={{ color: "var(--text-muted)" }}>
-                {g.my_rank && (
-                  <span className="font-condensed font-700 uppercase tracking-widest">
-                    Seu rank: #{g.my_rank}
-                  </span>
-                )}
-                {g.champion && (
-                  <span className="font-condensed font-700 uppercase tracking-widest">
-                    Líder: {g.champion.nickname} · {g.champion.total_points} pts
-                  </span>
-                )}
-                <span className="font-mono">
+              <div className="flex items-center justify-between gap-3 px-4 py-3" style={{ borderTop: "1px solid var(--border)" }}>
+                <span className="font-mono text-xs" style={{ color: "var(--text-muted)" }}>
                   {g.invite_code}
                 </span>
-              </div>
-
-              <div className="mt-2" onClick={(e) => e.preventDefault()}>
                 <CopyInviteButton inviteCode={g.invite_code} />
               </div>
-            </Link>
+            </div>
           ))}
         </div>
       )}

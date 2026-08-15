@@ -28,7 +28,7 @@ export default async function RecapPage(props: Params) {
   return (
     <div className="min-h-[100dvh] md:pb-0" style={{ backgroundColor: "var(--bg)" }}>
       <Navbar profile={profile} />
-      <EventRecapContent data={data} />
+      <EventRecapContent data={data} currentUserId={profile.id} />
     </div>
   );
 }

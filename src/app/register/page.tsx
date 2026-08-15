@@ -92,7 +92,6 @@ export default function RegisterPage() {
     border: "1px solid var(--border)",
     color: "var(--text)",
     fontFamily: "inherit",
-    outline: "none",
     width: "100%",
     padding: "12px 16px",
     fontSize: "14px",
@@ -186,9 +185,9 @@ export default function RegisterPage() {
           <div className="w-full max-w-sm">
           <div className="mb-8">
             <div className="red-line">
-              <span className="section-title" style={{ fontSize: "1.75rem" }}>
+              <h1 className="section-title" style={{ fontSize: "1.75rem" }}>
                 CRIAR CONTA
-              </span>
+              </h1>
             </div>
             <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
               Junte-se ao UFC Fantasy
@@ -198,6 +197,7 @@ export default function RegisterPage() {
           <form onSubmit={handleRegister} className="space-y-4">
             <div>
               <label
+                htmlFor="register-nickname"
                 className={labelClass}
                 style={{ color: "var(--text-secondary)" }}
               >
@@ -215,17 +215,21 @@ export default function RegisterPage() {
                 </span>
               </label>
               <input
+                id="register-nickname"
                 minLength={3}
                 maxLength={20}
                 autoComplete="nickname"
                 value={form.nickname}
                 onChange={(e) => setForm({ ...form, nickname: e.target.value })}
                 placeholder="SeuNick123"
+                aria-invalid={Boolean(fieldErrors.nickname)}
+                aria-describedby={`register-nickname-help${fieldErrors.nickname ? " register-nickname-error" : ""}`}
                 style={inputStyle}
                 onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
                 onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
               />
               <p
+                id="register-nickname-help"
                 className="text-xs mt-1"
                 style={{ color: "var(--text-muted)" }}
               >
@@ -233,7 +237,7 @@ export default function RegisterPage() {
                 nome
               </p>
               {fieldErrors.nickname && (
-                <p className="text-xs mt-1" style={{ color: "var(--red)" }} role="alert">
+                <p id="register-nickname-error" className="text-xs mt-1" style={{ color: "var(--red)" }} role="alert">
                   {fieldErrors.nickname}
                 </p>
               )}
@@ -242,12 +246,14 @@ export default function RegisterPage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label
+                  htmlFor="register-first-name"
                   className={labelClass}
                   style={{ color: "var(--text-secondary)" }}
                 >
                   Nome
                 </label>
                 <input
+                  id="register-first-name"
                   required
                   autoComplete="given-name"
                   value={form.first_name}
@@ -262,12 +268,14 @@ export default function RegisterPage() {
               </div>
               <div>
                 <label
+                  htmlFor="register-last-name"
                   className={labelClass}
                   style={{ color: "var(--text-secondary)" }}
                 >
                   Sobrenome
                 </label>
                 <input
+                  id="register-last-name"
                   required
                   autoComplete="family-name"
                   value={form.last_name}
@@ -284,24 +292,28 @@ export default function RegisterPage() {
 
             <div>
               <label
+                htmlFor="register-email"
                 className={labelClass}
                 style={{ color: "var(--text-secondary)" }}
               >
                 Email
               </label>
               <input
+                id="register-email"
                 type="email"
                 required
                 autoComplete="email"
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 placeholder="seu@email.com"
+                aria-invalid={Boolean(fieldErrors.email)}
+                aria-describedby={fieldErrors.email ? "register-email-error" : undefined}
                 style={inputStyle}
                 onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
                 onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
               />
               {fieldErrors.email && (
-                <p className="text-xs mt-1" style={{ color: "var(--red)" }} role="alert">
+                <p id="register-email-error" className="text-xs mt-1" style={{ color: "var(--red)" }} role="alert">
                   {fieldErrors.email}
                 </p>
               )}
@@ -309,12 +321,14 @@ export default function RegisterPage() {
 
             <div>
               <label
+                htmlFor="register-password"
                 className={labelClass}
                 style={{ color: "var(--text-secondary)" }}
               >
                 Senha
               </label>
               <input
+                id="register-password"
                 type="password"
                 required
                 minLength={8}
@@ -322,12 +336,14 @@ export default function RegisterPage() {
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
                 placeholder="Mínimo 8 caracteres"
+                aria-invalid={Boolean(fieldErrors.password)}
+                aria-describedby={fieldErrors.password ? "register-password-error" : undefined}
                 style={inputStyle}
                 onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
                 onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
               />
               {fieldErrors.password && (
-                <p className="text-xs mt-1" style={{ color: "var(--red)" }} role="alert">
+                <p id="register-password-error" className="text-xs mt-1" style={{ color: "var(--red)" }} role="alert">
                   {fieldErrors.password}
                 </p>
               )}
@@ -335,12 +351,14 @@ export default function RegisterPage() {
 
             <div>
               <label
+                htmlFor="register-confirm-password"
                 className={labelClass}
                 style={{ color: "var(--text-secondary)" }}
               >
                 Confirmar senha
               </label>
               <input
+                id="register-confirm-password"
                 type="password"
                 required
                 autoComplete="new-password"
@@ -349,12 +367,14 @@ export default function RegisterPage() {
                   setForm({ ...form, confirm_password: e.target.value })
                 }
                 placeholder="Repita a senha"
+                aria-invalid={Boolean(fieldErrors.confirm_password)}
+                aria-describedby={fieldErrors.confirm_password ? "register-confirm-password-error" : undefined}
                 style={inputStyle}
                 onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
                 onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
               />
               {fieldErrors.confirm_password && (
-                <p className="text-xs mt-1" style={{ color: "var(--red)" }} role="alert">
+                <p id="register-confirm-password-error" className="text-xs mt-1" style={{ color: "var(--red)" }} role="alert">
                   {fieldErrors.confirm_password}
                 </p>
               )}

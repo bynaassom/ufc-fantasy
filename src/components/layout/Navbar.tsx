@@ -10,10 +10,8 @@ import { getDisplayName, getDisplaySubtitle } from "@/lib/utils";
 import NotificationBell from "./NotificationBell";
 import PushNotificationManager from "./PushNotificationManager";
 import ThemeToggle from "@/components/ui/ThemeToggle";
-import ChatDrawer from "@/components/chat/ChatDrawer";
-import ChatFab from "@/components/chat/ChatFab";
-import { useChatDrawer } from "@/stores/chat-drawer";
 import BrandLogo from "@/components/ui/BrandLogo";
+import PwaInstallButton from "./PwaInstallButton";
 
 interface NavbarProps {
   profile: Profile;
@@ -25,9 +23,6 @@ export default function Navbar({ profile }: NavbarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [portalReady, setPortalReady] = useState(false);
-  const [isDesktop, setIsDesktop] = useState(false);
-  const { open: openChat, close: closeChat, isOpen: isChatOpen } = useChatDrawer();
-  const showGlobalChat = pathname !== "/bate-papo";
 
   const maisTriggerRef = useRef<HTMLButtonElement>(null);
   const maisMenuRef = useRef<HTMLDivElement>(null);
@@ -40,18 +35,6 @@ export default function Navbar({ profile }: NavbarProps) {
     document.body.classList.add("has-mobile-nav");
     return () => document.body.classList.remove("has-mobile-nav");
   }, []);
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia("(min-width: 768px)");
-    function handleViewportChange() {
-      setIsDesktop(mediaQuery.matches);
-      if (!mediaQuery.matches) closeChat();
-    }
-
-    handleViewportChange();
-    mediaQuery.addEventListener("change", handleViewportChange);
-    return () => mediaQuery.removeEventListener("change", handleViewportChange);
-  }, [closeChat]);
 
   useEffect(() => {
     if (moreMenuOpen) {
@@ -90,10 +73,10 @@ export default function Navbar({ profile }: NavbarProps) {
 
   const navLinks = [
     { href: "/home", label: "INÍCIO" },
+    { href: "/event", label: "EVENTO" },
+    { href: "/ranking", label: "RANKING" },
     { href: "/desafios", label: "DESAFIOS" },
     { href: "/ligas", label: "LIGAS" },
-    { href: "/ranking", label: "RANKING" },
-    { href: "/bate-papo", label: "BATE-PAPO" },
     { href: "/historico", label: "HISTÓRICO" },
     ...(profile.role === "admin" ? [{ href: "/admin", label: "ADMIN" }] : []),
   ];
@@ -102,6 +85,9 @@ export default function Navbar({ profile }: NavbarProps) {
     if (href === "/home") return pathname === href;
     return pathname.startsWith(href + "/") || pathname === href;
   };
+  const isMoreActive = ["/desafios", "/profile", "/historico", "/admin"].some(
+    isActive,
+  );
   const logo = <BrandLogo priority />;
 
   return (
@@ -122,38 +108,27 @@ export default function Navbar({ profile }: NavbarProps) {
           </Link>
 
           <div className="flex items-center gap-1">
-            {navLinks.map((link) =>
-              link.href === "/bate-papo" && showGlobalChat ? (
-                <button
-                  key={link.href}
-                  onClick={openChat}
-                  aria-label="Abrir bate-papo"
-                  className="relative font-condensed font-700 text-xs uppercase tracking-widest px-4 py-2 transition-all hover:opacity-80"
-                  style={{ color: isChatOpen ? "var(--red)" : "var(--text-secondary)" }}
-                >
-                  {link.label}
-                </button>
-              ) : (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className="relative font-condensed font-700 text-xs uppercase tracking-widest px-4 py-2 transition-all hover:opacity-80"
-                  style={{
-                    color: isActive(link.href)
-                      ? "var(--red)"
-                      : "var(--text-secondary)",
-                  }}
-                >
-                  {link.label}
-                  {isActive(link.href) && (
-                    <span
-                      className="absolute bottom-0 left-0 right-0 h-0.5"
-                      style={{ backgroundColor: "var(--red)" }}
-                    />
-                  )}
-                </Link>
-              ),
-            )}
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                aria-current={isActive(link.href) ? "page" : undefined}
+                className="relative font-condensed font-700 text-xs uppercase tracking-widest px-4 py-2 transition-all hover:opacity-80"
+                style={{
+                  color: isActive(link.href)
+                    ? "var(--red)"
+                    : "var(--text-secondary)",
+                }}
+              >
+                {link.label}
+                {isActive(link.href) && (
+                  <span
+                    className="absolute bottom-0 left-0 right-0 h-0.5"
+                    style={{ backgroundColor: "var(--red)" }}
+                  />
+                )}
+              </Link>
+            ))}
           </div>
 
           <div className="flex items-center gap-3">
@@ -332,9 +307,17 @@ export default function Navbar({ profile }: NavbarProps) {
                 <path d="M9 21V12h6v9" />
               </svg>
             )},
-            { href: "/desafios", label: "DESAFIOS", icon: (
+            { href: "/event", label: "PICKS", icon: (
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <path d="M3 12h6l3-7 3 14 3-7h3" />
+                <path d="M9 11l3 3L22 4" />
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+              </svg>
+            )},
+            { href: "/ranking", label: "RANKING", icon: (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <rect x="18" y="3" width="3" height="18" rx="1" />
+                <rect x="10.5" y="8" width="3" height="13" rx="1" />
+                <rect x="3" y="13" width="3" height="8" rx="1" />
               </svg>
             )},
             { href: "/ligas", label: "LIGAS", icon: (
@@ -344,33 +327,11 @@ export default function Navbar({ profile }: NavbarProps) {
                 <path d="M2 12l10 5 10-5" />
               </svg>
             )},
-            { href: "/bate-papo", label: "BATE-PAPO", icon: (
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              </svg>
-            )},
-          ].map((link: any) =>
-            link.action ? (
-              <button
-                key={link.label}
-                onClick={link.action}
-                className="flex flex-1 min-w-0 min-tap flex-col items-center gap-0.5 px-1 py-1"
-                style={{
-                  color: isChatOpen ? "var(--red)" : "var(--text-muted)",
-                  touchAction: "manipulation",
-                  WebkitTapHighlightColor: "transparent",
-                }}
-                aria-label={link.label}
-              >
-                {link.icon}
-                <span className="font-condensed font-700 uppercase tracking-widest" style={{ fontSize: "9px" }}>
-                  {link.label}
-                </span>
-              </button>
-            ) : (
+          ].map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
+                aria-current={isActive(link.href) ? "page" : undefined}
                 className="flex flex-1 min-w-0 min-tap flex-col items-center gap-0.5 px-1 py-1"
                 style={{
                   color: isActive(link.href!) ? "var(--red)" : "var(--text-muted)",
@@ -383,8 +344,7 @@ export default function Navbar({ profile }: NavbarProps) {
                   {link.label}
                 </span>
               </Link>
-            ),
-          )}
+          ))}
 
           {/* MAIS toggle */}
           <button
@@ -392,11 +352,16 @@ export default function Navbar({ profile }: NavbarProps) {
             onClick={() => setMoreMenuOpen(!moreMenuOpen)}
             className="flex flex-1 min-w-0 min-tap flex-col items-center gap-0.5 px-1 py-1"
             style={{
-              color: moreMenuOpen ? "var(--red)" : "var(--text-muted)",
+              color:
+                moreMenuOpen || isMoreActive
+                  ? "var(--red)"
+                  : "var(--text-muted)",
               touchAction: "manipulation",
               WebkitTapHighlightColor: "transparent",
             }}
             aria-label="Mais opções"
+            aria-expanded={moreMenuOpen}
+            aria-controls="mobile-more-menu"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
               <circle cx="12" cy="5" r="1.5" />
@@ -421,6 +386,7 @@ export default function Navbar({ profile }: NavbarProps) {
             onClick={() => setMoreMenuOpen(false)}
           />
           <div
+            id="mobile-more-menu"
             ref={maisMenuRef}
             className="fixed bottom-0 left-0 right-0 z-[70] md:hidden"
             style={{
@@ -450,11 +416,9 @@ export default function Navbar({ profile }: NavbarProps) {
 
             <div className="grid grid-cols-2 gap-px" style={{ backgroundColor: "var(--border)" }}>
               {[
-                { href: "/ranking", label: "RANKING", icon: (
+                { href: "/desafios", label: "DESAFIOS", icon: (
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <rect x="18" y="3" width="3" height="18" rx="1" />
-                    <rect x="10.5" y="8" width="3" height="13" rx="1" />
-                    <rect x="3" y="13" width="3" height="8" rx="1" />
+                    <path d="M3 12h6l3-7 3 14 3-7h3" />
                   </svg>
                 )},
                 { href: "/profile", label: "PERFIL", icon: (
@@ -501,6 +465,7 @@ export default function Navbar({ profile }: NavbarProps) {
                     key={link.href}
                     href={link.href}
                     onClick={() => setMoreMenuOpen(false)}
+                    aria-current={isActive(link.href) ? "page" : undefined}
                     className="flex flex-col items-center justify-center gap-1.5 p-5 min-h-[80px]"
                     style={{
                       backgroundColor: "var(--bg-card)",
@@ -521,13 +486,8 @@ export default function Navbar({ profile }: NavbarProps) {
               <ThemeToggle />
               <NotificationBell variant="mobile" />
             </div>
+            <PwaInstallButton />
           </div>
-        </>
-      )}
-      {showGlobalChat && isDesktop && (
-        <>
-          <ChatDrawer />
-          <ChatFab />
         </>
       )}
     </>

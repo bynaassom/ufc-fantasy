@@ -1,9 +1,16 @@
 import Link from "next/link";
 import { formatEventDate } from "@/lib/utils";
 import type { EventRecapData } from "@/types";
+import ShareRecapButton from "./ShareRecapButton";
 
-export default function EventRecapContent({ data }: { data: EventRecapData }) {
-  const { event, ranking, aggregateStats, fightStats } = data;
+export default function EventRecapContent({
+  data,
+  currentUserId,
+}: {
+  data: EventRecapData;
+  currentUserId: string;
+}) {
+  const { event, nextEvent, ranking, aggregateStats, fightStats } = data;
 
   return (
     <main className="min-h-[100dvh]" style={{ backgroundColor: "var(--bg)" }}>
@@ -57,8 +64,10 @@ export default function EventRecapContent({ data }: { data: EventRecapData }) {
               <div className="col-span-8 font-condensed text-xs font-700 uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>Jogador</div>
               <div className="col-span-3 text-right font-condensed text-xs font-700 uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>Pts</div>
             </div>
-            {ranking.slice(0, 10).map((entry) => (
-              <div key={entry.user_id} className="grid grid-cols-12 px-4 py-3 items-center" style={{ borderBottom: "1px solid var(--border-light)" }}>
+            {ranking.slice(0, 10).map((entry) => {
+              const isMe = entry.user_id === currentUserId;
+              return (
+              <div key={entry.user_id} className="grid grid-cols-12 px-4 py-3 items-center" style={{ borderBottom: "1px solid var(--border-light)", backgroundColor: isMe ? "rgba(232,0,26,0.04)" : "transparent", outline: isMe ? "1px solid var(--red)" : undefined, outlineOffset: "-1px" }}>
                 <div className="col-span-1">
                   <span className="font-condensed font-900 text-sm" style={{ color: entry.rank <= 3 ? "var(--red)" : "var(--text-muted)" }}>
                     {entry.rank <= 3 ? ["🥇", "🥈", "🥉"][entry.rank - 1] : entry.rank}
@@ -66,7 +75,7 @@ export default function EventRecapContent({ data }: { data: EventRecapData }) {
                 </div>
                 <div className="col-span-8">
                   <Link href={`/jogador/${entry.nickname}`} className="font-condensed font-900 text-sm uppercase tracking-wide hover:opacity-80" style={{ color: "var(--text)" }}>
-                    {entry.nickname}
+                    {entry.nickname}{isMe ? " (você)" : ""}
                   </Link>
                   <span className="ml-2 font-condensed text-[10px] font-700 uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
                     {entry.perfect_picks > 0 && `${entry.perfect_picks} cravada${entry.perfect_picks > 1 ? "s" : ""}`}
@@ -78,7 +87,8 @@ export default function EventRecapContent({ data }: { data: EventRecapData }) {
                   </span>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -138,14 +148,25 @@ export default function EventRecapContent({ data }: { data: EventRecapData }) {
         </div>
 
         {/* CTA */}
-        <div className="mt-8 text-center">
-          <Link
-            href={`/event/${event.slug}`}
+        <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
+          {nextEvent ? (
+            <Link
+            href={`/event/${nextEvent.slug}`}
             className="inline-block px-6 py-3 font-condensed text-sm font-900 uppercase tracking-widest text-white"
             style={{ backgroundColor: "var(--red)" }}
           >
-            Ver próximo evento
-          </Link>
+            Fazer picks em {nextEvent.name}
+            </Link>
+          ) : (
+            <Link
+              href="/ranking"
+              className="inline-block px-6 py-3 font-condensed text-sm font-900 uppercase tracking-widest text-white"
+              style={{ backgroundColor: "var(--red)" }}
+            >
+              Ver ranking atualizado
+            </Link>
+          )}
+          <ShareRecapButton eventName={event.name} />
         </div>
       </section>
     </main>

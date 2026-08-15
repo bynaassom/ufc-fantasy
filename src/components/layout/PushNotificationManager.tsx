@@ -150,7 +150,7 @@ export default function PushNotificationManager({
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
+    function handlePicksSaved() {
       const shouldOpen = shouldShowPushNotificationPrompt({
         publicKey,
         subscribed,
@@ -162,9 +162,11 @@ export default function PushNotificationManager({
       });
 
       setPromptOpen(shouldOpen);
-    }, 8000); // wait 8s before showing prompt
+    }
 
-    return () => clearTimeout(timer);
+    window.addEventListener("ufc-fantasy:picks-saved", handlePicksSaved);
+    return () =>
+      window.removeEventListener("ufc-fantasy:picks-saved", handlePicksSaved);
   }, [dismissedUntil, permission, publicKey, pushSupported, subscribed, variant]);
 
   async function handleEnablePush() {

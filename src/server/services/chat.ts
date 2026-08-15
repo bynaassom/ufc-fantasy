@@ -9,15 +9,15 @@ import { requireActiveUser, requireAdmin } from "@/server/auth/guards";
 
 export async function sendMessage(
   content: string,
-  groupId?: string | null,
+  groupId: string,
 ): Promise<ChatMessage> {
   const { supabase, user } = await requireActiveUser();
   return insertMessage(supabase, user.id, content, groupId);
 }
 
 export async function getMessages(
-  beforeCreatedAt?: string | null,
-  groupId?: string | null,
+  beforeCreatedAt: string | null | undefined,
+  groupId: string,
 ): Promise<{ messages: ChatMessage[]; hasMore: boolean }> {
   const { supabase } = await requireActiveUser();
   return listMessages(supabase, 50, beforeCreatedAt, groupId);
@@ -25,7 +25,7 @@ export async function getMessages(
 
 export async function pollNewMessages(
   since: string,
-  groupId?: string | null,
+  groupId: string,
 ): Promise<ChatMessage[]> {
   const { supabase } = await requireActiveUser();
   return listRecentMessages(supabase, since, groupId);

@@ -47,3 +47,16 @@ export async function listEventLeaderboard(
   if (error) throw error;
   return data || [];
 }
+
+export async function listEventScoresForRankMovement(
+  client: any,
+  eventId: string,
+) {
+  const { data, error } = await client
+    .from("event_scores")
+    .select("user_id, total_points, perfect_picks")
+    .eq("event_id", eventId);
+
+  if (error) throw error;
+  return data || [];
+}

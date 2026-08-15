@@ -57,14 +57,24 @@ function getWinnerName(fight: FightWithFighters, winnerId: string) {
   return "Lutador";
 }
 
-function renderPickSummary(pick: Pick | null | undefined, fight: FightWithFighters) {
+function renderPickSummary(
+  pick: Pick | null | undefined,
+  fight: FightWithFighters,
+  perfectPicksOnly: boolean,
+) {
   if (!pick) {
     return { primary: "Sem pick", secondary: "Nenhuma escolha registrada", points: 0 };
   }
   return {
     primary: getWinnerName(fight, pick.picked_winner_id),
     secondary: `${getMethodLabel(pick.picked_method)} · R${pick.picked_round}`,
-    points: pick.total_points,
+    points: perfectPicksOnly
+      ? Number(
+          Boolean(
+            pick.points_winner && pick.points_method && pick.points_round,
+          ),
+        )
+      : pick.total_points,
   };
 }
 
@@ -72,13 +82,23 @@ function FightComparisonRow({
   comparison,
   challengerName,
   challengedName,
+  perfectPicksOnly,
 }: {
   comparison: ChallengeFightComparison;
   challengerName: string;
   challengedName: string;
+  perfectPicksOnly: boolean;
 }) {
-  const challengerPick = renderPickSummary(comparison.challengerPick || null, comparison.fight);
-  const challengedPick = renderPickSummary(comparison.challengedPick || null, comparison.fight);
+  const challengerPick = renderPickSummary(
+    comparison.challengerPick || null,
+    comparison.fight,
+    perfectPicksOnly,
+  );
+  const challengedPick = renderPickSummary(
+    comparison.challengedPick || null,
+    comparison.fight,
+    perfectPicksOnly,
+  );
 
   const challengerWon = challengerPick.points > challengedPick.points;
   const challengedWon = challengedPick.points > challengerPick.points;
@@ -141,7 +161,11 @@ function FightComparisonRow({
             {challengerPick.secondary}
           </p>
           <p className="text-xs mt-3" style={{ color: "var(--red)" }}>
-            {challengerPick.points} pts
+            {perfectPicksOnly
+              ? challengerPick.points
+                ? "Cravada"
+                : "Não cravou"
+              : `${challengerPick.points} pts`}
           </p>
         </div>
 
@@ -185,7 +209,11 @@ function FightComparisonRow({
             {challengedPick.secondary}
           </p>
           <p className="text-xs mt-3" style={{ color: "var(--red)" }}>
-            {challengedPick.points} pts
+            {perfectPicksOnly
+              ? challengedPick.points
+                ? "Cravada"
+                : "Não cravou"
+              : `${challengedPick.points} pts`}
           </p>
         </div>
       </div>
@@ -217,6 +245,7 @@ export default function ChallengeDetailClient({
   const isUserChallenger = challenge.challenger_id === userId;
   const isUserWinner = challenge.winner_user_id === userId;
   const opponentId = isUserChallenger ? challenge.challenged_id : challenge.challenger_id;
+  const isPerfectPicksChallenge = challenge.template_type === "perfect_picks";
 
   const { fightRecords, challengerFightWins, challengedFightWins } = useMemo(() => {
     if (!picksVisible) {
@@ -225,8 +254,26 @@ export default function ChallengeDetailClient({
     let cWins = 0;
     let dWins = 0;
     const records = comparisons.map((c) => {
-      const cPts = (c.challengerPick as Pick | null)?.total_points || 0;
-      const dPts = (c.challengedPick as Pick | null)?.total_points || 0;
+      const challengerPick = c.challengerPick as Pick | null;
+      const challengedPick = c.challengedPick as Pick | null;
+      const cPts = isPerfectPicksChallenge
+        ? Number(
+            Boolean(
+              challengerPick?.points_winner &&
+                challengerPick?.points_method &&
+                challengerPick?.points_round,
+            ),
+          )
+        : challengerPick?.total_points || 0;
+      const dPts = isPerfectPicksChallenge
+        ? Number(
+            Boolean(
+              challengedPick?.points_winner &&
+                challengedPick?.points_method &&
+                challengedPick?.points_round,
+            ),
+          )
+        : challengedPick?.total_points || 0;
       const cWon = cPts > dPts;
       const dWon = dPts > cPts;
       if (cWon) cWins++;
@@ -234,7 +281,7 @@ export default function ChallengeDetailClient({
       return { fight: c.fight, challengerPts: cPts, challengedPts: dPts, challengerWon: cWon, challengedWon: dWon };
     });
     return { fightRecords: records, challengerFightWins: cWins, challengedFightWins: dWins };
-  }, [comparisons, picksVisible]);
+  }, [comparisons, isPerfectPicksChallenge, picksVisible]);
 
   async function handleRematch() {
     if (!nextEvent) return;
@@ -244,7 +291,11 @@ export default function ChallengeDetailClient({
         await fetch("/api/challenges", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ challengedId: opponentId, eventId: nextEvent.id }),
+          body: JSON.stringify({
+            challengedId: opponentId,
+            eventId: nextEvent.id,
+            templateType: challenge.template_type || "classic",
+          }),
         }),
       );
       toast.success("Rematch enviado!");
@@ -298,6 +349,9 @@ export default function ChallengeDetailClient({
         <div className="mb-8 pb-6" style={{ borderBottom: "1px solid var(--border)" }}>
           <p className="font-condensed font-700 text-xs uppercase tracking-widest" style={{ color: "var(--text-secondary)" }}>
             {challenge.event.name}
+          </p>
+          <p className="mt-1 font-condensed text-[10px] font-900 uppercase tracking-widest" style={{ color: "var(--red)" }}>
+            {isPerfectPicksChallenge ? "Mais cravadas" : "Pontuação total"}
           </p>
 
           {/* Scoreboard */}
@@ -418,6 +472,7 @@ export default function ChallengeDetailClient({
                     comparison={comparison}
                     challengerName={challengerName}
                     challengedName={challengedName}
+                    perfectPicksOnly={isPerfectPicksChallenge}
                   />
                   {/* Running score */}
                   <div className="flex items-center justify-center md:justify-end gap-2 mt-1 mb-4">
@@ -452,7 +507,8 @@ export default function ChallengeDetailClient({
                     {challengerName}
                   </p>
                   <p className="font-condensed font-900 text-xl mt-1" style={{ color: "var(--text)" }}>
-                    {challenge.challenger_points} pts
+                    {challenge.challenger_points}{" "}
+                    {isPerfectPicksChallenge ? "cravadas" : "pts"}
                   </p>
                   <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
                     {challengerFightWins} lutas vencidas
@@ -463,7 +519,8 @@ export default function ChallengeDetailClient({
                     {challengedName}
                   </p>
                   <p className="font-condensed font-900 text-xl mt-1" style={{ color: "var(--text)" }}>
-                    {challenge.challenged_points} pts
+                    {challenge.challenged_points}{" "}
+                    {isPerfectPicksChallenge ? "cravadas" : "pts"}
                   </p>
                   <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
                     {challengedFightWins} lutas vencidas

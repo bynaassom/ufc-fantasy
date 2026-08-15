@@ -87,6 +87,16 @@ describe("ufc-live-api", () => {
               },
             ],
             Result: { Method: null, EndingRound: null },
+            Status: "Live",
+            FightNightTracking: [
+              {
+                ActionId: 10,
+                Type: "round_start",
+                RoundNumber: 2,
+                RoundTime: "5:00",
+                Timestamp: "2026-08-15T22:10:00Z",
+              },
+            ],
           },
         ],
       },
@@ -113,6 +123,13 @@ describe("ufc-live-api", () => {
       cardType: "main",
       isTitleFight: true,
       totalRounds: 5,
+      phase: "completed",
+    });
+    expect(parsed?.fights[1]).toMatchObject({
+      phase: "live",
+      currentRound: 2,
+      roundTime: "5:00",
+      latestActionAt: "2026-08-15T22:10:00.000Z",
     });
     expect(
       new Date(parsed!.startTime!).getTime() - 30 * 60 * 1000,

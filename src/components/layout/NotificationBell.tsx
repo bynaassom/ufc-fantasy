@@ -7,6 +7,7 @@ import { ptBR } from "date-fns/locale";
 import { readApiResponse } from "@/lib/api";
 import type { NotificationsResponse } from "@/types/api";
 import type { Notification } from "@/types";
+import toast from "react-hot-toast";
 
 const NOTIFICATIONS_CACHE_TTL_MS = 60_000;
 
@@ -69,6 +70,7 @@ export default function NotificationBell({
       setHasLoadedOnce(true);
     } catch (error) {
       console.error(error);
+      toast.error("Não foi possível carregar as notificações.");
     } finally {
       setLoading(false);
     }
@@ -108,8 +110,9 @@ export default function NotificationBell({
       setNotifications(cleared);
       setUnreadCount(0);
       writeNotificationsCache({ notifications: cleared, unreadCount: 0 });
-    } catch {
-      // silent
+    } catch (error) {
+      console.error(error);
+      toast.error("Não foi possível marcar as notificações como lidas.");
     } finally {
       setClearing(false);
     }
@@ -181,6 +184,8 @@ export default function NotificationBell({
         className={buttonClassName}
         style={buttonStyle}
         aria-label="Notificações"
+        aria-expanded={open}
+        aria-controls={`notifications-panel-${variant}`}
       >
         <span className="relative flex items-center justify-center">
           <svg
@@ -224,6 +229,7 @@ export default function NotificationBell({
 
       {open && (
         <div
+          id={`notifications-panel-${variant}`}
           className={panelClassName}
           style={{
             backgroundColor: "var(--bg-card)",
@@ -254,7 +260,7 @@ export default function NotificationBell({
                   className="text-xs font-condensed font-700 uppercase tracking-widest transition-all active:scale-95"
                   style={{ color: "var(--text-muted)" }}
                 >
-                  {clearing ? "..." : "Limpar"}
+                  {clearing ? "Marcando…" : "Marcar todas como lidas"}
                 </button>
               )}
               <Link

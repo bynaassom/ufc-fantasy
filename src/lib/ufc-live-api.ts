@@ -28,6 +28,14 @@ type RawFight = {
   } | null;
   Accolades?: Array<{ Type?: string | null; Name?: string | null }> | null;
   RuleSet?: { PossibleRounds?: number | null } | null;
+  FightNightTracking?: Array<{
+    ActionId?: number | string | null;
+    FighterId?: number | string | null;
+    Type?: string | null;
+    RoundNumber?: number | string | null;
+    RoundTime?: string | null;
+    Timestamp?: string | null;
+  }> | null;
   Fighters?: RawFighter[] | null;
   Result?: {
     Method?: string | null;
@@ -51,6 +59,15 @@ type RawEventDetail = {
 };
 
 export type UfcLiveEventStatus = "upcoming" | "live" | "completed";
+export type UfcFightLivePhase =
+  | "upcoming"
+  | "walkouts"
+  | "introductions"
+  | "live"
+  | "between_rounds"
+  | "awaiting_result"
+  | "completed"
+  | "unknown";
 
 export type UfcLiveCardFight = {
   fightId: string;
@@ -62,6 +79,10 @@ export type UfcLiveCardFight = {
   weightClass: string;
   isTitleFight: boolean;
   totalRounds: number;
+  phase: UfcFightLivePhase;
+  currentRound: number | null;
+  roundTime: string | null;
+  latestActionAt: string | null;
   fighterA: { id: string; name: string };
   fighterB: { id: string; name: string };
 };
@@ -143,6 +164,48 @@ function parseResults(fights: RawFight[]) {
   return results;
 }
 
+function deriveFightLiveState(fight: RawFight) {
+  const tracking = [...(fight.FightNightTracking || [])].sort((a, b) => {
+    const timeA = a.Timestamp ? new Date(a.Timestamp).getTime() : 0;
+    const timeB = b.Timestamp ? new Date(b.Timestamp).getTime() : 0;
+    if (timeA !== timeB) return timeA - timeB;
+    return Number(a.ActionId || 0) - Number(b.ActionId || 0);
+  });
+  const latest = tracking.at(-1);
+  const latestType = (latest?.Type || "").toLowerCase();
+  const status = (fight.Status || "").toLowerCase();
+  const lastRoundAction = [...tracking]
+    .reverse()
+    .find((action) => Number(action.RoundNumber) > 0);
+  const currentRound = Number(lastRoundAction?.RoundNumber);
+
+  let phase: UfcFightLivePhase = "unknown";
+  if (/final|complete|completed|ended|closed/.test(status) || latestType === "fight_complete") {
+    phase = "completed";
+  } else if (/fight_over|unofficial_winner|results/.test(latestType)) {
+    phase = "awaiting_result";
+  } else if (latestType === "round_end") {
+    phase = "between_rounds";
+  } else if (/round_start|live|in[ _-]?progress|active/.test(`${latestType} ${status}`)) {
+    phase = "live";
+  } else if (/tale_of_the_tape|staredown/.test(latestType)) {
+    phase = "introductions";
+  } else if (/fight_open|walkout/.test(latestType)) {
+    phase = "walkouts";
+  } else if (/upcoming|scheduled/.test(status) || tracking.length === 0) {
+    phase = "upcoming";
+  }
+
+  return {
+    phase,
+    currentRound: Number.isInteger(currentRound) && currentRound > 0
+      ? currentRound
+      : null,
+    roundTime: lastRoundAction?.RoundTime || null,
+    latestActionAt: toIso(latest?.Timestamp),
+  };
+}
+
 function parseCardFight(fight: RawFight): UfcLiveCardFight | null {
   const fighters = fight.Fighters || [];
   if (fighters.length < 2) return null;
@@ -166,6 +229,7 @@ function parseCardFight(fight: RawFight): UfcLiveCardFight | null {
   const weightClass = catchWeight
     ? `Catchweight (${catchWeight} lb)`
     : fight.WeightClass?.Description || "";
+  const liveState = deriveFightLiveState(fight);
 
   return {
     fightId: String(fight.FightId || ""),
@@ -177,6 +241,7 @@ function parseCardFight(fight: RawFight): UfcLiveCardFight | null {
     weightClass,
     isTitleFight,
     totalRounds: Number(fight.RuleSet?.PossibleRounds) || (isTitleFight ? 5 : 3),
+    ...liveState,
     fighterA: {
       id: String(fighterA?.FighterId || ""),
       name: fighterAName,

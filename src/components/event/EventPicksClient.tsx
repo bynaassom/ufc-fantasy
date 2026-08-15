@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FightWithFighters, Pick, FightMethod, EventWithFights } from "@/types";
 import FightCard from "./FightCard";
 import { readApiResponse } from "@/lib/api";
@@ -8,7 +8,6 @@ import {
   getFightCardUnavailablePicksLabel,
   isPicksLocked,
 } from "@/lib/utils";
-import toast from "react-hot-toast";
 
 interface EventPicksClientProps {
   event: EventWithFights;
@@ -23,11 +22,33 @@ type PendingPick = {
   round: number;
 };
 
+type SaveStatus = "idle" | "pending" | "saving" | "saved" | "error";
+
+function isSamePick(a: PendingPick | undefined, b: PendingPick) {
+  return (
+    a?.winnerId === b.winnerId &&
+    a.method === b.method &&
+    a.round === b.round
+  );
+}
+
 function buildPickMap(picks: Pick[]) {
   return Object.fromEntries(picks.map((pick) => [pick.fight_id, pick])) as Record<
     string,
     Pick | undefined
   >;
+}
+
+function isPendingPick(value: unknown): value is PendingPick {
+  if (!value || typeof value !== "object") return false;
+  const pick = value as Partial<PendingPick>;
+  return (
+    typeof pick.winnerId === "string" &&
+    ["decision", "submission", "knockout"].includes(String(pick.method)) &&
+    Number.isInteger(pick.round) &&
+    Number(pick.round) >= 1 &&
+    Number(pick.round) <= 5
+  );
 }
 
 export default function EventPicksClient({
@@ -42,12 +63,18 @@ export default function EventPicksClient({
   const [confirmedPicksMap, setConfirmedPicksMap] = useState<
     Record<string, Pick | undefined>
   >(() => buildPickMap(existingPicks));
-  const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>(
+    existingPicks.length > 0 ? "saved" : "idle",
+  );
+  const [draftsLoaded, setDraftsLoaded] = useState(false);
+  const [online, setOnline] = useState(true);
+  const pendingPicksRef = useRef<Record<string, PendingPick>>({});
+  const draftStorageKey = `ufc-fantasy:pending-picks:${event.id}`;
 
   const locked = isPicksLocked(event.picks_lock_at) || !picksOpen;
   const unavailablePicksLabel = getFightCardUnavailablePicksLabel({ picksOpen });
 
-  const { mainCard, prelimCard, fightById } = useMemo(() => {
+  const { mainCard, prelimCard } = useMemo(() => {
     const fights = [...event.fights].sort((a, b) => {
       if (a.card_type !== b.card_type) {
         return a.card_type === "main" ? -1 : 1;
@@ -55,12 +82,10 @@ export default function EventPicksClient({
       return a.fight_order - b.fight_order;
     });
 
-    const nextFightById = new Map<string, FightWithFighters>();
     const nextMainCard: FightWithFighters[] = [];
     const nextPrelimCard: FightWithFighters[] = [];
 
     fights.forEach((fight) => {
-      nextFightById.set(fight.id, fight as FightWithFighters);
       if (fight.card_type === "main") {
         nextMainCard.push(fight as FightWithFighters);
       } else {
@@ -71,12 +96,67 @@ export default function EventPicksClient({
     return {
       mainCard: nextMainCard,
       prelimCard: nextPrelimCard,
-      fightById: nextFightById,
     };
   }, [event.fights]);
 
   const pendingPickEntries = Object.entries(pendingPicks);
   const pendingCount = pendingPickEntries.length;
+
+  const persistDrafts = useCallback(
+    (drafts: Record<string, PendingPick>) => {
+      if (Object.keys(drafts).length === 0) {
+        window.localStorage.removeItem(draftStorageKey);
+      } else {
+        window.localStorage.setItem(draftStorageKey, JSON.stringify(drafts));
+      }
+    },
+    [draftStorageKey],
+  );
+
+  useEffect(() => {
+    setOnline(navigator.onLine);
+    const validFightIds = new Set(event.fights.map((fight) => fight.id));
+    let restored: Record<string, PendingPick> = {};
+
+    if (!locked) {
+      try {
+        const raw = window.localStorage.getItem(draftStorageKey);
+        const parsed = raw ? JSON.parse(raw) : {};
+        restored = Object.entries(parsed).reduce<Record<string, PendingPick>>(
+          (drafts, [fightId, value]) => {
+            if (validFightIds.has(fightId) && isPendingPick(value)) {
+              drafts[fightId] = value;
+            }
+            return drafts;
+          },
+          {},
+        );
+      } catch {
+        window.localStorage.removeItem(draftStorageKey);
+      }
+    }
+
+    pendingPicksRef.current = restored;
+    setPendingPicks(restored);
+    if (Object.keys(restored).length > 0) setSaveStatus("pending");
+    setDraftsLoaded(true);
+
+    function handleOnline() {
+      setOnline(true);
+      if (Object.keys(pendingPicksRef.current).length > 0) {
+        setSaveStatus("pending");
+      }
+    }
+    function handleOffline() {
+      setOnline(false);
+    }
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, [draftStorageKey, event.fights, locked]);
 
   function handlePickChange(
     fightId: string,
@@ -84,10 +164,16 @@ export default function EventPicksClient({
     method: FightMethod,
     round: number,
   ) {
-    setPendingPicks((prev) => ({
-      ...prev,
-      [fightId]: { winnerId, method, round },
-    }));
+    setPendingPicks((prev) => {
+      const next = {
+        ...prev,
+        [fightId]: { winnerId, method, round },
+      };
+      pendingPicksRef.current = next;
+      persistDrafts(next);
+      return next;
+    });
+    setSaveStatus("pending");
   }
 
   const totalFights = event.fights.length;
@@ -96,29 +182,13 @@ export default function EventPicksClient({
     ...Object.keys(pendingPicks),
   ]).size;
 
-  async function handleConfirm() {
-    if (locked) return;
-    if (pendingCount === 0) {
-      toast.error("Nenhum pick novo para salvar.");
-      return;
-    }
+  const savePendingPicks = useCallback(async (snapshot: Record<string, PendingPick>) => {
+    const snapshotEntries = Object.entries(snapshot);
+    if (locked || snapshotEntries.length === 0 || !navigator.onLine) return;
 
-    // Valida que picks de KO/finalização têm round selecionado
-    for (const [fightId, pick] of pendingPickEntries) {
-      if (pick.method !== "decision" && (!pick.round || pick.round < 1)) {
-        const fight = fightById.get(fightId);
-        const name = fight
-          ? `${fight.fighter_a.name} vs ${fight.fighter_b.name}`
-          : "uma luta";
-        toast.error(`Selecione o round para: ${name}`);
-        return;
-      }
-    }
-
-    setSaving(true);
-
+    setSaveStatus("saving");
     try {
-      const upserts = pendingPickEntries.map(([fightId, pick]) => ({
+      const upserts = snapshotEntries.map(([fightId, pick]) => ({
         fightId,
         winnerId: pick.winnerId,
         method: pick.method,
@@ -133,11 +203,10 @@ export default function EventPicksClient({
         }),
       );
 
-      toast.success(`✅ ${upserts.length} pick(s) confirmados!`);
       setConfirmedPicksMap((current) => {
         const next = { ...current };
 
-        pendingPickEntries.forEach(([fightId, pick]) => {
+        snapshotEntries.forEach(([fightId, pick]) => {
           const currentPick = next[fightId];
           next[fightId] = {
             id: currentPick?.id || fightId,
@@ -160,28 +229,86 @@ export default function EventPicksClient({
 
         return next;
       });
-      setPendingPicks({});
+
+      const latest = pendingPicksRef.current;
+      const remaining = { ...latest };
+      snapshotEntries.forEach(([fightId, savedPick]) => {
+        if (isSamePick(latest[fightId], savedPick)) {
+          delete remaining[fightId];
+        }
+      });
+      pendingPicksRef.current = remaining;
+      persistDrafts(remaining);
+      setPendingPicks(remaining);
+      setSaveStatus(Object.keys(remaining).length > 0 ? "pending" : "saved");
+      if (Object.keys(remaining).length === 0) {
+        window.dispatchEvent(new CustomEvent("ufc-fantasy:picks-saved"));
+      }
     } catch (err) {
       console.error(err);
-      toast.error("Erro ao salvar picks. Tente novamente.");
-    } finally {
-      setSaving(false);
+      setSaveStatus("error");
     }
+  }, [event.id, eventSlug, locked, persistDrafts]);
+
+  useEffect(() => {
+    if (
+      locked ||
+      !draftsLoaded ||
+      !online ||
+      pendingCount === 0 ||
+      saveStatus !== "pending"
+    ) return;
+
+    const timeoutId = window.setTimeout(() => {
+      void savePendingPicks(pendingPicksRef.current);
+    }, 450);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [draftsLoaded, locked, online, pendingCount, savePendingPicks, saveStatus]);
+
+  const picksForCards = useMemo(() => {
+    const next = { ...confirmedPicksMap };
+    Object.entries(pendingPicks).forEach(([fightId, pick]) => {
+      const confirmed = next[fightId];
+      next[fightId] = {
+        id: confirmed?.id || `draft-${fightId}`,
+        user_id: confirmed?.user_id || "",
+        fight_id: fightId,
+        event_id: event.id,
+        picked_winner_id: pick.winnerId,
+        picked_method: pick.method,
+        picked_round: pick.round,
+        is_confirmed: false,
+        confirmed_at: undefined,
+        points_winner: confirmed?.points_winner || 0,
+        points_method: confirmed?.points_method || 0,
+        points_round: confirmed?.points_round || 0,
+        total_points: confirmed?.total_points || 0,
+        created_at: confirmed?.created_at || new Date(0).toISOString(),
+        updated_at: confirmed?.updated_at || new Date(0).toISOString(),
+      };
+    });
+    return next;
+  }, [confirmedPicksMap, event.id, pendingPicks]);
+
+  if (!draftsLoaded) {
+    return (
+      <div
+        className="mb-6 p-4 text-sm"
+        style={{ color: "var(--text-secondary)", border: "1px solid var(--border)" }}
+        role="status"
+      >
+        Carregando seus picks…
+      </div>
+    );
   }
 
   return (
-    <div
-      style={{
-        paddingBottom:
-          !locked && pendingCount > 0
-            ? "calc(7.75rem + env(safe-area-inset-bottom))"
-            : undefined,
-      }}
-    >
+    <div>
       {/* Progress indicator */}
       {!locked && (
         <div
-          className="mb-6 p-4 flex items-center justify-between"
+          className="mb-6 flex flex-col items-start gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
           style={{
             backgroundColor: "var(--bg-card)",
             border: "1px solid var(--border)",
@@ -192,29 +319,72 @@ export default function EventPicksClient({
               {pickedFights}/{totalFights} lutas com pick
             </p>
             <div
-              className="mt-2 h-1.5 w-48 rounded-full overflow-hidden"
+              className="mt-2 h-1.5 w-48 max-w-full rounded-full overflow-hidden"
               style={{ backgroundColor: "var(--border)" }}
             >
               <div
                 className="h-full rounded-full transition-all duration-500"
                 style={{
                   backgroundColor: "var(--red)",
-                  width: `${(pickedFights / totalFights) * 100}%`,
+                  width: `${totalFights > 0 ? (pickedFights / totalFights) * 100 : 0}%`,
                 }}
               />
             </div>
           </div>
-          {pendingCount > 0 && (
-            <span
-              className="text-xs font-semibold px-2 py-1"
-              style={{
-                backgroundColor: "rgba(239,68,68,0.1)",
-                color: "var(--red)",
-              }}
-            >
-              {pendingCount} não salvo(s)
+          <div
+            className="flex items-center gap-2 text-xs font-semibold"
+            aria-live="polite"
+            role={saveStatus === "error" ? "alert" : "status"}
+            style={{
+              color:
+                saveStatus === "error"
+                  ? "var(--red)"
+                  : saveStatus === "saved"
+                    ? "var(--green)"
+                    : "var(--text-muted)",
+            }}
+          >
+            {saveStatus === "saving" && (
+              <span
+                className="h-3 w-3 animate-spin rounded-full"
+                style={{
+                  border: "2px solid var(--border)",
+                  borderTopColor: "var(--red)",
+                }}
+                aria-hidden="true"
+              />
+            )}
+            {saveStatus === "saved" && (
+              <svg
+                aria-hidden="true"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+              >
+                <path d="M20 6L9 17l-5-5" />
+              </svg>
+            )}
+            <span>
+              {saveStatus === "pending" &&
+                (online ? "Preparando para salvar…" : "Salvo neste aparelho")}
+              {saveStatus === "saving" && "Salvando…"}
+              {saveStatus === "saved" && "Tudo salvo"}
+              {saveStatus === "idle" && "Salvamento automático"}
+              {saveStatus === "error" && "Erro ao salvar"}
             </span>
-          )}
+            {saveStatus === "error" && (
+              <button
+                type="button"
+                onClick={() => setSaveStatus("pending")}
+                className="min-tap underline underline-offset-2"
+              >
+                Tentar novamente
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -242,7 +412,7 @@ export default function EventPicksClient({
               <FightCard
                 key={fight.id}
                 fight={fight}
-                existingPick={confirmedPicksMap[fight.id]}
+                existingPick={picksForCards[fight.id]}
                 locked={locked}
                 unavailablePicksLabel={unavailablePicksLabel}
                 onPickChange={handlePickChange}
@@ -280,7 +450,7 @@ export default function EventPicksClient({
               <FightCard
                 key={fight.id}
                 fight={fight}
-                existingPick={confirmedPicksMap[fight.id]}
+                existingPick={picksForCards[fight.id]}
                 locked={locked}
                 unavailablePicksLabel={unavailablePicksLabel}
                 onPickChange={handlePickChange}
@@ -288,52 +458,6 @@ export default function EventPicksClient({
             ))}
           </div>
         </section>
-      )}
-
-      {/* Confirm button */}
-      {!locked && pendingCount > 0 && (
-        <div
-          className="fixed left-0 right-0 z-50 pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-[env(safe-area-inset-bottom)]"
-          style={{
-            bottom: 0,
-            backgroundColor: "var(--bg)",
-            borderTop: "1px solid var(--border)",
-            boxShadow: "0 -16px 40px rgba(0,0,0,0.28)",
-          }}
-        >
-          <div className="max-w-4xl mx-auto px-4 py-3">
-            <div className="flex items-center justify-between gap-4 mb-2">
-              <div className="min-w-0">
-                <p
-                  className="font-condensed font-900 text-xs uppercase tracking-widest"
-                  style={{ color: "var(--red)" }}
-                >
-                  Picks pendentes
-                </p>
-                <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>
-                  {pendingCount} alteração{pendingCount === 1 ? "" : "ões"} aguardando confirmação
-                </p>
-              </div>
-              <span
-                className="font-condensed font-900 text-xs uppercase tracking-widest px-2 py-1 flex-shrink-0"
-                style={{
-                  color: "var(--text-secondary)",
-                  border: "1px solid var(--border)",
-                }}
-              >
-                {pickedFights}/{totalFights}
-              </span>
-            </div>
-            <button
-              onClick={handleConfirm}
-              disabled={saving}
-              className="w-full py-4 font-condensed font-900 text-white text-sm uppercase tracking-widest transition-all hover:opacity-90 active:scale-95 disabled:opacity-60"
-              style={{ backgroundColor: "var(--red)" }}
-            >
-              {saving ? "SALVANDO..." : `CONFIRMAR ${pendingCount} PICK(S)`}
-            </button>
-          </div>
-        </div>
       )}
 
       {/* Locked / not open message */}

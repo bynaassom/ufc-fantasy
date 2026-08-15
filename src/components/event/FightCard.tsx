@@ -123,6 +123,7 @@ export default function FightCard({
 
   return (
     <div
+      id={`fight-${fight.id}`}
       style={{
         backgroundColor: "var(--bg-card)",
         border: completed
@@ -208,8 +209,15 @@ export default function FightCard({
           return (
             <button
               key={fighter.id}
+              type="button"
               onClick={() => selectFighter(fighter.id)}
               disabled={locked}
+              aria-pressed={!completed ? isSelected : undefined}
+              aria-label={
+                completed
+                  ? `${fighter.name}${isWinner ? ", vencedor" : ""}${isMyPick ? ", seu pick" : ""}`
+                  : `Selecionar ${fighter.name} como vencedor`
+              }
               onMouseEnter={() => setHoveredFighterId(fighter.id)}
               onMouseLeave={() => setHoveredFighterId(null)}
               className="fighter-select-btn flex flex-col items-center py-6 px-4 relative overflow-hidden"
@@ -419,7 +427,7 @@ export default function FightCard({
               onClick={(e) => e.stopPropagation()}
               className="font-condensed font-700 uppercase flex items-center gap-0.5 transition-opacity hover:opacity-70 min-tap"
               style={{
-                fontSize: "8px",
+                fontSize: "10px",
                 letterSpacing: "0.06em",
                 color: "var(--text-muted)",
                 whiteSpace: "nowrap",
@@ -458,16 +466,23 @@ export default function FightCard({
           style={{ borderTop: "1px solid var(--border)" }}
         >
           <p
+            id={`pick-details-${fight.id}`}
             className="font-condensed font-700 text-xs uppercase tracking-widest mb-2"
             style={{ color: "var(--text-secondary)" }}
           >
             Método e round
           </p>
-          <div className="flex flex-wrap gap-1.5">
+          <div
+            className="flex flex-wrap gap-1.5"
+            role="group"
+            aria-labelledby={`pick-details-${fight.id}`}
+          >
             {METHODS.map((m) => (
               <button
                 key={m.value}
+                type="button"
                 onClick={() => selectMethod(m.value)}
+                aria-pressed={selectedMethod === m.value}
                 className="font-condensed font-900 text-xs uppercase tracking-widest transition-all hover:opacity-80"
                 style={{
                   padding: selectedMethod === m.value ? "8px 14px" : "8px 14px",
@@ -497,7 +512,10 @@ export default function FightCard({
               rounds.map((r) => (
                 <button
                   key={r}
+                  type="button"
                   onClick={() => selectRound(r)}
+                  aria-pressed={selectedRound === r}
+                  aria-label={`Round ${r}`}
                   className="font-condensed font-900 text-sm uppercase transition-all hover:opacity-80"
                   style={{
                     padding: "8px 12px",

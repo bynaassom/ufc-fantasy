@@ -7,6 +7,8 @@ const mocks = vi.hoisted(() => ({
   listUpcomingEvents: vi.fn(),
   listChallengesForUser: vi.fn(),
   findPublicProfilesByIds: vi.fn(),
+  listPicksForUserEvent: vi.fn(),
+  countFightsForEvent: vi.fn(),
   getAdminSupabase: vi.fn(),
   requirePageUserProfile: vi.fn(),
 }));
@@ -47,6 +49,14 @@ vi.mock("@/server/repositories/profiles", () => ({
   updateProfile: vi.fn(),
   updateProfileBan: vi.fn(),
   updateProfileRole: vi.fn(),
+}));
+
+vi.mock("@/server/repositories/picks", () => ({
+  listPicksForUserEvent: mocks.listPicksForUserEvent,
+}));
+
+vi.mock("@/server/repositories/stats", () => ({
+  countFightsForEvent: mocks.countFightsForEvent,
 }));
 
 vi.mock("@/server/repositories/events", () => ({
@@ -108,6 +118,8 @@ describe("getHomePageData", () => {
     mocks.listUpcomingEvents.mockResolvedValue([]);
     mocks.listChallengesForUser.mockResolvedValue([]);
     mocks.findPublicProfilesByIds.mockResolvedValue([]);
+    mocks.listPicksForUserEvent.mockResolvedValue([]);
+    mocks.countFightsForEvent.mockResolvedValue(12);
     mocks.getAdminSupabase.mockResolvedValue({ client: "admin" });
   });
 
@@ -142,6 +154,10 @@ describe("getHomePageData", () => {
       currentEvent: {
         id: "ufc-326",
         name: "UFC 326",
+      },
+      currentEventPickProgress: {
+        picked: 0,
+        total: 12,
       },
     });
     expect(mocks.getCurrentPublicEvent).toHaveBeenCalledOnce();

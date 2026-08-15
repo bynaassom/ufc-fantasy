@@ -6,7 +6,12 @@ import { useDeferredValue, useState } from "react";
 import toast from "react-hot-toast";
 import Navbar from "@/components/layout/Navbar";
 import { readApiResponse } from "@/lib/api";
-import type { Challenge, Notification, Profile } from "@/types";
+import type {
+  Challenge,
+  ChallengeTemplateType,
+  Notification,
+  Profile,
+} from "@/types";
 import type { ChallengeResponse } from "@/types/api";
 
 type ChallengeCard = Challenge & {
@@ -66,6 +71,10 @@ function getStatusColor(status: Challenge["status"]) {
   return colors[status];
 }
 
+function getTemplateLabel(templateType: Challenge["template_type"]) {
+  return templateType === "perfect_picks" ? "Mais cravadas" : "Pontuação total";
+}
+
 function ChallengeCardItem({
   challenge,
   userId,
@@ -109,6 +118,9 @@ function ChallengeCardItem({
           <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
             {challenge.event.name}
           </p>
+          <p className="mt-1 font-condensed text-[10px] font-700 uppercase tracking-widest" style={{ color: "var(--red)" }}>
+            {getTemplateLabel(challenge.template_type)}
+          </p>
         </div>
         <span
           className="px-2 py-1 text-xs font-condensed font-900 uppercase tracking-widest"
@@ -137,6 +149,9 @@ function ChallengeCardItem({
             <p className="font-condensed font-900 text-2xl mt-1">
               {challenge.challenger_points}
             </p>
+            <p className="text-[10px] uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
+              {challenge.template_type === "perfect_picks" ? "cravadas" : "pontos"}
+            </p>
           </div>
           <div
             className="p-3"
@@ -147,6 +162,9 @@ function ChallengeCardItem({
             </p>
             <p className="font-condensed font-900 text-2xl mt-1">
               {challenge.challenged_points}
+            </p>
+            <p className="text-[10px] uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>
+              {challenge.template_type === "perfect_picks" ? "cravadas" : "pontos"}
             </p>
           </div>
         </div>
@@ -223,6 +241,8 @@ export default function ChallengesClient({
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [creatingFor, setCreatingFor] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [templateType, setTemplateType] =
+    useState<ChallengeTemplateType>("classic");
   const deferredSearch = useDeferredValue(search);
 
   async function handleRespond(challengeId: string, action: "accept" | "decline") {
@@ -259,6 +279,7 @@ export default function ChallengesClient({
           body: JSON.stringify({
             challengedId,
             eventId: currentEvent.id,
+            templateType,
           }),
         }),
       );
@@ -369,8 +390,43 @@ export default function ChallengesClient({
                 </div>
               ) : (
                 <>
+                  <fieldset className="mt-4">
+                    <legend className="font-condensed text-xs font-700 uppercase tracking-widest" style={{ color: "var(--text-secondary)" }}>
+                      Como vence
+                    </legend>
+                    <div className="mt-2 grid grid-cols-2" style={{ border: "1px solid var(--border)" }}>
+                      {([
+                        ["classic", "Pontuação total"],
+                        ["perfect_picks", "Mais cravadas"],
+                      ] as const).map(([value, label]) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => setTemplateType(value)}
+                          aria-pressed={templateType === value}
+                          className="min-tap px-3 py-3 font-condensed text-xs font-900 uppercase tracking-widest"
+                          style={{
+                            backgroundColor: templateType === value ? "var(--red)" : "var(--bg-elevated)",
+                            color: templateType === value ? "white" : "var(--text-secondary)",
+                            borderRight: value === "classic" ? "1px solid var(--border)" : undefined,
+                          }}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="mt-2 text-xs" style={{ color: "var(--text-muted)" }}>
+                      {templateType === "perfect_picks"
+                        ? "Vence quem acertar mais vezes vencedor, método e round na mesma luta."
+                        : "Vence quem somar mais pontos em todo o card."}
+                    </p>
+                  </fieldset>
                   <div className="mt-4">
+                    <label htmlFor="challenge-player-search" className="sr-only">
+                      Buscar jogador
+                    </label>
                     <input
+                      id="challenge-player-search"
                       type="text"
                       value={search}
                       onChange={(event) => setSearch(event.target.value)}

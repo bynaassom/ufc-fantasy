@@ -44,6 +44,7 @@ import {
   getEventRankForUser,
   getEventScoreForUserAndEvent as getEventScoreRowForUserAndEvent,
   listEventLeaderboard,
+  listEventScoresForRankMovement,
 } from "@/server/repositories/event-scores";
 import { resolvePublicEventSequence } from "@/lib/event-sequence";
 import {
@@ -130,6 +131,7 @@ import {
 import { listUserBadges } from "@/server/repositories/badges";
 import { getRivalry } from "@/server/repositories/rivalries";
 import { getAdminSupabase, getUserSupabase } from "@/server/supabase";
+import { getOfficialLiveState } from "@/server/services/official-live-state";
 
 type RankingProfileRow = Pick<
   Profile,
@@ -151,6 +153,9 @@ type RankingDisplayEntry = {
   points: number;
   perfect_picks: number;
   userId: string;
+  previousRank: number | null;
+  movement: number;
+  eventsPlayed?: number;
 };
 
 type ChallengeRow = Challenge & {
@@ -292,6 +297,29 @@ const getCachedRecentCompletedRankingEvents = unstable_cache(
   },
 );
 
+const getCachedEventRankMovement = unstable_cache(
+  async (eventId: string) => {
+    const supabase = getServiceRoleSupabase();
+    const [scores, eventResult] = await Promise.all([
+      listEventScoresForRankMovement(supabase, eventId),
+      supabase.from("events").select("season_id").eq("id", eventId).maybeSingle(),
+    ]);
+
+    if (eventResult.error) throw eventResult.error;
+    const eventRow = eventResult.data as { season_id: string | null } | null;
+
+    return {
+      seasonId: eventRow?.season_id || null,
+      scores,
+    };
+  },
+  ["event-rank-movement"],
+  {
+    revalidate: RANKING_CACHE_SECONDS,
+    tags: [CACHE_TAGS.events, CACHE_TAGS.ranking],
+  },
+);
+
 const getCachedPublicMomentumStats = unstable_cache(
   async () => {
     const supabase = getServiceRoleSupabase();
@@ -422,22 +450,37 @@ async function getEventScoresMap(
   userIds: string[],
   eventId: string,
 ) {
-  if (!userIds.length) return new Map<string, number>();
+  if (!userIds.length) {
+    return new Map<string, { totalPoints: number; perfectPicks: number }>();
+  }
 
   const { data, error } = await client
     .from("event_scores")
-    .select("user_id, total_points")
+    .select("user_id, total_points, perfect_picks")
     .eq("event_id", eventId)
     .in("user_id", userIds);
 
   if (error) throw error;
 
-  return new Map<string, number>(
+  return new Map<string, { totalPoints: number; perfectPicks: number }>(
     (data || []).map((entry: any) => [
       String(entry.user_id),
-      Number(entry.total_points || 0),
+      {
+        totalPoints: Number(entry.total_points || 0),
+        perfectPicks: Number(entry.perfect_picks || 0),
+      },
     ]),
   );
+}
+
+function getChallengeScore(
+  score: { totalPoints: number; perfectPicks: number } | undefined,
+  templateType: Challenge["template_type"],
+) {
+  if (!score) return 0;
+  return templateType === "perfect_picks"
+    ? score.perfectPicks
+    : score.totalPoints;
 }
 
 async function createChallengeNotification(
@@ -507,8 +550,14 @@ async function resolveChallengeLifecycle(client: any, challenge: ChallengeRow) {
       [challenge.challenger_id, challenge.challenged_id],
       challenge.event_id,
     );
-    const challengerPoints = scoreMap.get(challenge.challenger_id) || 0;
-    const challengedPoints = scoreMap.get(challenge.challenged_id) || 0;
+    const challengerPoints = getChallengeScore(
+      scoreMap.get(challenge.challenger_id),
+      challenge.template_type,
+    );
+    const challengedPoints = getChallengeScore(
+      scoreMap.get(challenge.challenged_id),
+      challenge.template_type,
+    );
     const winnerUserId = getChallengeLeaderUserId(
       challengerPoints,
       challengedPoints,
@@ -623,8 +672,14 @@ async function enrichChallenges(client: any, challenges: ChallengeRow[]) {
     const eventScoreMap = await getEventScoresMap(client, userIds, eventId);
 
     eventChallenges.forEach((challenge) => {
-      const challengerPoints = eventScoreMap.get(challenge.challenger_id) || 0;
-      const challengedPoints = eventScoreMap.get(challenge.challenged_id) || 0;
+      const challengerPoints = getChallengeScore(
+        eventScoreMap.get(challenge.challenger_id),
+        challenge.template_type,
+      );
+      const challengedPoints = getChallengeScore(
+        eventScoreMap.get(challenge.challenged_id),
+        challenge.template_type,
+      );
       scoreMapByChallenge.set(challenge.id, {
         challengerPoints,
         challengedPoints,
@@ -821,7 +876,15 @@ export async function getHomePageData() {
   );
 
   const adminSupabase = await getAdminSupabase();
-  const rawChallenges = (await listChallengesForUser(adminSupabase, user.id)) as ChallengeRow[];
+  const [rawChallenges, currentEventPicks, currentEventFightCount] = await Promise.all([
+    listChallengesForUser(adminSupabase, user.id) as Promise<ChallengeRow[]>,
+    currentEvent
+      ? listPicksForUserEvent(adminSupabase, user.id, currentEvent.id)
+      : Promise.resolve([]),
+    currentEvent
+      ? countFightsForEvent(adminSupabase, currentEvent.id)
+      : Promise.resolve(0),
+  ]);
 
   const activeChallengeRows = rawChallenges
     .filter(
@@ -845,6 +908,10 @@ export async function getHomePageData() {
     currentEvent,
     upcomingEvents,
     completedEvents: completedEvents.slice(0, 3),
+    currentEventPickProgress: {
+      picked: currentEventPicks.length,
+      total: currentEventFightCount,
+    },
     activeChallenges: activeChallengeRows.map((c) => ({
       id: c.id,
       status: c.status,
@@ -879,7 +946,10 @@ export async function getEventLiveData(slug: string) {
   const confirmedFights = (event as EventWithFights).fights.filter(
     (f) => f.result_confirmed,
   );
-  const existingPicks = await listPicksForUserEvent(supabase, user.id, event.id);
+  const [existingPicks, officialLiveState] = await Promise.all([
+    listPicksForUserEvent(supabase, user.id, event.id),
+    getOfficialLiveState(event as EventWithFights),
+  ]);
 
   const fights = confirmedFights.map((f) => ({
     id: f.id,
@@ -919,8 +989,12 @@ export async function getEventLiveData(slug: string) {
     status: event.status,
     fights,
     picks,
-    leaderboard,
+    leaderboard: leaderboard.map((entry: any) => ({
+      ...entry,
+      is_me: entry.user_id === user.id,
+    })),
     myScore,
+    officialLiveState,
   };
 }
 
@@ -962,6 +1036,8 @@ export async function getRankingPageData(
       points: entry.total_points,
       perfect_picks: entry.perfect_picks,
       userId: entry.user_id,
+      previousRank: null,
+      movement: 0,
     }));
   } else if (tab === "temporada") {
     const seasonRanking = currentSeason
@@ -976,6 +1052,9 @@ export async function getRankingPageData(
       points: entry.total_points,
       perfect_picks: entry.perfect_picks,
       userId: entry.user_id,
+      previousRank: null,
+      movement: 0,
+      eventsPlayed: entry.events_played,
     }));
   } else {
     const globalRanking = await getCachedGlobalRanking();
@@ -988,7 +1067,59 @@ export async function getRankingPageData(
       points: rankingProfile.total_points,
       perfect_picks: 0,
       userId: rankingProfile.id,
+      previousRank: null,
+      movement: 0,
     }));
+  }
+
+  const movementEvent = completedRankingEvents[0] || null;
+  if (movementEvent && tab !== "evento" && displayRanking.length > 0) {
+    const movementData = await getCachedEventRankMovement(movementEvent.id);
+    const eventScores = new Map(
+      movementData.scores.map((score: any) => [String(score.user_id), score]),
+    );
+    const appliesToRanking =
+      tab === "geral" || movementData.seasonId === currentSeason?.id;
+
+    if (appliesToRanking && eventScores.size > 0) {
+      const previousOrder = [...displayRanking].sort((a, b) => {
+        const aScore = eventScores.get(a.userId) as any;
+        const bScore = eventScores.get(b.userId) as any;
+        const pointsDifference =
+          (b.points - Number(bScore?.total_points || 0)) -
+          (a.points - Number(aScore?.total_points || 0));
+        if (pointsDifference !== 0) return pointsDifference;
+
+        if (tab === "temporada") {
+          const perfectDifference =
+            (b.perfect_picks - Number(bScore?.perfect_picks || 0)) -
+            (a.perfect_picks - Number(aScore?.perfect_picks || 0));
+          if (perfectDifference !== 0) return perfectDifference;
+
+          const eventsDifference =
+            (Number(b.eventsPlayed || 0) - (bScore ? 1 : 0)) -
+            (Number(a.eventsPlayed || 0) - (aScore ? 1 : 0));
+          if (eventsDifference !== 0) return eventsDifference;
+        }
+
+        return (a.nickname || a.first_name).localeCompare(
+          b.nickname || b.first_name,
+          "pt-BR",
+        );
+      });
+      const previousRanks = new Map(
+        previousOrder.map((entry, index) => [entry.userId, index + 1]),
+      );
+
+      displayRanking = displayRanking.map((entry) => {
+        const previousRank = previousRanks.get(entry.userId) || entry.rank;
+        return {
+          ...entry,
+          previousRank,
+          movement: previousRank - entry.rank,
+        };
+      });
+    }
   }
 
   const myRank =
@@ -1004,6 +1135,10 @@ export async function getRankingPageData(
     rankingEvents,
     displayRanking,
     myRank,
+    movementEvent:
+      tab !== "evento" && displayRanking.some((entry) => entry.previousRank !== null)
+        ? movementEvent
+        : null,
     tab,
   };
 }
@@ -1043,11 +1178,16 @@ export async function getEventRecapData(slug: string): Promise<import("@/types")
   const event = await getCachedEventBySlug(slug) as import("@/types").EventWithFights | null;
   if (!event) return null;
 
-  const [ranking, scoreStats, pickDistribution] = await Promise.all([
+  const [ranking, scoreStats, pickDistribution, currentEvent, upcomingEvents] = await Promise.all([
     getCachedEventRanking(event.id),
     getEventScoreStats(supabase, event.id),
     getPickDistributionForEvent(supabase, event.id),
+    getCachedCurrentPublicEvent(),
+    getCachedUpcomingEvents(5),
   ]);
+  const nextEvent = [currentEvent, ...upcomingEvents].find(
+    (candidate) => candidate && candidate.id !== event.id,
+  ) || null;
 
   const fightStats: import("@/types").EventRecapFightStat[] = (event.fights || [])
     .slice()
@@ -1084,6 +1224,9 @@ export async function getEventRecapData(slug: string): Promise<import("@/types")
 
   return {
     event,
+    nextEvent: nextEvent
+      ? { id: nextEvent.id, name: nextEvent.name, slug: nextEvent.slug }
+      : null,
     ranking: ranking.map((entry: any, index: number) => ({
       rank: index + 1,
       user_id: entry.user_id,
@@ -1450,7 +1593,11 @@ export async function getPublicProfilePageData(nickname: string) {
   };
 }
 
-export async function createUserChallenge(challengedId: string, eventId: string) {
+export async function createUserChallenge(
+  challengedId: string,
+  eventId: string,
+  templateType: "classic" | "perfect_picks" = "classic",
+) {
   const { user } = await requireActiveUser();
   const adminSupabase = await getAdminSupabase();
 
@@ -1517,13 +1664,17 @@ export async function createUserChallenge(challengedId: string, eventId: string)
     challenger_id: user.id,
     challenged_id: challengedId,
     status: "pending",
+    template_type: templateType,
   });
 
   await createChallengeNotification(adminSupabase, {
     userId: challengedId,
     type: "challenge_received",
     title: `${challengerProfile?.nickname || "Um jogador"} te desafiou`,
-    message: `Desafio direto para ${event.name}.`,
+    message:
+      templateType === "perfect_picks"
+        ? `Quem fizer mais cravadas em ${event.name} vence.`
+        : `Desafio de pontuação total para ${event.name}.`,
     challengeId: challenge.id,
     targetPath: `/desafios/${challenge.id}`,
   });

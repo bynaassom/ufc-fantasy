@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { getMethodLabel } from "@/lib/utils";
 
@@ -35,12 +36,44 @@ interface LiveLeaderboardEntry {
   perfect_picks: number;
   fights_scored: number;
   rank_position: number;
+  is_me?: boolean;
   profile?: {
     id: string;
     nickname: string;
     first_name: string;
     last_name: string;
   };
+}
+
+type OfficialFightPhase =
+  | "upcoming"
+  | "walkouts"
+  | "introductions"
+  | "live"
+  | "between_rounds"
+  | "awaiting_result"
+  | "completed"
+  | "unknown";
+
+interface OfficialLiveFight {
+  fightId: string;
+  localFightId: string | null;
+  fightOrder: number;
+  phase: OfficialFightPhase;
+  currentRound: number | null;
+  roundTime: string | null;
+  fighterA: { id: string; name: string };
+  fighterB: { id: string; name: string };
+}
+
+interface OfficialLiveState {
+  eventId: string;
+  status: "upcoming" | "live" | "completed";
+  fetchedAt: string;
+  completedCount: number;
+  totalCount: number;
+  currentFight: OfficialLiveFight | null;
+  nextFight: OfficialLiveFight | null;
 }
 
 interface LiveData {
@@ -54,6 +87,7 @@ interface LiveData {
     fights_scored: number;
     rank_position: number;
   } | null;
+  officialLiveState?: OfficialLiveState | null;
 }
 
 interface FeedEntry {
@@ -73,11 +107,19 @@ function calcTotalPoints(pick: LivePick | undefined): number {
   return (pick.points_winner || 0) + (pick.points_method || 0) + (pick.points_round || 0);
 }
 
-const METHOD_EMOJI: Record<string, string> = {
-  knockout: "💥",
-  submission: "🔒",
-  decision: "⚖️",
-};
+function getFightPhaseLabel(fight: OfficialLiveFight) {
+  if (fight.phase === "walkouts") return "Entradas dos lutadores";
+  if (fight.phase === "introductions") return "Apresentação no octógono";
+  if (fight.phase === "live") {
+    return fight.currentRound ? `Round ${fight.currentRound} em andamento` : "Em andamento";
+  }
+  if (fight.phase === "between_rounds") {
+    return fight.currentRound ? `Intervalo após o round ${fight.currentRound}` : "Intervalo";
+  }
+  if (fight.phase === "awaiting_result") return "Resultado em apuração";
+  if (fight.phase === "completed") return "Encerrada";
+  return "A seguir";
+}
 
 export default function LiveFeed({ eventSlug }: { eventSlug: string }) {
   const [open, setOpen] = useState(false);
@@ -88,48 +130,69 @@ export default function LiveFeed({ eventSlug }: { eventSlug: string }) {
   const [leaderboard, setLeaderboard] = useState<LiveLeaderboardEntry[]>([]);
   const [myScore, setMyScore] = useState<LiveData["myScore"]>(null);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
+  const [retryNonce, setRetryNonce] = useState(0);
+  const [officialState, setOfficialState] = useState<OfficialLiveState | null>(null);
+  const [rankDelta, setRankDelta] = useState(0);
+  const [pointsDelta, setPointsDelta] = useState(0);
+  const previousScoreRef = useRef<LiveData["myScore"]>(null);
+  const didAutoOpenRef = useRef(false);
 
   useEffect(() => {
     let mounted = true;
     let timeoutId: ReturnType<typeof setTimeout>;
 
     async function poll() {
+      let shouldContinue = true;
       try {
         const res = await fetch(`/api/events/${eventSlug}/live`);
         if (!res.ok) throw new Error("fetch failed");
         const json = await res.json();
         if (json.error) throw new Error(json.error);
         const data: LiveData = json.data;
+        if (!mounted) return;
+        shouldContinue = data.status !== "completed";
         setError(false);
+        setLastUpdatedAt(new Date());
 
-        setStatus(data.status);
+        const effectiveStatus = data.officialLiveState?.status || data.status;
+        setStatus(effectiveStatus);
+        setOfficialState(data.officialLiveState || null);
         if (data.leaderboard) setLeaderboard(data.leaderboard);
-        if (data.myScore !== undefined) setMyScore(data.myScore);
+        if (data.myScore !== undefined) {
+          const previous = previousScoreRef.current;
+          if (previous && data.myScore) {
+            setRankDelta(previous.rank_position - data.myScore.rank_position);
+            setPointsDelta(data.myScore.total_points - previous.total_points);
+          }
+          setMyScore(data.myScore);
+          previousScoreRef.current = data.myScore;
+        }
 
-        if (data.status !== "live") return;
-
-        const newEntries: FeedEntry[] = [];
-        for (const fight of data.fights) {
-          if (!seenIds.current.has(fight.id)) {
-            seenIds.current.add(fight.id);
-            const pick = getPickForFight(fight.id, data.picks);
-            newEntries.push({
-              id: fight.id,
-              fight,
-              pick,
-              totalPoints: calcTotalPoints(pick),
-              seenAt: Date.now(),
-            });
+        if (effectiveStatus === "live" || effectiveStatus === "completed") {
+          const newEntries: FeedEntry[] = [];
+          for (const fight of data.fights) {
+            if (!seenIds.current.has(fight.id)) {
+              seenIds.current.add(fight.id);
+              const pick = getPickForFight(fight.id, data.picks);
+              newEntries.push({
+                id: fight.id,
+                fight,
+                pick,
+                totalPoints: calcTotalPoints(pick),
+                seenAt: Date.now(),
+              });
+            }
+          }
+          if (newEntries.length > 0) {
+            setEntries((prev) => [...newEntries.reverse(), ...prev]);
           }
         }
-        if (newEntries.length > 0) {
-          setEntries((prev) => [...newEntries.reverse(), ...prev]);
-        }
       } catch {
-        setError(true);
+        if (mounted) setError(true);
       }
 
-      if (mounted) {
+      if (mounted && shouldContinue) {
         timeoutId = setTimeout(poll, 20000);
       }
     }
@@ -140,13 +203,20 @@ export default function LiveFeed({ eventSlug }: { eventSlug: string }) {
       mounted = false;
       clearTimeout(timeoutId);
     };
-  }, [eventSlug]);
+  }, [eventSlug, retryNonce]);
+
+  useEffect(() => {
+    if (status === "live" && !didAutoOpenRef.current) {
+      didAutoOpenRef.current = true;
+      setOpen(true);
+    }
+  }, [status]);
 
   if (status !== "live" && entries.length === 0 && !error) return null;
 
   return (
     <div
-      className="sticky top-16 z-30"
+      className="sticky top-0 md:top-14 z-30"
       style={{
         borderBottom: open ? "1px solid var(--border)" : "none",
       }}
@@ -156,7 +226,8 @@ export default function LiveFeed({ eventSlug }: { eventSlug: string }) {
         <div className="px-4 py-3 text-sm" style={{ backgroundColor: "var(--bg-card)", borderBottom: "1px solid var(--border)" }}>
           <span style={{ color: "var(--red)" }}>Erro ao carregar dados ao vivo</span>
           <button
-            onClick={() => window.location.reload()}
+            type="button"
+            onClick={() => setRetryNonce((value) => value + 1)}
             className="ml-2 underline text-xs"
             style={{ color: "var(--text-muted)" }}
           >
@@ -167,7 +238,9 @@ export default function LiveFeed({ eventSlug }: { eventSlug: string }) {
 
       {/* Toggle bar */}
       <button
+        type="button"
         onClick={() => setOpen(!open)}
+        aria-expanded={open}
         className="w-full flex items-center gap-2 px-4 py-2 text-sm font-bold"
         style={{
           backgroundColor: open ? "var(--bg-card)" : "var(--red)",
@@ -178,8 +251,12 @@ export default function LiveFeed({ eventSlug }: { eventSlug: string }) {
           className="w-2 h-2 rounded-full animate-pulse"
           style={{ backgroundColor: open ? "var(--red)" : "white" }}
         />
-        AO VIVO
-        <span className="text-xs opacity-70 ml-1">{entries.length} resultado(s)</span>
+        {status === "completed" ? "EVENTO ENCERRADO" : "AO VIVO"}
+        <span className="text-xs opacity-70 ml-1">
+          {officialState
+            ? `${officialState.completedCount}/${officialState.totalCount} lutas`
+            : `${entries.length} resultado(s)`}
+        </span>
 
         <svg
           className="ml-auto transition-transform"
@@ -195,21 +272,108 @@ export default function LiveFeed({ eventSlug }: { eventSlug: string }) {
         </svg>
       </button>
 
+      {/* Official UFC fight state */}
+      {open && officialState?.currentFight && (
+        <div
+          className="px-4 py-4"
+          aria-live="polite"
+          style={{
+            backgroundColor: "var(--bg-card)",
+            borderBottom: "1px solid var(--border)",
+            borderLeft: "3px solid var(--red)",
+          }}
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="font-condensed font-900 text-xs uppercase tracking-widest" style={{ color: "var(--red)" }}>
+                Luta atual
+              </p>
+              <p className="mt-1 truncate font-condensed font-900 text-base uppercase tracking-wide" style={{ color: "var(--text)" }}>
+                {officialState.currentFight.fighterA.name}
+                <span className="mx-1.5" style={{ color: "var(--text-muted)" }}>vs.</span>
+                {officialState.currentFight.fighterB.name}
+              </p>
+              <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+                {getFightPhaseLabel(officialState.currentFight)}
+              </p>
+            </div>
+            {officialState.currentFight.localFightId && (
+              <a
+                href={`#fight-${officialState.currentFight.localFightId}`}
+                className="min-tap flex-shrink-0 font-condensed font-800 text-xs uppercase tracking-widest"
+                style={{ color: "var(--red)" }}
+              >
+                Ver card
+              </a>
+            )}
+          </div>
+          {officialState.nextFight && (
+            <div className="mt-3 flex items-center gap-2 pt-3 text-xs" style={{ borderTop: "1px solid var(--border)", color: "var(--text-muted)" }}>
+              <span className="font-condensed font-800 uppercase tracking-widest">A seguir</span>
+              <span className="truncate">
+                {officialState.nextFight.fighterA.name} vs. {officialState.nextFight.fighterB.name}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {open && status === "live" && !officialState?.currentFight && officialState?.nextFight && (
+        <div
+          className="flex items-center justify-between gap-4 px-4 py-3"
+          aria-live="polite"
+          style={{ backgroundColor: "var(--bg-card)", borderBottom: "1px solid var(--border)" }}
+        >
+          <div className="min-w-0">
+            <p className="font-condensed font-800 text-xs uppercase tracking-widest" style={{ color: "var(--red)" }}>
+              Próxima luta
+            </p>
+            <p className="truncate text-sm" style={{ color: "var(--text)" }}>
+              {officialState.nextFight.fighterA.name} vs. {officialState.nextFight.fighterB.name}
+            </p>
+          </div>
+          <span className="flex-shrink-0 text-xs" style={{ color: "var(--text-muted)" }}>
+            Aguardando início
+          </span>
+        </div>
+      )}
+
       {/* My score */}
       {open && myScore && (
         <div
-          className="px-4 py-3 flex items-center justify-between text-sm"
+          className="flex flex-col items-start justify-between gap-3 px-4 py-3 text-sm sm:flex-row sm:items-center"
           style={{ backgroundColor: "var(--bg-card)", borderBottom: "1px solid var(--border)" }}
         >
-          <span className="font-condensed font-700 uppercase tracking-wider" style={{ color: "var(--text)" }}>
-            Meus pontos
-          </span>
-          <span className="font-condensed font-900 text-lg" style={{ color: "var(--red)" }}>
-            {myScore.total_points}
-            <span className="text-xs font-normal ml-1" style={{ color: "var(--text-muted)" }}>
-              pts · {myScore.fights_scored} lutas · {myScore.perfect_picks} cravadas
+          <div>
+            <span className="font-condensed font-700 uppercase tracking-wider" style={{ color: "var(--text)" }}>
+              Meu desempenho
             </span>
-          </span>
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+              {myScore.fights_scored} lutas · {myScore.perfect_picks} cravadas
+            </p>
+          </div>
+          <div className="flex items-center gap-3 text-right">
+            <div>
+              <p className="font-condensed font-900 text-lg leading-none" style={{ color: "var(--red)" }}>
+                {myScore.total_points} pts
+              </p>
+              {pointsDelta > 0 && (
+                <p className="live-rank-change text-xs" style={{ color: "var(--green)" }}>
+                  +{pointsDelta} na última atualização
+                </p>
+              )}
+            </div>
+            <div className="pl-3" style={{ borderLeft: "1px solid var(--border)" }}>
+              <p className="font-condensed font-900 text-lg leading-none" style={{ color: "var(--text)" }}>
+                #{myScore.rank_position}
+              </p>
+              {rankDelta !== 0 && (
+                <p className="live-rank-change text-xs" style={{ color: rankDelta > 0 ? "var(--green)" : "var(--red)" }}>
+                  {rankDelta > 0 ? `+${rankDelta}` : rankDelta} posição{Math.abs(rankDelta) === 1 ? "" : "ões"}
+                </p>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -219,6 +383,7 @@ export default function LiveFeed({ eventSlug }: { eventSlug: string }) {
           <button
             type="button"
             onClick={() => setShowLeaderboard((v) => !v)}
+            aria-expanded={showLeaderboard}
             className="w-full flex items-center justify-between px-4 py-2 text-xs font-700 uppercase tracking-widest"
             style={{ backgroundColor: "var(--bg-card)", color: "var(--text-secondary)", borderBottom: showLeaderboard ? "1px solid var(--border)" : "none" }}
           >
@@ -236,20 +401,31 @@ export default function LiveFeed({ eventSlug }: { eventSlug: string }) {
                 <div
                   key={entry.user_id}
                   className="flex items-center gap-3 px-4 py-2"
-                  style={{ borderBottom: "1px solid var(--border)" }}
+                  style={{
+                    borderBottom: "1px solid var(--border)",
+                    backgroundColor: entry.is_me ? "rgba(232,0,26,0.06)" : "transparent",
+                  }}
                 >
                   <span
                     className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center font-condensed font-900 text-xs"
                     style={{
-                      backgroundColor: idx < 3 ? "var(--red)" : "transparent",
-                      color: idx < 3 ? "white" : "var(--text-muted)",
+                      backgroundColor: entry.rank_position <= 3 ? "var(--red)" : "transparent",
+                      color: entry.rank_position <= 3 ? "white" : "var(--text-muted)",
                     }}
                   >
-                    {idx + 1}
+                    {entry.rank_position || idx + 1}
                   </span>
-                  <span className="flex-1 font-condensed font-700 text-xs uppercase tracking-wide truncate" style={{ color: "var(--text)" }}>
-                    {entry.profile?.nickname || "---"}
-                  </span>
+                  {entry.profile?.nickname ? (
+                    <Link
+                      href={`/jogador/${encodeURIComponent(entry.profile.nickname)}`}
+                      className="flex-1 truncate font-condensed font-700 text-xs uppercase tracking-wide"
+                      style={{ color: entry.is_me ? "var(--red)" : "var(--text)" }}
+                    >
+                      {entry.profile.nickname}{entry.is_me ? " · você" : ""}
+                    </Link>
+                  ) : (
+                    <span className="flex-1">---</span>
+                  )}
                   <span className="font-condensed font-900 text-sm" style={{ color: "var(--text)" }}>
                     {entry.total_points}
                   </span>
@@ -305,7 +481,6 @@ export default function LiveFeed({ eventSlug }: { eventSlug: string }) {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold truncate">{winner.name}</p>
                   <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
-                    {METHOD_EMOJI[entry.fight.result_method || ""] || ""}{" "}
                     {methodLabel}
                     {entry.fight.result_round ? ` - R${entry.fight.result_round}` : ""}
                   </p>
@@ -343,7 +518,9 @@ export default function LiveFeed({ eventSlug }: { eventSlug: string }) {
             className="text-xs text-center py-1"
             style={{ color: "var(--text-secondary)" }}
           >
-            Atualizando a cada 20s
+            {lastUpdatedAt
+              ? `Atualizado às ${lastUpdatedAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })} · a cada 20s`
+              : "Atualizando a cada 20s"}
           </p>
         </div>
       )}

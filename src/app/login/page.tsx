@@ -62,7 +62,6 @@ export default function LoginPage() {
     border: "1px solid var(--border)",
     color: "var(--text)",
     fontFamily: "inherit",
-    outline: "none",
     width: "100%",
     padding: "12px 16px",
     fontSize: "14px",
@@ -87,12 +86,12 @@ export default function LoginPage() {
           {/* Title */}
           <div className="mb-8">
             <div className="red-line">
-              <span
+              <h1
                 className="section-title text-2xl"
                 style={{ fontSize: "1.75rem" }}
               >
                 ENTRAR
-              </span>
+              </h1>
             </div>
             <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
               Acesse sua conta para fazer seus picks
@@ -102,24 +101,28 @@ export default function LoginPage() {
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label
+                htmlFor="login-email"
                 className="block text-xs font-700 uppercase tracking-widest mb-2 font-condensed"
                 style={{ color: "var(--text-secondary)" }}
               >
                 Email
               </label>
               <input
+                id="login-email"
                 type="email"
                 required
                 autoComplete="email"
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 placeholder="seu@email.com"
+                aria-invalid={Boolean(fieldErrors.email)}
+                aria-describedby={fieldErrors.email ? "login-email-error" : undefined}
                 style={inputStyle}
                 onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
                 onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
               />
               {fieldErrors.email && (
-                <p className="text-xs mt-1" style={{ color: "var(--red)" }} role="alert">
+                <p id="login-email-error" className="text-xs mt-1" style={{ color: "var(--red)" }} role="alert">
                   {fieldErrors.email}
                 </p>
               )}
@@ -127,24 +130,28 @@ export default function LoginPage() {
 
             <div>
               <label
+                htmlFor="login-password"
                 className="block text-xs font-700 uppercase tracking-widest mb-2 font-condensed"
                 style={{ color: "var(--text-secondary)" }}
               >
                 Senha
               </label>
               <input
+                id="login-password"
                 type="password"
                 required
                 autoComplete="current-password"
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
                 placeholder="••••••••"
+                aria-invalid={Boolean(fieldErrors.password)}
+                aria-describedby={fieldErrors.password ? "login-password-error" : undefined}
                 style={inputStyle}
                 onFocus={(e) => (e.target.style.borderColor = "var(--red)")}
                 onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
               />
               {fieldErrors.password && (
-                <p className="text-xs mt-1" style={{ color: "var(--red)" }} role="alert">
+                <p id="login-password-error" className="text-xs mt-1" style={{ color: "var(--red)" }} role="alert">
                   {fieldErrors.password}
                 </p>
               )}

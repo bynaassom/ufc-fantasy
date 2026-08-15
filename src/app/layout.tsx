@@ -3,6 +3,7 @@ import { Saira_Condensed } from "next/font/google";
 import { Toaster } from "react-hot-toast";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { ThemeProvider } from "@/components/ui/ThemeProvider";
+import PwaManager from "@/components/layout/PwaManager";
 import "./globals.css";
 
 const sairaCondensed = Saira_Condensed({
@@ -22,7 +23,10 @@ export const metadata: Metadata = {
   title: "UFC Fantasy | Faça seus picks",
   description:
     "Faça seus picks, acerte os resultados e suba no ranking com seus amigos.",
-  icons: { icon: "/favicon.ico" },
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
+  },
   manifest: "/manifest.webmanifest",
   openGraph: {
     title: "UFC Fantasy | Faça seus picks",
@@ -56,8 +60,16 @@ export default function RootLayout({
         />
       </head>
       <body className="font-sans">
+        <PwaManager />
+        <a href="#app-content" className="skip-link">
+          Pular para o conteúdo
+        </a>
         <ThemeProvider>
-          <ErrorBoundary>{children}</ErrorBoundary>
+          <ErrorBoundary>
+            <div id="app-content" tabIndex={-1}>
+              {children}
+            </div>
+          </ErrorBoundary>
         </ThemeProvider>
         <Toaster
           position="top-center"

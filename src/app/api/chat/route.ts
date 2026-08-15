@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const before = searchParams.get("before");
     const since = searchParams.get("since");
-    const groupId = searchParams.get("groupId");
+    const groupId = z.string().uuid().parse(searchParams.get("groupId"));
 
     if (since) {
       const messages = await pollNewMessages(since, groupId);
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
 
 const sendMessageSchema = z.object({
   content: z.string().min(1).max(500),
-  groupId: z.string().uuid().optional().nullable(),
+  groupId: z.string().uuid(),
 });
 
 export async function POST(request: NextRequest) {

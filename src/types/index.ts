@@ -10,6 +10,7 @@ export type ChallengeStatus =
   | "declined"
   | "expired"
   | "completed";
+export type ChallengeTemplateType = "classic" | "perfect_picks";
 export type NotificationType =
   | "challenge_received"
   | "challenge_accepted"
@@ -151,6 +152,7 @@ export interface Challenge {
   challenger_id: string;
   challenged_id: string;
   status: ChallengeStatus;
+  template_type?: ChallengeTemplateType | null;
   winner_user_id?: string | null;
   responded_at?: string | null;
   completed_at?: string | null;
@@ -362,6 +364,7 @@ export interface EventRecapFightStat {
 
 export interface EventRecapData {
   event: import("@/types").EventWithFights;
+  nextEvent: { id: string; name: string; slug: string } | null;
   ranking: Array<{
     rank: number;
     user_id: string;

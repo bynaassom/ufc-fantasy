@@ -28,8 +28,6 @@ export default function HomeChallenges({
 }: {
   challenges: HomeChallenge[];
 }) {
-  if (!challenges.length) return null;
-
   return (
     <section className="mb-10">
       <div className="flex items-center justify-between mb-4">
@@ -44,8 +42,30 @@ export default function HomeChallenges({
           VER TODOS →
         </Link>
       </div>
-      <div style={{ border: "1px solid var(--border)" }}>
-        {challenges.map((challenge, index) => {
+      {challenges.length === 0 ? (
+        <div
+          className="flex items-center justify-between gap-4 px-5 py-4"
+          style={{ border: "1px solid var(--border)" }}
+        >
+          <div>
+            <p className="font-condensed font-900 text-sm uppercase tracking-wide" style={{ color: "var(--text)" }}>
+              Nenhum desafio ativo
+            </p>
+            <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
+              Convide um rival para disputar o próximo card.
+            </p>
+          </div>
+          <Link
+            href="/desafios"
+            className="min-tap flex-shrink-0 px-3 py-2 font-condensed font-900 text-xs uppercase tracking-widest text-white"
+            style={{ backgroundColor: "var(--red)" }}
+          >
+            Desafiar
+          </Link>
+        </div>
+      ) : (
+        <div style={{ border: "1px solid var(--border)" }}>
+          {challenges.map((challenge, index) => {
           const isIncoming =
             challenge.status === "pending";
           const opponent = challenge.opponent;
@@ -96,8 +116,9 @@ export default function HomeChallenges({
               </span>
             </Link>
           );
-        })}
-      </div>
+          })}
+        </div>
+      )}
     </section>
   );
 }

@@ -5,19 +5,44 @@ import {
   formatEventDate,
   getHomePicksStatusLabel,
   isPicksLocked,
+  isPicksOpen,
   getDisplayName,
 } from "@/lib/utils";
 import { getHomePageData } from "@/server/services/app";
 import type { Event as FantasyEvent } from "@/types";
 import HomeWithTour from "@/components/onboarding/HomeWithTour";
-import ActivityFeed from "@/components/feed/ActivityFeed";
 import HomeChallenges from "@/components/challenges/HomeChallenges";
 
 export const revalidate = 60; // revalida a cada 60s
 
 export default async function HomePage() {
-  const { profile, currentEvent, upcomingEvents, completedEvents, activeChallenges } =
+  const {
+    profile,
+    currentEvent,
+    upcomingEvents,
+    completedEvents,
+    activeChallenges,
+    currentEventPickProgress,
+  } =
     await getHomePageData();
+  const currentEventPicksLocked = currentEvent
+    ? isPicksLocked(currentEvent.picks_lock_at)
+    : false;
+  const currentEventPicksOpen = currentEvent
+    ? isPicksOpen(currentEvent.picks_open_at) && !currentEventPicksLocked
+    : false;
+  const currentEventCta = !currentEvent
+    ? "VER EVENTO"
+    : currentEvent.status === "live"
+      ? "ACOMPANHAR AO VIVO"
+      : !currentEventPicksOpen
+        ? "VER CARD"
+        : currentEventPickProgress.total > 0 &&
+            currentEventPickProgress.picked >= currentEventPickProgress.total
+          ? "REVISAR PICKS"
+          : currentEventPickProgress.picked > 0
+            ? `CONTINUAR · ${currentEventPickProgress.picked}/${currentEventPickProgress.total}`
+            : "FAZER PICKS";
 
   return (
     <HomeWithTour show={!profile.onboarding_completed}>
@@ -33,16 +58,11 @@ export default async function HomePage() {
           className="mb-8 pb-6"
           style={{ borderBottom: "1px solid var(--border)" }}
         >
-          <p
-            className="font-condensed font-700 text-xs uppercase tracking-widest mb-1"
-            style={{ color: "var(--text-secondary)" }}
-          >
-            {profile ? `Bem-vindo de volta, ${getDisplayName(profile)}` : "Bem-vindo de volta"}
-          </p>
           <h1
             className="font-condensed font-900 text-3xl uppercase tracking-wide"
             style={{ color: "var(--text)" }}
           >
+            Olá, {" "}
             <span style={{ color: "var(--red)" }}>
               {profile ? getDisplayName(profile) : ""}
             </span>
@@ -54,11 +74,11 @@ export default async function HomePage() {
 
         {/* Current Event */}
         {currentEvent ? (
-          <section className="mb-10">
+          <section id="evento-atual" className="mb-10" aria-labelledby="current-event-heading">
             <div className="red-line">
-              <span className="section-title">
+              <h2 id="current-event-heading" className="section-title">
                 {currentEvent.status === "live" ? "AO VIVO" : "EVENTO ATUAL"}
-              </span>
+              </h2>
               {currentEvent.status === "live" && (
                 <span
                   className="ml-2 inline-flex items-center gap-1.5 font-condensed font-700 text-xs uppercase tracking-widest px-2 py-0.5"
@@ -164,7 +184,7 @@ export default async function HomePage() {
                 <p
                   className="font-condensed font-700 text-xs uppercase tracking-widest"
                   style={{
-                    color: isPicksLocked(currentEvent.picks_lock_at)
+                    color: currentEventPicksLocked
                       ? "var(--text-muted)"
                       : "var(--text-secondary)",
                   }}
@@ -173,12 +193,17 @@ export default async function HomePage() {
                     picksOpenAt: currentEvent.picks_open_at,
                     picksLockAt: currentEvent.picks_lock_at,
                   })}
+                  {currentEventPicksOpen && currentEventPickProgress.total > 0 && (
+                    <span className="block mt-1" style={{ color: "var(--text-muted)" }}>
+                      {currentEventPickProgress.picked}/{currentEventPickProgress.total} lutas preenchidas
+                    </span>
+                  )}
                 </p>
                 <span
                   className="flex items-center gap-2 font-condensed font-900 text-xs uppercase tracking-widest px-4 py-2 text-white"
                   style={{ backgroundColor: "var(--red)" }}
                 >
-                  FAZER PICKS
+                  {currentEventCta}
                   <svg
                     width="12"
                     height="12"
@@ -224,16 +249,15 @@ export default async function HomePage() {
               style={{ border: "1px solid var(--border)" }}
             >
               {upcomingEvents.map((event: FantasyEvent, i: number) => (
-                <div
+                <Link
                   key={event.id}
+                  href={`/event/${event.slug}`}
                   className="flex items-center justify-between px-5 py-4"
                   style={{
                     borderBottom:
                       i < upcomingEvents.length - 1
                         ? "1px solid var(--border)"
                         : "none",
-                    opacity: 0.5,
-                    cursor: "not-allowed",
                   }}
                 >
                   <div>
@@ -255,22 +279,16 @@ export default async function HomePage() {
                     className="font-condensed font-700 text-xs uppercase tracking-widest px-3 py-1"
                     style={{
                       border: "1px solid var(--border)",
-                      color: "var(--text-muted)",
+                      color: "var(--text-secondary)",
                     }}
                   >
-                    EM BREVE
+                    VER CARD
                   </span>
-                </div>
+                </Link>
               ))}
             </div>
           </section>
         )}
-
-        <ActivityFeed
-          currentEvent={currentEvent}
-          upcomingEvents={upcomingEvents}
-          completedEvents={completedEvents}
-        />
 
         <HomeChallenges
           challenges={activeChallenges}
