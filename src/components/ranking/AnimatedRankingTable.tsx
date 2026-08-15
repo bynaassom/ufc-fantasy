@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { m } from "motion/react";
+import { useEffect, useMemo, useState } from "react";
 import { getPlayerLevel } from "@/lib/player-levels";
 
 export type AnimatedRankingRow = {
@@ -63,38 +64,7 @@ export default function AnimatedRankingTable({
     [rows],
   );
   const [settled, setSettled] = useState(!hasMovement);
-  const rowRefs = useRef(new Map<string, HTMLDivElement>());
-  const previousRects = useRef(new Map<string, DOMRect>());
   const displayRows = settled ? rows : previousOrder;
-
-  useLayoutEffect(() => {
-    const currentRects = new Map<string, DOMRect>();
-    rowRefs.current.forEach((element, userId) => {
-      currentRects.set(userId, element.getBoundingClientRect());
-    });
-
-    if (settled && previousRects.current.size > 0) {
-      rowRefs.current.forEach((element, userId) => {
-        const before = previousRects.current.get(userId);
-        const after = currentRects.get(userId);
-        if (!before || !after) return;
-        const deltaY = before.top - after.top;
-        if (Math.abs(deltaY) < 1) return;
-        element.animate(
-          [
-            { transform: `translateY(${deltaY}px)` },
-            { transform: "translateY(0)" },
-          ],
-          {
-            duration: 700,
-            easing: "cubic-bezier(0.22, 1, 0.36, 1)",
-          },
-        );
-      });
-    }
-
-    previousRects.current = currentRects;
-  }, [displayRows, settled]);
 
   useEffect(() => {
     if (!hasMovement) return;
@@ -152,11 +122,14 @@ export default function AnimatedRankingTable({
           const isMe = entry.userId === currentUserId;
           const medalColors = ["var(--yellow)", "var(--text-secondary)", "var(--text-muted)"];
           return (
-            <div
+            <m.div
               key={entry.userId}
-              ref={(element) => {
-                if (element) rowRefs.current.set(entry.userId, element);
-                else rowRefs.current.delete(entry.userId);
+              layout="position"
+              transition={{
+                layout: {
+                  duration: 0.7,
+                  ease: [0.22, 1, 0.36, 1],
+                },
               }}
               className="grid grid-cols-12 px-4 py-3.5 items-center"
               style={{
@@ -216,7 +189,7 @@ export default function AnimatedRankingTable({
                   </p>
                 )}
               </div>
-            </div>
+            </m.div>
           );
         })}
       </div>

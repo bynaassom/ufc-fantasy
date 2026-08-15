@@ -1,5 +1,5 @@
 import { PageSkeleton } from "@/components/ui/LoadingSkeleton";
 
 export default function JogadorLoading() {
-  return <PageSkeleton lines={8} />;
+  return <PageSkeleton variant="profile" />;
 }

@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { Dialog, DropdownMenu } from "radix-ui";
 import { createAuthClient } from "@/lib/supabase/client";
 import { Profile } from "@/types";
 import { getDisplayName, getDisplaySubtitle } from "@/lib/utils";
@@ -24,9 +25,6 @@ export default function Navbar({ profile }: NavbarProps) {
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [portalReady, setPortalReady] = useState(false);
 
-  const maisTriggerRef = useRef<HTMLButtonElement>(null);
-  const maisMenuRef = useRef<HTMLDivElement>(null);
-
   useEffect(() => {
     setPortalReady(true);
   }, []);
@@ -35,34 +33,6 @@ export default function Navbar({ profile }: NavbarProps) {
     document.body.classList.add("has-mobile-nav");
     return () => document.body.classList.remove("has-mobile-nav");
   }, []);
-
-  useEffect(() => {
-    if (moreMenuOpen) {
-      const first = maisMenuRef.current?.querySelector<HTMLElement>(
-        'a, button, [tabindex]:not([tabindex="-1"])',
-      );
-      first?.focus();
-    } else if (maisTriggerRef.current) {
-      maisTriggerRef.current.focus();
-    }
-  }, [moreMenuOpen]);
-
-  useEffect(() => {
-    if (!moreMenuOpen) return;
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setMoreMenuOpen(false);
-    }
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, [moreMenuOpen]);
-
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (!(e.target as HTMLElement).closest("#user-menu")) setMenuOpen(false);
-    }
-    if (menuOpen) document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [menuOpen]);
 
   async function handleLogout() {
     const supabase = createAuthClient();
@@ -91,7 +61,7 @@ export default function Navbar({ profile }: NavbarProps) {
   const logo = <BrandLogo priority />;
 
   return (
-    <>
+    <Dialog.Root open={moreMenuOpen} onOpenChange={setMoreMenuOpen}>
       <PushNotificationManager variant="mobile" />
 
       {/* ── DESKTOP ── */}
@@ -140,47 +110,51 @@ export default function Navbar({ profile }: NavbarProps) {
               <PushNotificationManager />
             )}
             {profile && (
-              <div id="user-menu" className="relative">
-                <button
-                  onClick={() => setMenuOpen(!menuOpen)}
-                  className="flex items-center gap-2 px-3 py-1.5 transition-all hover:opacity-80"
-                  style={{
-                    border: "1px solid var(--border)",
-                    backgroundColor: "var(--bg-card)",
-                  }}
-                >
-                  <div
-                    className="w-6 h-6 flex items-center justify-center font-condensed font-900 text-xs text-white"
-                    style={{ backgroundColor: "var(--red)" }}
-                  >
-                    {getDisplayName(profile)[0].toUpperCase()}
-                  </div>
-                  <span
-                    className="font-condensed font-700 text-xs uppercase tracking-widest"
-                    style={{ color: "var(--text)" }}
-                  >
-                    {getDisplayName(profile)}
-                  </span>
-                  <svg
-                    width="10"
-                    height="10"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
+              <DropdownMenu.Root open={menuOpen} onOpenChange={setMenuOpen}>
+                <DropdownMenu.Trigger asChild>
+                  <button
+                    aria-label={`Abrir menu de ${getDisplayName(profile)}`}
+                    className="flex items-center gap-2 px-3 py-1.5 transition-all hover:opacity-80"
                     style={{
-                      color: "var(--text-muted)",
-                      transform: menuOpen ? "rotate(180deg)" : "none",
-                      transition: "transform 0.15s",
+                      border: "1px solid var(--border)",
+                      backgroundColor: "var(--bg-card)",
                     }}
                   >
-                    <path d="M6 9l6 6 6-6" />
-                  </svg>
-                </button>
+                    <div
+                      className="w-6 h-6 flex items-center justify-center font-condensed font-900 text-xs text-white"
+                      style={{ backgroundColor: "var(--red)" }}
+                    >
+                      {getDisplayName(profile)[0].toUpperCase()}
+                    </div>
+                    <span
+                      className="font-condensed font-700 text-xs uppercase tracking-widest"
+                      style={{ color: "var(--text)" }}
+                    >
+                      {getDisplayName(profile)}
+                    </span>
+                    <svg
+                      width="10"
+                      height="10"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      style={{
+                        color: "var(--text-muted)",
+                        transform: menuOpen ? "rotate(180deg)" : "none",
+                        transition: "transform 0.15s",
+                      }}
+                    >
+                      <path d="M6 9l6 6 6-6" />
+                    </svg>
+                  </button>
+                </DropdownMenu.Trigger>
 
-                {menuOpen && (
-                  <div
-                    className="absolute right-0 top-full mt-1 w-52 z-50 slide-down"
+                <DropdownMenu.Portal>
+                  <DropdownMenu.Content
+                    align="end"
+                    sideOffset={4}
+                    className="z-[80] w-52 outline-none slide-down"
                     style={{
                       backgroundColor: "var(--bg-card)",
                       border: "1px solid var(--border)",
@@ -212,15 +186,15 @@ export default function Navbar({ profile }: NavbarProps) {
                         {profile.total_points} pontos
                       </p>
                     </div>
-                    <Link
-                      href="/profile"
-                      onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-3 w-full px-4 py-3 font-condensed font-700 text-xs uppercase tracking-widest transition-all hover:opacity-70"
-                      style={{
-                        borderBottom: "1px solid var(--border)",
-                        color: "var(--text)",
-                      }}
-                    >
+                    <DropdownMenu.Item asChild>
+                      <Link
+                        href="/profile"
+                        className="radix-menu-item flex items-center gap-3 w-full px-4 py-3 font-condensed font-700 text-xs uppercase tracking-widest"
+                        style={{
+                          borderBottom: "1px solid var(--border)",
+                          color: "var(--text)",
+                        }}
+                      >
                       <svg
                         width="14"
                         height="14"
@@ -232,17 +206,18 @@ export default function Navbar({ profile }: NavbarProps) {
                         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                         <circle cx="12" cy="7" r="4" />
                       </svg>
-                      Meu Perfil
-                    </Link>
-                    <Link
-                      href="/profile?tab=password"
-                      onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-3 w-full px-4 py-3 font-condensed font-700 text-xs uppercase tracking-widest transition-all hover:opacity-70"
-                      style={{
-                        borderBottom: "1px solid var(--border)",
-                        color: "var(--text)",
-                      }}
-                    >
+                        Meu Perfil
+                      </Link>
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item asChild>
+                      <Link
+                        href="/profile?tab=password"
+                        className="radix-menu-item flex items-center gap-3 w-full px-4 py-3 font-condensed font-700 text-xs uppercase tracking-widest"
+                        style={{
+                          borderBottom: "1px solid var(--border)",
+                          color: "var(--text)",
+                        }}
+                      >
                       <svg
                         width="14"
                         height="14"
@@ -261,13 +236,15 @@ export default function Navbar({ profile }: NavbarProps) {
                         />
                         <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                       </svg>
-                      Alterar Senha
-                    </Link>
-                    <button
-                      onClick={handleLogout}
-                      className="flex items-center gap-3 w-full px-4 py-3 font-condensed font-700 text-xs uppercase tracking-widest transition-all hover:opacity-70"
-                      style={{ color: "var(--red)" }}
-                    >
+                        Alterar Senha
+                      </Link>
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item asChild>
+                      <button
+                        onClick={handleLogout}
+                        className="radix-menu-item flex items-center gap-3 w-full px-4 py-3 font-condensed font-700 text-xs uppercase tracking-widest"
+                        style={{ color: "var(--red)" }}
+                      >
                       <svg
                         width="14"
                         height="14"
@@ -280,11 +257,12 @@ export default function Navbar({ profile }: NavbarProps) {
                         <polyline points="16 17 21 12 16 7" />
                         <line x1="21" y1="12" x2="9" y2="12" />
                       </svg>
-                      Sair
-                    </button>
-                  </div>
-                )}
-              </div>
+                        Sair
+                      </button>
+                    </DropdownMenu.Item>
+                  </DropdownMenu.Content>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Root>
             )}
           </div>
         </div>
@@ -347,48 +325,45 @@ export default function Navbar({ profile }: NavbarProps) {
           ))}
 
           {/* MAIS toggle */}
-          <button
-            ref={maisTriggerRef}
-            onClick={() => setMoreMenuOpen(!moreMenuOpen)}
-            className="flex flex-1 min-w-0 min-tap flex-col items-center gap-0.5 px-1 py-1"
-            style={{
-              color:
-                moreMenuOpen || isMoreActive
-                  ? "var(--red)"
-                  : "var(--text-muted)",
-              touchAction: "manipulation",
-              WebkitTapHighlightColor: "transparent",
-            }}
-            aria-label="Mais opções"
-            aria-expanded={moreMenuOpen}
-            aria-controls="mobile-more-menu"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <circle cx="12" cy="5" r="1.5" />
-              <circle cx="12" cy="12" r="1.5" />
-              <circle cx="12" cy="19" r="1.5" />
-            </svg>
-            <span className="font-condensed font-700 uppercase tracking-widest" style={{ fontSize: "9px" }}>
-              MAIS
-            </span>
-          </button>
+          <Dialog.Trigger asChild>
+            <button
+              className="flex flex-1 min-w-0 min-tap flex-col items-center gap-0.5 px-1 py-1"
+              style={{
+                color:
+                  moreMenuOpen || isMoreActive
+                    ? "var(--red)"
+                    : "var(--text-muted)",
+                touchAction: "manipulation",
+                WebkitTapHighlightColor: "transparent",
+              }}
+              aria-label="Mais opções"
+              aria-controls="mobile-more-menu"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <circle cx="12" cy="5" r="1.5" />
+                <circle cx="12" cy="12" r="1.5" />
+                <circle cx="12" cy="19" r="1.5" />
+              </svg>
+              <span className="font-condensed font-700 uppercase tracking-widest" style={{ fontSize: "9px" }}>
+                MAIS
+              </span>
+            </button>
+          </Dialog.Trigger>
         </div>
       </nav>,
       document.body
       )}
 
       {/* ── MOBILE MORE MENU ── */}
-      {moreMenuOpen && (
-        <>
-          <div
+      <Dialog.Portal>
+          <Dialog.Overlay
             className="fixed inset-0 z-[60] md:hidden"
             style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
-            onClick={() => setMoreMenuOpen(false)}
           />
-          <div
+          <Dialog.Content
             id="mobile-more-menu"
-            ref={maisMenuRef}
-            className="fixed bottom-0 left-0 right-0 z-[70] md:hidden"
+            aria-describedby={undefined}
+            className="fixed bottom-0 left-0 right-0 z-[70] md:hidden outline-none"
             style={{
               backgroundColor: "var(--bg)",
               borderTop: "2px solid var(--red)",
@@ -398,20 +373,21 @@ export default function Navbar({ profile }: NavbarProps) {
             }}
           >
             <div className="flex items-center justify-between px-4 h-12">
-              <p className="font-condensed font-900 text-sm uppercase tracking-widest" style={{ color: "var(--text)" }}>
+              <Dialog.Title className="font-condensed font-900 text-sm uppercase tracking-widest" style={{ color: "var(--text)" }}>
                 Navegação
-              </p>
-              <button
-                onClick={() => setMoreMenuOpen(false)}
-                className="flex items-center justify-center w-8 h-8"
-                style={{ color: "var(--text-muted)" }}
-                aria-label="Fechar"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M18 6L6 18" />
-                  <path d="M6 6l12 12" />
-                </svg>
-              </button>
+              </Dialog.Title>
+              <Dialog.Close asChild>
+                <button
+                  className="flex items-center justify-center w-8 h-8"
+                  style={{ color: "var(--text-muted)" }}
+                  aria-label="Fechar"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 6L6 18" />
+                    <path d="M6 6l12 12" />
+                  </svg>
+                </button>
+              </Dialog.Close>
             </div>
 
             <div className="grid grid-cols-2 gap-px" style={{ backgroundColor: "var(--border)" }}>
@@ -444,23 +420,7 @@ export default function Navbar({ profile }: NavbarProps) {
                       ),
                     }]
                   : []),
-              ].map((link: any) =>
-                link.href && link.action ? (
-                  <button
-                    key={link.href}
-                    onClick={() => { link.action(); setMoreMenuOpen(false); }}
-                    className="flex flex-col items-center justify-center gap-1.5 p-5 min-h-[80px]"
-                    style={{
-                      backgroundColor: "var(--bg-card)",
-                      color: "var(--text-secondary)",
-                    }}
-                  >
-                    {link.icon}
-                    <span className="font-condensed font-700 text-[10px] uppercase tracking-widest" style={{ color: "var(--text)" }}>
-                      {link.label}
-                    </span>
-                  </button>
-                ) : (
+              ].map((link) => (
                   <Link
                     key={link.href}
                     href={link.href}
@@ -477,8 +437,7 @@ export default function Navbar({ profile }: NavbarProps) {
                       {link.label}
                     </span>
                   </Link>
-                ),
-              )}
+              ))}
             </div>
 
             {/* Toggles row */}
@@ -487,9 +446,8 @@ export default function Navbar({ profile }: NavbarProps) {
               <NotificationBell variant="mobile" />
             </div>
             <PwaInstallButton />
-          </div>
-        </>
-      )}
-    </>
+          </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }

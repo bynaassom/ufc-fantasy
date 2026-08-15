@@ -3,6 +3,7 @@ import { Saira_Condensed } from "next/font/google";
 import { Toaster } from "react-hot-toast";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { ThemeProvider } from "@/components/ui/ThemeProvider";
+import MotionProvider from "@/components/ui/MotionProvider";
 import PwaManager from "@/components/layout/PwaManager";
 import "./globals.css";
 
@@ -65,11 +66,13 @@ export default function RootLayout({
           Pular para o conteúdo
         </a>
         <ThemeProvider>
-          <ErrorBoundary>
-            <div id="app-content" tabIndex={-1}>
-              {children}
-            </div>
-          </ErrorBoundary>
+          <MotionProvider>
+            <ErrorBoundary>
+              <div id="app-content" tabIndex={-1}>
+                {children}
+              </div>
+            </ErrorBoundary>
+          </MotionProvider>
         </ThemeProvider>
         <Toaster
           position="top-center"

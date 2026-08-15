@@ -67,6 +67,15 @@
     display: block;
 }
 
+.radix-menu-item {
+    cursor: pointer;
+    outline: none;
+}
+
+.radix-menu-item[data-highlighted] {
+    background-color: var(--bg-elevated);
+}
+
 * {
     box-sizing: border-box;
     padding: 0;
@@ -326,23 +335,49 @@ button:disabled {
     animation: slideDown 0.18s ease forwards;
 }
 
-@keyframes shimmer {
-    0% {
-        background-position: -200% 0;
-    }
-    100% {
-        background-position: 200% 0;
-    }
-}
 .skeleton {
-    background: linear-gradient(
-        90deg,
-        var(--bg-card) 25%,
-        var(--border) 50%,
-        var(--bg-card) 75%
-    );
-    background-size: 200% 100%;
-    animation: shimmer 1.4s infinite;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, var(--bg-card), var(--bg-elevated));
+    border: 1px solid var(--border-light);
+}
+
+.skeleton-stage::before {
+    position: fixed;
+    z-index: 120;
+    top: 0;
+    left: 0;
+    width: 28%;
+    height: 3px;
+    content: "";
+    background: var(--red);
+    box-shadow: 0 0 14px rgba(232, 0, 26, 0.45);
+    animation: skeleton-progress 1.35s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+.skeleton-feature::after {
+    position: absolute;
+    inset: 0;
+    content: "";
+    background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.055) 48%, transparent 61%);
+    transform: translateX(-100%);
+    animation: skeleton-scan 2.2s ease-in-out infinite;
+}
+
+.skeleton-nav,
+.skeleton-mobile-brand,
+.skeleton-mobile-nav {
+    background-color: var(--bg);
+}
+
+@keyframes skeleton-progress {
+    0% { transform: translateX(-110%); }
+    100% { transform: translateX(460%); }
+}
+
+@keyframes skeleton-scan {
+    0%, 18% { transform: translateX(-100%); }
+    78%, 100% { transform: translateX(100%); }
 }
 
 @keyframes pulse-red {
@@ -356,21 +391,6 @@ button:disabled {
 }
 .pulse-red {
     animation: pulse-red 2s ease-in-out infinite;
-}
-
-@keyframes liveRankChange {
-    from {
-        opacity: 0;
-        transform: translateY(4px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.live-rank-change {
-    animation: liveRankChange 0.25s ease-out;
 }
 
 /* ============================================================

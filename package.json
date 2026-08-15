@@ -9,14 +9,18 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "storybook": "storybook dev -p 6006 --no-open",
+    "build-storybook": "storybook build"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.1",
     "@supabase/supabase-js": "^2.45.0",
     "date-fns": "^3.6.0",
     "html-to-image": "^1.11.13",
+    "motion": "^13.1.0",
     "next": "^16.3.1",
+    "radix-ui": "^1.6.7",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-hot-toast": "^2.4.1",
@@ -26,6 +30,9 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
+    "@storybook/addon-a11y": "^10.5.8",
+    "@storybook/addon-docs": "^10.5.8",
+    "@storybook/react-vite": "^10.5.8",
     "@types/node": "^20",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
@@ -35,8 +42,10 @@
     "eslint-config-next": "^16.3.1",
     "picomatch": "^2.3.2",
     "postcss": "^8.5.26",
+    "storybook": "^10.5.8",
     "tailwindcss": "^3.4.1",
     "typescript": "^5",
+    "vite": "^8.2.1",
     "vitest": "^4.1.4"
   }
 }

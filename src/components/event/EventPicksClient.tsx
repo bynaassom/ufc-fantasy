@@ -8,6 +8,10 @@ import {
   getFightCardUnavailablePicksLabel,
   isPicksLocked,
 } from "@/lib/utils";
+import {
+  FightCardsSkeleton,
+  SkeletonBlock,
+} from "@/components/ui/LoadingSkeleton";
 
 interface EventPicksClientProps {
   event: EventWithFights;
@@ -293,12 +297,20 @@ export default function EventPicksClient({
 
   if (!draftsLoaded) {
     return (
-      <div
-        className="mb-6 p-4 text-sm"
-        style={{ color: "var(--text-secondary)", border: "1px solid var(--border)" }}
-        role="status"
-      >
-        Carregando seus picks…
+      <div role="status" aria-label="Carregando seus picks">
+        <span className="sr-only">Carregando seus picks…</span>
+        <div
+          className="mb-6 flex items-center justify-between gap-4 border p-4"
+          style={{ borderColor: "var(--border)", backgroundColor: "var(--bg-card)" }}
+          aria-hidden="true"
+        >
+          <div className="space-y-2">
+            <SkeletonBlock className="h-3 w-32" />
+            <SkeletonBlock className="h-1.5 w-48 max-w-full" />
+          </div>
+          <SkeletonBlock className="h-3 w-24" />
+        </div>
+        <FightCardsSkeleton rows={Math.max(1, event.fights.length)} />
       </div>
     );
   }

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AnimatePresence, m } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { getMethodLabel } from "@/lib/utils";
 
@@ -258,9 +259,10 @@ export default function LiveFeed({ eventSlug }: { eventSlug: string }) {
             : `${entries.length} resultado(s)`}
         </span>
 
-        <svg
-          className="ml-auto transition-transform"
-          style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
+        <m.svg
+          className="ml-auto"
+          animate={{ rotate: open ? 180 : 0 }}
+          transition={{ duration: 0.18 }}
           width="14"
           height="14"
           viewBox="0 0 24 24"
@@ -269,7 +271,7 @@ export default function LiveFeed({ eventSlug }: { eventSlug: string }) {
           strokeWidth="2.5"
         >
           <polyline points="6 9 12 15 18 9" />
-        </svg>
+        </m.svg>
       </button>
 
       {/* Official UFC fight state */}
@@ -357,21 +359,41 @@ export default function LiveFeed({ eventSlug }: { eventSlug: string }) {
               <p className="font-condensed font-900 text-lg leading-none" style={{ color: "var(--red)" }}>
                 {myScore.total_points} pts
               </p>
-              {pointsDelta > 0 && (
-                <p className="live-rank-change text-xs" style={{ color: "var(--green)" }}>
-                  +{pointsDelta} na última atualização
-                </p>
-              )}
+              <AnimatePresence initial={false}>
+                {pointsDelta > 0 && (
+                  <m.p
+                    key={pointsDelta}
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.24 }}
+                    className="text-xs"
+                    style={{ color: "var(--green)" }}
+                  >
+                    +{pointsDelta} na última atualização
+                  </m.p>
+                )}
+              </AnimatePresence>
             </div>
             <div className="pl-3" style={{ borderLeft: "1px solid var(--border)" }}>
               <p className="font-condensed font-900 text-lg leading-none" style={{ color: "var(--text)" }}>
                 #{myScore.rank_position}
               </p>
-              {rankDelta !== 0 && (
-                <p className="live-rank-change text-xs" style={{ color: rankDelta > 0 ? "var(--green)" : "var(--red)" }}>
-                  {rankDelta > 0 ? `+${rankDelta}` : rankDelta} posição{Math.abs(rankDelta) === 1 ? "" : "ões"}
-                </p>
-              )}
+              <AnimatePresence initial={false}>
+                {rankDelta !== 0 && (
+                  <m.p
+                    key={rankDelta}
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.24 }}
+                    className="text-xs"
+                    style={{ color: rankDelta > 0 ? "var(--green)" : "var(--red)" }}
+                  >
+                    {rankDelta > 0 ? `+${rankDelta}` : rankDelta} posição{Math.abs(rankDelta) === 1 ? "" : "ões"}
+                  </m.p>
+                )}
+              </AnimatePresence>
             </div>
           </div>
         </div>
@@ -388,12 +410,13 @@ export default function LiveFeed({ eventSlug }: { eventSlug: string }) {
             style={{ backgroundColor: "var(--bg-card)", color: "var(--text-secondary)", borderBottom: showLeaderboard ? "1px solid var(--border)" : "none" }}
           >
             Classificação ao vivo · {leaderboard.length}
-            <svg
+            <m.svg
               width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
-              style={{ transform: showLeaderboard ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}
+              animate={{ rotate: showLeaderboard ? 180 : 0 }}
+              transition={{ duration: 0.18 }}
             >
               <polyline points="6 9 12 15 18 9" />
-            </svg>
+            </m.svg>
           </button>
           {showLeaderboard && (
             <div style={{ backgroundColor: "var(--bg-card)" }}>
@@ -458,9 +481,13 @@ export default function LiveFeed({ eventSlug }: { eventSlug: string }) {
             const methodLabel = getMethodLabel(entry.fight.result_method || "");
 
             return (
-              <div
+              <m.div
                 key={entry.id}
-                className="flex items-start gap-3 p-3 animate-in fade-in slide-in-from-top-2 duration-300"
+                layout="position"
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                className="flex items-start gap-3 p-3"
                 style={{
                   backgroundColor: "var(--bg)",
                   border: "1px solid var(--border)",
@@ -510,7 +537,7 @@ export default function LiveFeed({ eventSlug }: { eventSlug: string }) {
                 >
                   Luta #{entry.fight.fight_order}
                 </span>
-              </div>
+              </m.div>
             );
           })}
 

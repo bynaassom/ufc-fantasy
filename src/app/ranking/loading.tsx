@@ -1,5 +1,5 @@
 import { PageSkeleton } from "@/components/ui/LoadingSkeleton";
 
 export default function RankingLoading() {
-  return <PageSkeleton lines={10} />;
+  return <PageSkeleton variant="ranking" />;
 }

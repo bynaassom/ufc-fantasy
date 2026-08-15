@@ -1,5 +1,5 @@
 import { PageSkeleton } from "@/components/ui/LoadingSkeleton";
 
 export default function LigasLoading() {
-  return <PageSkeleton lines={4} />;
+  return <PageSkeleton variant="league" lines={4} />;
 }

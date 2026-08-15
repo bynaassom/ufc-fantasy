@@ -9,8 +9,8 @@ export default function BrandLogo({
 }) {
   return (
     <span className="relative inline-flex">
-      <Image src="/logo-dark.svg" alt="UFC Fantasy" width={113} height={20} className={`brand-logo-dark ${className}`} priority={priority} />
-      <Image src="/logo-light.svg" alt="" aria-hidden width={114} height={20} className={`brand-logo-light ${className}`} priority={priority} />
+      <Image src="/logo-dark.svg" alt="UFC Fantasy" width={113} height={20} style={{ width: "auto" }} className={`brand-logo-dark ${className}`} priority={priority} />
+      <Image src="/logo-light.svg" alt="" aria-hidden width={114} height={20} style={{ width: "auto" }} className={`brand-logo-light ${className}`} priority={priority} />
     </span>
   );
 }

@@ -1,5 +1,5 @@
 import { PageSkeleton } from "@/components/ui/LoadingSkeleton";
 
-export default function EventLoading() {
+export default function CurrentEventLoading() {
   return <PageSkeleton variant="event" />;
 }
