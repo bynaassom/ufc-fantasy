@@ -51,7 +51,7 @@ export default async function AdminPage() {
       style={{ backgroundColor: "var(--bg)" }}
     >
       <Navbar profile={profile} />
-      <main className="max-w-5xl mx-auto px-4 py-8">
+      <main className="max-w-6xl mx-auto px-4 py-6 sm:py-8">
         <div
           className="mb-8 pb-6"
           style={{ borderBottom: "1px solid var(--border)" }}

@@ -56,5 +56,8 @@ test.describe("admin smoke", () => {
     await page.goto("/admin");
 
     await expect(page.getByText(/painel admin/i)).toBeVisible();
+    await page.getByRole("tab", { name: /operações/i }).click();
+    await page.getByRole("tab", { name: /monitor/i }).click();
+    await expect(page.getByRole("heading", { name: /monitor de integrações/i })).toBeVisible();
   });
 });

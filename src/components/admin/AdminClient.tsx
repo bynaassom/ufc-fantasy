@@ -16,6 +16,7 @@ import SyncTab from "./tabs/SyncTab";
 import UsersTab from "./tabs/UsersTab";
 import BadgesTab from "./tabs/BadgesTab";
 import AnalyticsTab from "./tabs/AnalyticsTab";
+import LogsTab from "./tabs/LogsTab";
 
 export default function AdminClient({
   events,
@@ -103,6 +104,7 @@ export default function AdminClient({
       { key: "res-manual", label: "Manual" },
     ]},
     { key: "operacoes", label: "OPERAÇÕES", subs: [
+      { key: "ops-logs", label: "Monitor" },
       { key: "ops-lote", label: "Ações em Lote" },
       { key: "ops-fighters", label: "Mesclar Lutadores" },
       { key: "ops-fotos", label: "Fotos" },
@@ -126,12 +128,19 @@ export default function AdminClient({
 
   return (
     <div>
-      <div className="mb-0 flex gap-0 overflow-x-auto" style={{ borderBottom: "1px solid var(--border)" }}>
+      <div
+        className="mb-0 flex gap-0 overflow-x-auto"
+        role="tablist"
+        aria-label="Seções do painel administrativo"
+        style={{ borderBottom: "1px solid var(--border)" }}
+      >
         {nav.map((n) => (
           <button
             key={n.key}
             onClick={() => switchMain(n.key, n.subs[0]?.key || ("usuarios" as SubTab))}
-            className="relative flex-shrink-0 font-condensed font-700 text-xs uppercase tracking-widest px-5 md:px-6 py-3 transition-all"
+            role="tab"
+            aria-selected={mainTab === n.key}
+            className="relative min-h-11 flex-shrink-0 cursor-pointer font-condensed font-700 text-xs uppercase tracking-widest px-5 md:px-6 py-3 transition-colors hover:bg-[var(--bg-elevated)]"
             style={{ color: mainTab === n.key ? "var(--red)" : "var(--text-muted)" }}
           >
             {n.label}
@@ -141,12 +150,19 @@ export default function AdminClient({
       </div>
 
       {nav.find((n) => n.key === mainTab)?.subs.length ? (
-        <div className="mb-8 flex gap-0 overflow-x-auto" style={{ borderBottom: "1px solid var(--border)", backgroundColor: "var(--bg-elevated)" }}>
+        <div
+          className="mb-6 flex gap-0 overflow-x-auto sm:mb-8"
+          role="tablist"
+          aria-label="Subseções"
+          style={{ borderBottom: "1px solid var(--border)", backgroundColor: "var(--bg-elevated)" }}
+        >
           {nav.find((n) => n.key === mainTab)!.subs.map((s) => (
             <button
               key={s.key}
               onClick={() => setSubTab(s.key)}
-              className="relative flex-shrink-0 font-condensed font-600 text-xs uppercase tracking-widest px-4 md:px-5 py-2.5 transition-all"
+              role="tab"
+              aria-selected={subTab === s.key}
+              className="relative min-h-11 flex-shrink-0 cursor-pointer font-condensed font-600 text-xs uppercase tracking-widest px-4 md:px-5 py-2.5 transition-colors hover:bg-[var(--bg-card)]"
               style={{ color: subTab === s.key ? "var(--text)" : "var(--text-muted)" }}
             >
               {s.label}
@@ -169,6 +185,7 @@ export default function AdminClient({
       {subTab === "ops-fighters" && <FightersTab subTab={subTab} />}
       {subTab === "ops-fotos" && <FightersTab subTab={subTab} />}
       {subTab === "ops-auditoria" && <UsersTab subTab={subTab} {...tabProps} />}
+      {subTab === "ops-logs" && <LogsTab />}
       {subTab === "usuarios" && <UsersTab subTab={subTab} {...tabProps} />}
       {subTab === "badges-list" && <BadgesTab subTab={subTab} users={userList} />}
       {subTab === "badges-novo" && <BadgesTab subTab={subTab} users={userList} />}

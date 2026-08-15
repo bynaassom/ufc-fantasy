@@ -27,7 +27,6 @@ export const inp: React.CSSProperties = {
   border: "1px solid var(--border)",
   color: "var(--text)",
   fontFamily: "inherit",
-  outline: "none",
   width: "100%",
   padding: "10px 14px",
   fontSize: "14px",

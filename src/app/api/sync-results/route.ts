@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { revalidatePath, revalidateTag } from "next/cache";
@@ -269,13 +270,22 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const adminSupabase = await createAdminClient();
+  const startedAt = Date.now();
+  const requestId = randomUUID();
   let adminUserId: string | null = null;
+
+  const logAttempt = (details: Record<string, unknown>) =>
+    logSyncAttempt(adminSupabase, {
+      request_id: requestId,
+      duration_ms: Date.now() - startedAt,
+      ...details,
+    });
 
   const authHeader = req.headers.get("authorization");
   const syncSecret = process.env.SYNC_SECRET;
   const isExternalCall = syncSecret && authHeader === `Bearer ${syncSecret}`;
 
-  await logSyncAttempt(adminSupabase, {
+  await logAttempt({
     step: "received",
     is_external: !!isExternalCall,
     has_auth: !!authHeader,
@@ -286,7 +296,7 @@ export async function POST(req: NextRequest) {
     try {
       assertSameOriginForMutation(req);
     } catch {
-      await logSyncAttempt(adminSupabase, {
+      await logAttempt({
         step: "rejected",
         reason: "cross_origin",
         is_external: false,
@@ -301,7 +311,7 @@ export async function POST(req: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) {
-      await logSyncAttempt(adminSupabase, {
+      await logAttempt({
         step: "rejected",
         reason: "no_session",
         is_external: false,
@@ -314,7 +324,7 @@ export async function POST(req: NextRequest) {
       .eq("id", user.id)
       .single();
     if (!profile || profile.role !== "admin" || profile.is_banned) {
-      await logSyncAttempt(adminSupabase, {
+      await logAttempt({
         step: "rejected",
         reason: "not_admin",
         user_id: user.id,
@@ -353,7 +363,7 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (!activeEvent) {
-      await logSyncAttempt(adminSupabase, {
+      await logAttempt({
         step: "no_active_event",
         is_external: true,
       });
@@ -365,7 +375,7 @@ export async function POST(req: NextRequest) {
       new Date(activeEvent.event_date).getTime() + 6 * 60 * 60 * 1000,
     );
     if (now < lockAt || now > endAt) {
-      await logSyncAttempt(adminSupabase, {
+      await logAttempt({
         step: "outside_window",
         is_external: true,
         event_id: activeEvent.id,
@@ -388,7 +398,7 @@ export async function POST(req: NextRequest) {
       authHeader,
       syncSecret,
     });
-    await logSyncAttempt(adminSupabase, {
+    await logAttempt({
       step: "no_event_id",
       is_external: !!isExternalCall,
       diagnostics: diag,
@@ -406,7 +416,7 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (!event) {
-    await logSyncAttempt(adminSupabase, {
+    await logAttempt({
       step: "event_not_found",
       event_id,
       is_external: !!isExternalCall,
@@ -430,7 +440,7 @@ export async function POST(req: NextRequest) {
     .eq("event_id", event_id);
 
   if (!fights?.length) {
-    await logSyncAttempt(adminSupabase, {
+    await logAttempt({
       step: "no_fights",
       event_id,
       is_external: !!isExternalCall,
@@ -449,7 +459,7 @@ export async function POST(req: NextRequest) {
   );
 
   if (!scrapedCount) {
-    await logSyncAttempt(adminSupabase, {
+    await logAttempt({
       step: "no_scraped_results",
       event_id,
       event_slug: event?.slug || null,
@@ -469,7 +479,7 @@ export async function POST(req: NextRequest) {
   const updates: Update[] = consensus.updates;
 
   if (!updates.length) {
-    await logSyncAttempt(adminSupabase, {
+    await logAttempt({
       step: "no_consensus",
       event_id,
       event_slug: event?.slug || null,
@@ -496,7 +506,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (dryRun) {
-    await logSyncAttempt(adminSupabase, {
+    await logAttempt({
       step: "dry_run",
       event_id,
       event_slug: event?.slug || null,
@@ -527,7 +537,7 @@ export async function POST(req: NextRequest) {
   );
 
   if (rpcError) {
-    await logSyncAttempt(adminSupabase, {
+    await logAttempt({
       step: "transaction_failed",
       event_id,
       event_slug: event?.slug || null,
@@ -582,6 +592,8 @@ export async function POST(req: NextRequest) {
         event_completed: lifecycle.completed,
         next_event_id: lifecycle.nextEvent?.id || null,
         step: "complete",
+        request_id: requestId,
+        duration_ms: Date.now() - startedAt,
     },
   });
 

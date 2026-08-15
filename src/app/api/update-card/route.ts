@@ -18,6 +18,7 @@ import {
 import { assertSameOriginForMutation } from "@/server/api";
 import { CACHE_TAGS } from "@/server/cache-tags";
 import { notifyBulkCardChanges } from "@/server/services/notifications";
+import { logAdminAction } from "@/lib/admin-audit";
 
 function getFighterName(
   fighter: { name?: string | null } | Array<{ name?: string | null }> | null | undefined,
@@ -42,6 +43,7 @@ async function safelyNotifyBulkCardChanges(
 
 export async function POST(req: NextRequest) {
   assertSameOriginForMutation(req);
+  const startedAt = Date.now();
   const supabase = await createClient();
   const adminSupabase = await createAdminClient();
 
@@ -80,6 +82,17 @@ export async function POST(req: NextRequest) {
 
   const candidateUrls = await resolveEventUrlCandidates(event);
   if (!candidateUrls.length) {
+    await logAdminAction(adminSupabase, {
+      userId: user.id,
+      action: "admin_update_card",
+      details: {
+        status: "error",
+        event_id,
+        event_name: event.name,
+        duration_ms: Date.now() - startedAt,
+        message: "Não foi possível montar a URL oficial do evento no UFC.com",
+      },
+    });
     return NextResponse.json(
       { error: "Não foi possível montar a URL oficial do evento no UFC.com" },
       { status: 400 },
@@ -108,6 +121,19 @@ export async function POST(req: NextRequest) {
   }
 
   if (!scrapedFights.length) {
+    await logAdminAction(adminSupabase, {
+      userId: user.id,
+      action: "admin_update_card",
+      details: {
+        status: "error",
+        event_id,
+        event_name: event.name,
+        attempted_urls: candidateUrls,
+        attempted_errors: attemptedErrors,
+        duration_ms: Date.now() - startedAt,
+        message: "Nenhuma luta encontrada na página do UFC.com",
+      },
+    });
     return NextResponse.json(
       {
         error: "Nenhuma luta encontrada na página do UFC.com",
@@ -197,6 +223,25 @@ export async function POST(req: NextRequest) {
       }),
     );
 
+    await logAdminAction(adminSupabase, {
+      userId: user.id,
+      action: "admin_update_card",
+      details: {
+        status: attemptedErrors.length ? "warning" : "info",
+        preview: true,
+        event_id,
+        event_name: event.name,
+        resolved_url: resolvedUrl,
+        attempted_urls: candidateUrls,
+        attempted_errors: attemptedErrors,
+        added_count: diff.added.length,
+        updated_count: diff.updated.length,
+        removed_count: diff.removed.length,
+        event_timing: eventTiming,
+        duration_ms: Date.now() - startedAt,
+      },
+    });
+
     return NextResponse.json({
       preview: true,
       event_timing: eventTiming,
@@ -282,6 +327,26 @@ export async function POST(req: NextRequest) {
   });
 
   revalidateTag(CACHE_TAGS.events, "max");
+
+  await logAdminAction(adminSupabase, {
+    userId: user.id,
+    action: "admin_update_card",
+    details: {
+      status: attemptedErrors.length ? "warning" : "success",
+      preview: false,
+      event_id,
+      event_name: event.name,
+      resolved_url: resolvedUrl,
+      attempted_urls: candidateUrls,
+      attempted_errors: attemptedErrors,
+      added_count: diff.added.length,
+      updated_count: diff.updated.length,
+      removed_count: (remove_ids || []).length,
+      applied_count: appliedChangeCount,
+      event_timing: eventTiming,
+      duration_ms: Date.now() - startedAt,
+    },
+  });
 
   return NextResponse.json({
     ok: true,

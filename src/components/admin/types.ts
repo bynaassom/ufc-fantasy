@@ -14,6 +14,7 @@ export type SubTab =
   | "ops-fighters"
   | "ops-fotos"
   | "ops-auditoria"
+  | "ops-logs"
   | "badges-list"
   | "badges-novo"
   | "analytics"

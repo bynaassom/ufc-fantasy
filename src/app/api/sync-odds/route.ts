@@ -222,6 +222,7 @@ export async function POST(req: NextRequest) {
   assertSameOriginForMutation(req);
   const auth = await requireAdmin();
   if (auth.error) return auth.error;
+  const startedAt = Date.now();
 
   if (!ODDS_API_KEY) {
     return NextResponse.json(
@@ -237,6 +238,19 @@ export async function POST(req: NextRequest) {
     const changedMatches = preview.matches.filter((item) => item.changed);
 
     if (dryRun) {
+      await logAdminAction(auth.adminSupabase, {
+        userId: auth.userId,
+        action: "admin_sync_odds",
+        details: {
+          status: "info",
+          dry_run: true,
+          event_id: eventId || null,
+          changed_count: changedMatches.length,
+          skipped_count: preview.skipped.length,
+          requests_remaining: preview.requestsRemaining,
+          duration_ms: Date.now() - startedAt,
+        },
+      });
       return NextResponse.json({
         ok: true,
         dry_run: true,
@@ -260,10 +274,13 @@ export async function POST(req: NextRequest) {
       userId: auth.userId,
       action: "admin_sync_odds",
       details: {
+        status: "success",
         event_id: eventId || null,
         changed_count: changedMatches.length,
         saved_count: saved,
         skipped_count: preview.skipped.length,
+        requests_remaining: preview.requestsRemaining,
+        duration_ms: Date.now() - startedAt,
       },
     });
 
@@ -275,6 +292,16 @@ export async function POST(req: NextRequest) {
       skipped: preview.skipped,
     });
   } catch (err: any) {
+    await logAdminAction(auth.adminSupabase, {
+      userId: auth.userId,
+      action: "admin_sync_odds",
+      details: {
+        status: "error",
+        event_id: eventId || null,
+        duration_ms: Date.now() - startedAt,
+        message: err?.message || "Falha ao sincronizar odds",
+      },
+    });
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

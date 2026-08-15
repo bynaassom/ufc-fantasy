@@ -393,6 +393,7 @@ function summarizePlan(candidates: SyncCandidate[]) {
 export async function GET(req: NextRequest) {
   const auth = await requireAdmin(req);
   if (auth.error) return auth.error;
+  const startedAt = Date.now();
 
   try {
     const [upstreamEvents, pageEvents, existingEvents] = await Promise.all([
@@ -407,14 +408,40 @@ export async function GET(req: NextRequest) {
     );
     const summary = summarizePlan(candidates);
 
+    await logAdminAction(auth.adminSupabase, {
+      userId: auth.userId,
+      action: "admin_preview_events",
+      details: {
+        status: "info",
+        trigger: auth.isExternal ? "cron" : "admin",
+        candidate_count: candidates.length,
+        created_count: summary.create,
+        updated_count: summary.update,
+        unchanged_count: summary.unchanged,
+        duration_ms: Date.now() - startedAt,
+        message: summary.message,
+      },
+    });
+
     return NextResponse.json({
       ok: true,
       ...summary,
       events: candidates,
     });
   } catch (error) {
+    const message = error instanceof Error ? error.message : "Erro ao listar eventos";
+    await logAdminAction(auth.adminSupabase, {
+      userId: auth.userId,
+      action: "admin_preview_events",
+      details: {
+        status: "error",
+        trigger: auth.isExternal ? "cron" : "admin",
+        duration_ms: Date.now() - startedAt,
+        message,
+      },
+    });
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Erro ao listar eventos" },
+      { error: message },
       { status: 500 },
     );
   }
@@ -424,6 +451,7 @@ export async function POST(req: NextRequest) {
   assertSameOriginForMutation(req);
   const auth = await requireAdmin(req);
   if (auth.error) return auth.error;
+  const startedAt = Date.now();
 
   let selectedEventIds: string[] | undefined;
   try {
@@ -556,6 +584,8 @@ export async function POST(req: NextRequest) {
       userId: auth.userId,
       action: "admin_sync_events",
       details: {
+        status: cardErrors.length ? "warning" : "success",
+        trigger: auth.isExternal ? "cron" : "admin",
         selected_count: selectedCandidates.length,
         created_count: created.length,
         updated_count: updated.length,
@@ -566,6 +596,8 @@ export async function POST(req: NextRequest) {
         card_added_count: cardAddedCount,
         card_updated_count: cardUpdatedCount,
         selected_source_ids: selectedCandidates.map((candidate) => candidate.source_id),
+        duration_ms: Date.now() - startedAt,
+        message: `${created.length} criado(s), ${updated.length} atualizado(s), ${unchanged.length} sem mudança`,
       },
     });
 
@@ -585,8 +617,19 @@ export async function POST(req: NextRequest) {
       card_updated_count: cardUpdatedCount,
     });
   } catch (error) {
+    const message = error instanceof Error ? error.message : "Erro ao sincronizar eventos";
+    await logAdminAction(auth.adminSupabase, {
+      userId: auth.userId,
+      action: "admin_sync_events",
+      details: {
+        status: "error",
+        trigger: auth.isExternal ? "cron" : "admin",
+        duration_ms: Date.now() - startedAt,
+        message,
+      },
+    });
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Erro ao sincronizar eventos" },
+      { error: message },
       { status: 500 },
     );
   }
