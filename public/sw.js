@@ -1,4 +1,4 @@
-const CACHE = "ufc-fantasy-v3";
+const CACHE = "ufc-fantasy-v5";
 const STATIC_ASSETS = [
   "/offline.html",
   "/manifest.webmanifest",
@@ -97,8 +97,8 @@ self.addEventListener("push", (event) => {
   const title = payload.title || "UFC Fantasy";
   const options = {
     body: payload.body || "Tem novidade no app.",
-    icon: "/app-icon-192.png",
-    badge: "/app-icon-192.png",
+    icon: "/app-icon-192.png?v=3",
+    badge: "/app-icon-192.png?v=3",
     tag: payload.tag || "ufc-fantasy",
     data: {
       url: payload.targetPath || "/home",

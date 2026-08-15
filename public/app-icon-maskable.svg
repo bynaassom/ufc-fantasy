@@ -1,7 +1,4 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <rect width="512" height="512" fill="#0d0d0d"/>
-  <g transform="translate(61.44 61.44) scale(.76)">
-    <path d="M68 116h376l-18 64H50zM50 332h376l-18 64H68z" fill="#e8001a"/>
-    <path d="M105 207h76l-25 90h68l-12 43H68zm141 0h82l-12 43h-35l-13 47h34l-12 43h-80zm104 0h94l-12 43h-43l-13 47h43l-12 43h-94z" fill="#f5f5f0"/>
-  </g>
+  <image href="/logo-dark.svg" x="61" y="222" width="390" height="68" preserveAspectRatio="xMidYMid meet"/>
 </svg>

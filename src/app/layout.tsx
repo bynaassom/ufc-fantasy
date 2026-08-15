@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     "Faça seus picks, acerte os resultados e suba no ranking com seus amigos.",
   icons: {
     icon: "/favicon.ico",
-    apple: "/apple-touch-icon.png",
+    apple: "/apple-touch-icon.png?v=3",
   },
   manifest: "/manifest.webmanifest",
   openGraph: {
