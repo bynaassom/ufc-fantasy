@@ -370,6 +370,34 @@ const getCachedPublicMomentumStats = unstable_cache(
   },
 );
 
+function getEmptyPublicMomentumStats() {
+  return {
+    currentEvent: null,
+    picks: {
+      usersWithConfirmedPicks: 0,
+      confirmedPickRows: 0,
+      fightsOnCard: 0,
+      completionRate: 0,
+    },
+    challenges: {
+      pending: 0,
+      accepted: 0,
+      completed: 0,
+      totalActive: 0,
+    },
+    leagues: {
+      totalGroups: 0,
+      totalMembers: 0,
+    },
+    scoring: {
+      scoredUsers: 0,
+      averagePoints: 0,
+      bestScore: 0,
+      perfectPicks: 0,
+    },
+  };
+}
+
 function slugifyEventName(name: string) {
   return name
     .toLowerCase()
@@ -779,11 +807,31 @@ async function getRankingProfilesByIds(client: any, userIds: string[]) {
 }
 
 export async function getLandingPageData() {
-  const [currentEvent, momentumStats] = await Promise.all([
-    getCachedCurrentPublicEvent(),
-    getCachedPublicMomentumStats(),
-  ]);
-  return { currentEvent, momentumStats };
+  const hasServiceConfiguration = Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+  );
+
+  if (!hasServiceConfiguration) {
+    return {
+      currentEvent: null,
+      momentumStats: getEmptyPublicMomentumStats(),
+    };
+  }
+
+  try {
+    const [currentEvent, momentumStats] = await Promise.all([
+      getCachedCurrentPublicEvent(),
+      getCachedPublicMomentumStats(),
+    ]);
+    return { currentEvent, momentumStats };
+  } catch (error) {
+    console.error("[landing] Não foi possível carregar os dados públicos.", error);
+    return {
+      currentEvent: null,
+      momentumStats: getEmptyPublicMomentumStats(),
+    };
+  }
 }
 
 export async function getPublicEventResultShareData(

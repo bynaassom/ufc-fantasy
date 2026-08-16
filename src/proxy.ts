@@ -17,7 +17,7 @@ const PROTECTED_ROUTES = new Set([
   "/desafios",
 ]);
 
-const PROTECTED_PREFIXES = ["/event/", "/jogador/"];
+const PROTECTED_PREFIXES = ["/admin/", "/event/", "/jogador/"];
 
 const AUTH_ROUTES = new Set(["/login", "/register"]);
 
@@ -51,9 +51,26 @@ export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
   applySecurityHeaders(supabaseResponse.headers);
 
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  // Rotas públicas continuam disponíveis durante indisponibilidade ou ausência
+  // de configuração. Rotas protegidas nunca são liberadas sem autenticação.
+  if (!supabaseUrl || !supabaseAnonKey) {
+    if (matchProtectedRoute(pathname)) {
+      const loginUrl = new URL("/login", request.url);
+      loginUrl.searchParams.set("next", normalizeSafeRedirectPath(pathname));
+      const response = NextResponse.redirect(loginUrl);
+      applySecurityHeaders(response.headers);
+      return response;
+    }
+
+    return supabaseResponse;
+  }
+
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    supabaseUrl,
+    supabaseAnonKey,
     {
       cookies: {
         getAll() {

@@ -36,5 +36,10 @@ export default defineConfig([
       ],
     },
   },
-  globalIgnores([".next/**", "node_modules/**", "test-results/**"]),
+  globalIgnores([
+    ".next/**",
+    "node_modules/**",
+    "storybook-static/**",
+    "test-results/**",
+  ]),
 ]);
