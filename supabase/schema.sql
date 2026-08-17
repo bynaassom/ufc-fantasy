@@ -126,6 +126,9 @@ CREATE TABLE picks (
   picked_round INTEGER NOT NULL CHECK (picked_round >= 1 AND picked_round <= 5),
   is_confirmed BOOLEAN NOT NULL DEFAULT false,
   confirmed_at TIMESTAMPTZ,
+  last_save_request_id UUID,
+  last_save_source TEXT,
+  client_selected_at TIMESTAMPTZ,
   points_winner INTEGER NOT NULL DEFAULT 0 CHECK (points_winner IN (0, 1)),
   points_method INTEGER NOT NULL DEFAULT 0 CHECK (points_method IN (0, 1)),
   points_round INTEGER NOT NULL DEFAULT 0 CHECK (points_round IN (0, 1)),
@@ -133,6 +136,39 @@ CREATE TABLE picks (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE(user_id, fight_id)
+);
+
+CREATE TABLE pick_save_attempts (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  request_id UUID NOT NULL UNIQUE,
+  client_request_id UUID,
+  user_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  event_id UUID REFERENCES events(id) ON DELETE SET NULL,
+  event_slug TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'received' CHECK (status IN ('received', 'saved', 'rejected')),
+  source TEXT NOT NULL DEFAULT 'autosave',
+  pick_count INTEGER NOT NULL DEFAULT 0 CHECK (pick_count >= 0),
+  received_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  completed_at TIMESTAMPTZ,
+  client_saved_at TIMESTAMPTZ,
+  error_code TEXT,
+  error_message TEXT,
+  user_agent TEXT
+);
+
+CREATE TABLE pick_versions (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  pick_id UUID NOT NULL,
+  user_id UUID NOT NULL,
+  event_id UUID NOT NULL,
+  fight_id UUID NOT NULL,
+  operation TEXT NOT NULL CHECK (operation IN ('insert', 'update', 'delete', 'snapshot')),
+  before_data JSONB,
+  after_data JSONB,
+  changed_fields TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+  request_id UUID,
+  source TEXT NOT NULL DEFAULT 'unknown',
+  occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- ============================================================
@@ -195,6 +231,9 @@ CREATE TABLE notifications (
 CREATE INDEX idx_picks_user_id ON picks(user_id);
 CREATE INDEX idx_picks_fight_id ON picks(fight_id);
 CREATE INDEX idx_picks_event_id ON picks(event_id);
+CREATE INDEX idx_pick_attempts_user_event_received ON pick_save_attempts(user_id, event_id, received_at DESC);
+CREATE INDEX idx_pick_versions_user_event_occurred ON pick_versions(user_id, event_id, occurred_at DESC);
+CREATE INDEX idx_pick_versions_request ON pick_versions(request_id) WHERE request_id IS NOT NULL;
 CREATE INDEX idx_fights_event_id ON fights(event_id);
 CREATE INDEX idx_event_scores_event_id ON event_scores(event_id);
 CREATE INDEX idx_event_scores_user_id ON event_scores(user_id);
@@ -224,6 +263,8 @@ ALTER TABLE fights ENABLE ROW LEVEL SECURITY;
 ALTER TABLE picks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE event_scores ENABLE ROW LEVEL SECURITY;
 ALTER TABLE activity_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pick_save_attempts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pick_versions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE challenges ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
@@ -312,6 +353,8 @@ CREATE POLICY "event_scores_admin_all" ON event_scores FOR ALL USING (is_admin()
 
 -- ACTIVITY LOGS policies
 CREATE POLICY "activity_logs_admin_only" ON activity_logs FOR ALL USING (is_admin());
+CREATE POLICY "pick_save_attempts_admin_select" ON pick_save_attempts FOR SELECT USING (is_admin());
+CREATE POLICY "pick_versions_admin_select" ON pick_versions FOR SELECT USING (is_admin());
 
 CREATE POLICY "challenges_select_participants" ON challenges
   FOR SELECT
@@ -426,6 +469,93 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE TRIGGER monitor_pick_activity
   AFTER INSERT ON picks
   FOR EACH ROW EXECUTE FUNCTION log_pick_activity();
+
+CREATE OR REPLACE FUNCTION reject_pick_version_mutation()
+RETURNS TRIGGER AS $$
+BEGIN
+  RAISE EXCEPTION 'Pick audit versions are immutable.';
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER keep_pick_versions_immutable
+  BEFORE UPDATE OR DELETE ON pick_versions
+  FOR EACH ROW EXECUTE FUNCTION reject_pick_version_mutation();
+
+CREATE OR REPLACE FUNCTION audit_pick_version()
+RETURNS TRIGGER AS $$
+DECLARE
+  before_value JSONB;
+  after_value JSONB;
+  changed TEXT[];
+BEGIN
+  IF TG_OP IN ('UPDATE', 'DELETE') THEN
+    before_value := jsonb_build_object(
+      'picked_winner_id', OLD.picked_winner_id,
+      'picked_method', OLD.picked_method,
+      'picked_round', OLD.picked_round,
+      'client_selected_at', OLD.client_selected_at,
+      'is_confirmed', OLD.is_confirmed,
+      'confirmed_at', OLD.confirmed_at
+    );
+  END IF;
+
+  IF TG_OP IN ('INSERT', 'UPDATE') THEN
+    after_value := jsonb_build_object(
+      'picked_winner_id', NEW.picked_winner_id,
+      'picked_method', NEW.picked_method,
+      'picked_round', NEW.picked_round,
+      'client_selected_at', NEW.client_selected_at,
+      'is_confirmed', NEW.is_confirmed,
+      'confirmed_at', NEW.confirmed_at
+    );
+  END IF;
+
+  IF TG_OP = 'UPDATE' THEN
+    changed := array_remove(ARRAY[
+      CASE WHEN OLD.picked_winner_id IS DISTINCT FROM NEW.picked_winner_id THEN 'picked_winner_id' END,
+      CASE WHEN OLD.picked_method IS DISTINCT FROM NEW.picked_method THEN 'picked_method' END,
+      CASE WHEN OLD.picked_round IS DISTINCT FROM NEW.picked_round THEN 'picked_round' END,
+      CASE WHEN OLD.client_selected_at IS DISTINCT FROM NEW.client_selected_at THEN 'client_selected_at' END,
+      CASE WHEN OLD.is_confirmed IS DISTINCT FROM NEW.is_confirmed THEN 'is_confirmed' END,
+      CASE WHEN OLD.confirmed_at IS DISTINCT FROM NEW.confirmed_at THEN 'confirmed_at' END
+    ], NULL);
+    IF cardinality(changed) = 0 THEN RETURN NEW; END IF;
+  ELSIF TG_OP = 'INSERT' THEN
+    changed := ARRAY['picked_winner_id', 'picked_method', 'picked_round', 'client_selected_at', 'is_confirmed', 'confirmed_at'];
+  ELSE
+    changed := ARRAY['deleted'];
+  END IF;
+
+  INSERT INTO pick_versions (
+    pick_id, user_id, event_id, fight_id, operation, before_data, after_data,
+    changed_fields, request_id, source
+  ) VALUES (
+    CASE WHEN TG_OP = 'DELETE' THEN OLD.id ELSE NEW.id END,
+    CASE WHEN TG_OP = 'DELETE' THEN OLD.user_id ELSE NEW.user_id END,
+    CASE WHEN TG_OP = 'DELETE' THEN OLD.event_id ELSE NEW.event_id END,
+    CASE WHEN TG_OP = 'DELETE' THEN OLD.fight_id ELSE NEW.fight_id END,
+    lower(TG_OP), before_value, after_value, changed,
+    CASE
+      WHEN TG_OP = 'INSERT' THEN NEW.last_save_request_id
+      WHEN TG_OP = 'UPDATE' AND NEW.last_save_request_id IS DISTINCT FROM OLD.last_save_request_id
+        THEN NEW.last_save_request_id
+      ELSE NULL
+    END,
+    CASE
+      WHEN TG_OP = 'INSERT' THEN COALESCE(NULLIF(NEW.last_save_source, ''), 'unknown')
+      WHEN TG_OP = 'UPDATE' AND NEW.last_save_request_id IS DISTINCT FROM OLD.last_save_request_id
+        THEN COALESCE(NULLIF(NEW.last_save_source, ''), 'unknown')
+      ELSE 'unknown'
+    END
+  );
+
+  RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER audit_pick_versions
+  AFTER INSERT OR UPDATE OR DELETE ON picks
+  FOR EACH ROW EXECUTE FUNCTION audit_pick_version();
 
 -- ============================================================
 -- FUNCTION: Score picks after result is confirmed

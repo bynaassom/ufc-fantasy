@@ -19,7 +19,12 @@ export async function PUT(request: NextRequest, props: Params) {
   try {
     assertSameOriginForMutation(request);
     const body = await parseJsonBody(request, saveEventPicksSchema);
-    const data = await saveMyEventPicks(params.slug, body.picks);
+    const data = await saveMyEventPicks(params.slug, body.picks, {
+      clientRequestId: body.clientRequestId,
+      clientSavedAt: body.clientSavedAt,
+      userAgent: request.headers.get("user-agent") || undefined,
+      source: "autosave",
+    });
     return apiSuccess(data);
   } catch (error) {
     return apiErrorFromUnknown(error);

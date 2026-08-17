@@ -132,6 +132,12 @@ import { listUserBadges } from "@/server/repositories/badges";
 import { getRivalry } from "@/server/repositories/rivalries";
 import { getAdminSupabase, getUserSupabase } from "@/server/supabase";
 import { getOfficialLiveState } from "@/server/services/official-live-state";
+import {
+  createPickSaveAttempt,
+  getPickAuditRows,
+  updatePickSaveAttempt,
+} from "@/server/repositories/pick-audit";
+import { buildPickAuditSummary } from "@/lib/pick-audit";
 
 type RankingProfileRow = Pick<
   Profile,
@@ -1352,6 +1358,7 @@ function assertValidEventPicks(
     winnerId: string;
     method: string;
     round: number;
+    selectedAt?: string;
   }>,
 ) {
   const fightsById = new Map<
@@ -1420,7 +1427,14 @@ export async function saveMyEventPicks(
     winnerId: string;
     method: string;
     round: number;
+    selectedAt?: string;
   }>,
+  metadata: {
+    clientRequestId?: string;
+    clientSavedAt?: string;
+    userAgent?: string;
+    source?: string;
+  } = {},
 ) {
   const { supabase, user } = await requireActiveUser();
   const event = await findEventBySlugForPickValidation(supabase, slug);
@@ -1428,34 +1442,87 @@ export async function saveMyEventPicks(
     throw new ApiRouteError(404, "EVENT_NOT_FOUND", "Evento não encontrado.");
   }
 
-  const now = Date.now();
-  const opensAt = event.picks_open_at
-    ? new Date(event.picks_open_at).getTime()
-    : Number.NEGATIVE_INFINITY;
-  const locksAt = new Date(event.picks_lock_at).getTime();
-  if (!Number.isFinite(locksAt) || now < opensAt || now >= locksAt) {
-    throw new ApiRouteError(
-      409,
-      "PICKS_CLOSED",
-      "Os picks deste evento não estão abertos para edição.",
-    );
-  }
-
-  assertValidEventPicks(event, picks);
-
-  const payload = picks.map((pick) => ({
+  const adminSupabase = await getAdminSupabase();
+  const requestId = crypto.randomUUID();
+  const source = metadata.source || "autosave";
+  const attempt = await createPickSaveAttempt(adminSupabase, {
+    request_id: requestId,
+    client_request_id: metadata.clientRequestId,
     user_id: user.id,
-    fight_id: pick.fightId,
     event_id: event.id,
-    picked_winner_id: pick.winnerId,
-    picked_method: pick.method,
-    picked_round: pick.round,
-    is_confirmed: true,
-    confirmed_at: new Date().toISOString(),
-  }));
+    event_slug: slug,
+    source,
+    pick_count: picks.length,
+    client_saved_at: metadata.clientSavedAt,
+    user_agent: metadata.userAgent?.slice(0, 500),
+  });
 
-  await upsertUserPicks(supabase, payload);
-  return { savedCount: payload.length };
+  try {
+    const now = Date.now();
+    const opensAt = event.picks_open_at
+      ? new Date(event.picks_open_at).getTime()
+      : Number.NEGATIVE_INFINITY;
+    const locksAt = new Date(event.picks_lock_at).getTime();
+    if (!Number.isFinite(locksAt) || now < opensAt || now >= locksAt) {
+      throw new ApiRouteError(
+        409,
+        "PICKS_CLOSED",
+        "Os picks deste evento não estão abertos para edição.",
+      );
+    }
+
+    assertValidEventPicks(event, picks);
+
+    const savedAt = new Date().toISOString();
+    const payload = picks.map((pick) => ({
+      user_id: user.id,
+      fight_id: pick.fightId,
+      event_id: event.id,
+      picked_winner_id: pick.winnerId,
+      picked_method: pick.method,
+      picked_round: pick.round,
+      client_selected_at: pick.selectedAt,
+      is_confirmed: true,
+      confirmed_at: savedAt,
+      last_save_request_id: requestId,
+      last_save_source: source,
+    }));
+
+    await upsertUserPicks(supabase, payload);
+
+    try {
+      await updatePickSaveAttempt(adminSupabase, requestId, {
+        event_id: event.id,
+        status: "saved",
+        completed_at: new Date().toISOString(),
+      });
+    } catch (auditError) {
+      // The immutable DB versions are already authoritative at this point. Do not
+      // tell the client that a successful pick write failed and trigger duplicates.
+      console.error("Could not finalize pick save audit attempt", auditError);
+    }
+
+    return {
+      savedCount: payload.length,
+      requestId,
+      savedAt,
+      receivedAt: attempt.received_at,
+    };
+  } catch (error) {
+    const apiError = error instanceof ApiRouteError ? error : null;
+    try {
+      await updatePickSaveAttempt(adminSupabase, requestId, {
+        event_id: event.id,
+        status: "rejected",
+        completed_at: new Date().toISOString(),
+        error_code: apiError?.code || "INTERNAL_ERROR",
+        error_message: apiError?.message || "Erro interno durante o salvamento.",
+      });
+    } catch (auditError) {
+      console.error("Could not reject pick save audit attempt", auditError);
+    }
+    throw error;
+  }
 }
 
 export async function getPublicProfileStats(
@@ -2365,6 +2432,54 @@ export async function getAdminFighters() {
 export async function getAdminAuditLogs(action?: string) {
   const adminSupabase = await getAdminSupabase();
   return listActivityLogs(adminSupabase, 200, action);
+}
+
+export async function getAdminPickAudit(userId: string, eventId: string) {
+  const adminSupabase = await getAdminSupabase();
+  const rows = await getPickAuditRows(adminSupabase, userId, eventId);
+
+  if (!rows.profile) {
+    throw new ApiRouteError(404, "USER_NOT_FOUND", "Usuário não encontrado.");
+  }
+  if (!rows.event) {
+    throw new ApiRouteError(404, "EVENT_NOT_FOUND", "Evento não encontrado.");
+  }
+
+  const fightById = new Map(
+    rows.fights.map((fight: any) => [fight.id, fight]),
+  );
+  const attachFight = (row: any) => ({
+    ...row,
+    fight: fightById.get(row.fight_id) || null,
+  });
+  const sortByCard = (left: any, right: any) => {
+    if (left.fight?.card_type !== right.fight?.card_type) {
+      return left.fight?.card_type === "main" ? -1 : 1;
+    }
+    return (left.fight?.fight_order || 0) - (right.fight?.fight_order || 0);
+  };
+
+  return {
+    subject: {
+      user: rows.profile,
+      event: rows.event,
+    },
+    summary: buildPickAuditSummary({
+      totalFights: rows.fights.length,
+      currentPickCount: rows.picks.length,
+      lockAt: rows.event.picks_lock_at,
+      attempts: rows.attempts,
+      versions: rows.versions,
+    }),
+    currentPicks: rows.picks.map(attachFight).sort(sortByCard),
+    attempts: rows.attempts,
+    versions: rows.versions.map(attachFight),
+    auditStartedAt:
+      rows.versions
+        .filter((version: any) => version.source === "migration")
+        .map((version: any) => version.occurred_at)
+        .sort()[0] || null,
+  };
 }
 
 export async function toggleAdminUserRole(userId: string, currentRole: string) {

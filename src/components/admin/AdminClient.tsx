@@ -17,6 +17,7 @@ import UsersTab from "./tabs/UsersTab";
 import BadgesTab from "./tabs/BadgesTab";
 import AnalyticsTab from "./tabs/AnalyticsTab";
 import LogsTab from "./tabs/LogsTab";
+import PickAuditTab from "./tabs/PickAuditTab";
 
 export default function AdminClient({
   events,
@@ -109,6 +110,7 @@ export default function AdminClient({
       { key: "ops-fighters", label: "Mesclar Lutadores" },
       { key: "ops-fotos", label: "Fotos" },
       { key: "ops-auditoria", label: "Auditoria" },
+      { key: "ops-pick-audit", label: "Picks" },
     ]},
     { key: "badges", label: "BADGES", subs: [
       { key: "badges-list", label: "Lista" },
@@ -185,6 +187,7 @@ export default function AdminClient({
       {subTab === "ops-fighters" && <FightersTab subTab={subTab} />}
       {subTab === "ops-fotos" && <FightersTab subTab={subTab} />}
       {subTab === "ops-auditoria" && <UsersTab subTab={subTab} {...tabProps} />}
+      {subTab === "ops-pick-audit" && <PickAuditTab events={sortedEvents} users={userList} selectedEventId={selectedEventId} setSelectedEventId={setSelectedEventId} />}
       {subTab === "ops-logs" && <LogsTab />}
       {subTab === "usuarios" && <UsersTab subTab={subTab} {...tabProps} />}
       {subTab === "badges-list" && <BadgesTab subTab={subTab} users={userList} />}

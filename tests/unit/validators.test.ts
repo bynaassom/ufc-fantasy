@@ -23,6 +23,26 @@ describe("validators", () => {
 
   it("accepts a valid picks batch payload", () => {
     const result = saveEventPicksSchema.safeParse({
+      clientRequestId: "33333333-3333-4333-8333-333333333333",
+      clientSavedAt: "2026-08-15T21:30:00.000Z",
+      picks: [
+        {
+          fightId: "11111111-1111-4111-8111-111111111111",
+          winnerId: "22222222-2222-4222-8222-222222222222",
+          method: "submission",
+          round: 2,
+          selectedAt: "2026-08-15T21:29:58.000Z",
+        },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects invalid autosave audit metadata", () => {
+    const result = saveEventPicksSchema.safeParse({
+      clientRequestId: "not-an-id",
+      clientSavedAt: "yesterday",
       picks: [
         {
           fightId: "11111111-1111-4111-8111-111111111111",
@@ -33,7 +53,7 @@ describe("validators", () => {
       ],
     });
 
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(false);
   });
 
   it("accepts database UUID values without an RFC version nibble in picks", () => {

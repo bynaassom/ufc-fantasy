@@ -24,6 +24,7 @@ type PendingPick = {
   winnerId: string;
   method: FightMethod;
   round: number;
+  selectedAt?: string;
 };
 
 type SaveStatus = "idle" | "pending" | "saving" | "saved" | "error";
@@ -32,7 +33,8 @@ function isSamePick(a: PendingPick | undefined, b: PendingPick) {
   return (
     a?.winnerId === b.winnerId &&
     a.method === b.method &&
-    a.round === b.round
+    a.round === b.round &&
+    a.selectedAt === b.selectedAt
   );
 }
 
@@ -51,7 +53,10 @@ function isPendingPick(value: unknown): value is PendingPick {
     ["decision", "submission", "knockout"].includes(String(pick.method)) &&
     Number.isInteger(pick.round) &&
     Number(pick.round) >= 1 &&
-    Number(pick.round) <= 5
+    Number(pick.round) <= 5 &&
+    (pick.selectedAt === undefined ||
+      (typeof pick.selectedAt === "string" &&
+        Number.isFinite(new Date(pick.selectedAt).getTime())))
   );
 }
 
@@ -171,7 +176,7 @@ export default function EventPicksClient({
     setPendingPicks((prev) => {
       const next = {
         ...prev,
-        [fightId]: { winnerId, method, round },
+        [fightId]: { winnerId, method, round, selectedAt: new Date().toISOString() },
       };
       pendingPicksRef.current = next;
       persistDrafts(next);
@@ -197,13 +202,24 @@ export default function EventPicksClient({
         winnerId: pick.winnerId,
         method: pick.method,
         round: pick.round,
+        selectedAt: pick.selectedAt,
       }));
 
-      await readApiResponse<{ savedCount: number }>(
+      const clientSavedAt = new Date().toISOString();
+      const clientRequestId = crypto.randomUUID();
+      const saveResult = await readApiResponse<{
+        savedCount: number;
+        requestId: string;
+        savedAt: string;
+      }>(
         await fetch(`/api/events/${eventSlug}/picks`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ picks: upserts }),
+          body: JSON.stringify({
+            picks: upserts,
+            clientRequestId,
+            clientSavedAt,
+          }),
         }),
       );
 
@@ -221,13 +237,13 @@ export default function EventPicksClient({
             picked_method: pick.method,
             picked_round: pick.round,
             is_confirmed: true,
-            confirmed_at: new Date().toISOString(),
+            confirmed_at: saveResult.savedAt,
             points_winner: currentPick?.points_winner || 0,
             points_method: currentPick?.points_method || 0,
             points_round: currentPick?.points_round || 0,
             total_points: currentPick?.total_points || 0,
-            created_at: currentPick?.created_at || new Date().toISOString(),
-            updated_at: new Date().toISOString(),
+            created_at: currentPick?.created_at || saveResult.savedAt,
+            updated_at: saveResult.savedAt,
           };
         });
 
