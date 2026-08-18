@@ -41,6 +41,8 @@ const EVENT_WITH_FIGHTS_FIELDS = `
     result_method,
     result_round,
     result_confirmed,
+    odds_a,
+    odds_b,
     fighter_a:fighters!fights_fighter_a_id_fkey(${FIGHTER_CARD_FIELDS}),
     fighter_b:fighters!fights_fighter_b_id_fkey(${FIGHTER_CARD_FIELDS})
   )
