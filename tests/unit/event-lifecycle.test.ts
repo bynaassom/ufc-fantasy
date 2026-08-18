@@ -1,5 +1,6 @@
 import {
   getNextPicksOpenAt,
+  getSafeSyncedEventStatus,
   shouldAutoEndEvent,
   shouldCompleteEvent,
   shouldPromoteEventToLive,
@@ -73,6 +74,13 @@ describe("event lifecycle", () => {
         { result_confirmed: false },
       ]),
     ).toBe(false);
+  });
+
+  it("does not accept completed from event metadata before fight results", () => {
+    expect(getSafeSyncedEventStatus("completed", "live")).toBe("live");
+    expect(getSafeSyncedEventStatus("completed", "upcoming")).toBe("live");
+    expect(getSafeSyncedEventStatus("completed", "completed")).toBe("completed");
+    expect(getSafeSyncedEventStatus("live", "upcoming")).toBe("live");
   });
 
   it("opens picks on the day after completion at 15 UTC", () => {

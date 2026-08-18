@@ -14,6 +14,7 @@ import { discoverUfcStatsUrl } from "@/lib/ufc-stats-discovery";
 import { assertSameOriginForMutation } from "@/server/api";
 import { CACHE_TAGS } from "@/server/cache-tags";
 import { getAutomatedEventTiming } from "@/lib/event-timing";
+import { getSafeSyncedEventStatus } from "@/lib/event-lifecycle";
 
 function slugify(value: string) {
   return value
@@ -327,7 +328,7 @@ function buildSyncPlan(
       location: upstreamEvent.location || "",
       banner_image_url: upstreamEvent.image || null,
       ufc_event_id: upstreamSourceId,
-      status: upstreamEvent.status || ("upcoming" as const),
+      status: getSafeSyncedEventStatus(upstreamEvent.status, existing?.status),
       picks_lock_at: picksLockAt,
       picks_open_at: picksOpenAt,
     };

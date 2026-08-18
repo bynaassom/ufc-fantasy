@@ -2370,15 +2370,16 @@ export async function setAdminFightResult(
   const resultRound =
     payload.method === "decision" ? fight.total_rounds : payload.round;
 
-  await updateFight(adminSupabase, fightId, {
-    winner_id: winnerId,
-    result_method: payload.method,
-    result_round: resultRound,
-    result_confirmed: true,
-  });
-
-  const { error } = await adminSupabase.rpc("score_picks_for_fight", {
-    p_fight_id: fightId,
+  const { error } = await adminSupabase.rpc("sync_fight_results_batch", {
+    results: [
+      {
+        fight_id: fightId,
+        winner_id: winnerId,
+        method: payload.method,
+        round: resultRound,
+        overwrite: true,
+      },
+    ],
   });
 
   if (error) throw error;

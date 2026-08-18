@@ -34,6 +34,15 @@ export function shouldCompleteEvent(fights: FightResultLike[]) {
   return fights.length > 0 && fights.every((fight) => fight.result_confirmed === true);
 }
 
+export function getSafeSyncedEventStatus(
+  upstreamStatus?: string | null,
+  currentStatus?: string | null,
+): "upcoming" | "live" | "completed" {
+  if (currentStatus === "completed") return "completed";
+  if (upstreamStatus === "completed") return "live";
+  return upstreamStatus === "live" ? "live" : "upcoming";
+}
+
 export function getNextPicksOpenAt(completedAt = new Date()) {
   return new Date(
     Date.UTC(

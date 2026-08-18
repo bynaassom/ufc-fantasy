@@ -10,15 +10,20 @@ export async function finalizeStaleEvents(client: DbClient, now = new Date()) {
     now.getTime() - EVENT_AUTO_END_HOURS_AFTER_MAIN_CARD * 60 * 60_000,
   ).toISOString();
 
-  const { data, error } = await client
+  const { data: staleEvents, error } = await client
     .from("events")
-    .update({ status: "completed" })
+    .select("id")
     .in("status", ["upcoming", "live"])
-    .lte("event_date", cutoff)
-    .select("id, name, slug, event_date, status");
+    .lte("event_date", cutoff);
 
   if (error) throw new Error(error.message);
-  return data || [];
+
+  const completed = [];
+  for (const event of staleEvents || []) {
+    const result = await completeEventIfAllResultsConfirmed(client, event.id, now);
+    if (result.completed) completed.push(result);
+  }
+  return completed;
 }
 
 export async function promoteDueEventsToLive(client: DbClient, now = new Date()) {

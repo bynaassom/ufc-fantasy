@@ -557,6 +557,29 @@ CREATE TRIGGER audit_pick_versions
   AFTER INSERT OR UPDATE OR DELETE ON picks
   FOR EACH ROW EXECUTE FUNCTION audit_pick_version();
 
+CREATE OR REPLACE FUNCTION guard_event_completion()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.status = 'completed' THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM fights WHERE event_id = NEW.id
+    ) OR EXISTS (
+      SELECT 1 FROM fights
+      WHERE event_id = NEW.id AND result_confirmed = false
+    ) THEN
+      RAISE EXCEPTION USING
+        ERRCODE = '23514',
+        MESSAGE = 'Event cannot be completed until every fight result is confirmed.';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER enforce_event_completion_results
+  BEFORE INSERT OR UPDATE OF status ON events
+  FOR EACH ROW EXECUTE FUNCTION guard_event_completion();
+
 -- ============================================================
 -- FUNCTION: Score picks after result is confirmed
 -- ============================================================
@@ -616,6 +639,63 @@ BEGIN
 
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION sync_fight_results_batch(results JSONB)
+RETURNS INTEGER AS $$
+DECLARE
+  item JSONB;
+  updated_count INTEGER := 0;
+  fight_record fights%ROWTYPE;
+  fight_id_value UUID;
+  winner_id_value UUID;
+  method_value fight_method;
+  round_value INTEGER;
+  overwrite_value BOOLEAN;
+BEGIN
+  IF results IS NULL OR jsonb_typeof(results) <> 'array' THEN
+    RAISE EXCEPTION 'sync_fight_results_batch expects a JSON array';
+  END IF;
+
+  FOR item IN SELECT value FROM jsonb_array_elements(results) AS row(value)
+  LOOP
+    fight_id_value := (item->>'fight_id')::UUID;
+    winner_id_value := (item->>'winner_id')::UUID;
+    method_value := (item->>'method')::fight_method;
+    round_value := (item->>'round')::INTEGER;
+    overwrite_value := COALESCE((item->>'overwrite')::BOOLEAN, false);
+
+    SELECT * INTO fight_record FROM fights WHERE id = fight_id_value FOR UPDATE;
+    IF NOT FOUND THEN RAISE EXCEPTION 'Fight % was not found', fight_id_value; END IF;
+    IF winner_id_value NOT IN (fight_record.fighter_a_id, fight_record.fighter_b_id) THEN
+      RAISE EXCEPTION 'Winner % does not belong to fight %', winner_id_value, fight_id_value;
+    END IF;
+    IF round_value < 1 OR round_value > fight_record.total_rounds THEN
+      RAISE EXCEPTION 'Round % is invalid for fight %', round_value, fight_id_value;
+    END IF;
+    IF method_value = 'decision' THEN round_value := fight_record.total_rounds; END IF;
+
+    UPDATE fights SET
+      winner_id = winner_id_value,
+      result_method = method_value,
+      result_round = round_value,
+      result_confirmed = true,
+      result_confirmed_at = NOW(),
+      updated_at = NOW()
+    WHERE id = fight_id_value
+      AND (result_confirmed = false OR overwrite_value);
+
+    IF FOUND THEN updated_count := updated_count + 1; END IF;
+    PERFORM score_picks_for_fight(fight_id_value);
+  END LOOP;
+
+  RETURN updated_count;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+REVOKE ALL ON FUNCTION score_picks_for_fight(UUID) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION sync_fight_results_batch(JSONB) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION score_picks_for_fight(UUID) TO service_role;
+GRANT EXECUTE ON FUNCTION sync_fight_results_batch(JSONB) TO service_role;
 
 -- ============================================================
 -- GROUPS (social leagues)

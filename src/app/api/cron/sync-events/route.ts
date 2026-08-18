@@ -6,6 +6,7 @@ import { syncScrapedCardForEvent } from "@/lib/ufc-card-sync";
 import { discoverUfcStatsUrl } from "@/lib/ufc-stats-discovery";
 import { fetchUpcomingUFCEvents, fetchUpcomingUFCEventsFromPage } from "@/lib/ufc-api";
 import { getAutomatedEventTiming } from "@/lib/event-timing";
+import { getSafeSyncedEventStatus } from "@/lib/event-lifecycle";
 
 function slugify(value: string) {
   return value
@@ -93,7 +94,7 @@ export async function POST(req: NextRequest) {
         });
         const update: Record<string, unknown> = {
           name: event.name,
-          status: event.status,
+          status: getSafeSyncedEventStatus(event.status, existing.status),
         };
         if (existing.timing_mode !== "manual" && automaticTiming) {
           update.event_date = event.date;
@@ -129,7 +130,7 @@ export async function POST(req: NextRequest) {
             location: event.location || "",
             banner_image_url: event.image || null,
             ufc_event_id: sourceId,
-            status: event.status,
+            status: getSafeSyncedEventStatus(event.status),
             picks_lock_at: timing.picksLockAt,
             picks_open_at: timing.picksOpenAt,
           })
