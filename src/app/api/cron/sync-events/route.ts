@@ -11,6 +11,7 @@ import {
 } from "@/lib/ufc-api";
 import { getAutomatedEventTiming } from "@/lib/event-timing";
 import { getSafeSyncedEventStatus } from "@/lib/event-lifecycle";
+import { syncUfcOddsForEvent } from "@/server/services/ufc-odds";
 
 function slugify(value: string) {
   return value
@@ -115,6 +116,14 @@ export async function POST(req: NextRequest) {
           await adminSupabase.from("events").update(update).eq("id", existing.id);
           updated++;
         }
+        try {
+          await syncUfcOddsForEvent(adminSupabase, {
+            id: existing.id,
+            name: event.name,
+          });
+        } catch {
+          // Odds ainda podem não estar publicadas; não interrompe o sync do evento.
+        }
         continue;
       }
 
@@ -160,6 +169,10 @@ export async function POST(req: NextRequest) {
       try {
         const url = event.eventUrl || `https://www.ufc.com.br/event/${slug}`;
         await syncScrapedCardForEvent(adminSupabase, createdEvent.id, url);
+        await syncUfcOddsForEvent(adminSupabase, {
+          id: createdEvent.id,
+          name: event.name,
+        });
         cardSynced++;
       } catch { /* silent */ }
     }

@@ -435,7 +435,7 @@ function LutasOdds({
       });
       setSync({
         loading: false,
-        msg: `${data.message} (${data.requests_remaining} req restantes)`,
+        msg: `${data.message} · fonte ${data.source || "UFC.com"}`,
       });
     } catch (e: any) {
       setSync({ loading: false, msg: e.message });
@@ -458,7 +458,7 @@ function LutasOdds({
       } else {
         setSync({
           loading: false,
-          msg: `${data.message} (${data.requests_remaining} req restantes)`,
+          msg: `${data.message} · fonte ${data.source || "UFC.com"}`,
         });
         toast.success(data.message);
         loadFights(selectedEventId);
@@ -544,7 +544,7 @@ function LutasOdds({
             whiteSpace: "nowrap",
           }}
         >
-          {sync.loading ? "BUSCANDO..." : "AUTO-SYNC"}
+          {sync.loading ? "BUSCANDO..." : "SYNC UFC"}
         </button>
       </div>
       {sync.msg && (

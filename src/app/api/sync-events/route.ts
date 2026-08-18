@@ -16,6 +16,7 @@ import { assertSameOriginForMutation } from "@/server/api";
 import { CACHE_TAGS } from "@/server/cache-tags";
 import { getAutomatedEventTiming } from "@/lib/event-timing";
 import { getSafeSyncedEventStatus } from "@/lib/event-lifecycle";
+import { syncUfcOddsForEvent } from "@/server/services/ufc-odds";
 
 function slugify(value: string) {
   return value
@@ -567,6 +568,10 @@ export async function POST(req: NextRequest) {
           eventId,
           candidate.event_url,
         );
+        await syncUfcOddsForEvent(auth.adminSupabase, {
+          id: eventId,
+          name: candidate.name,
+        });
 
         cardAddedCount += cardResult.added_count;
         cardUpdatedCount += cardResult.updated_count;

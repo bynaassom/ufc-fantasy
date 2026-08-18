@@ -19,6 +19,7 @@ import { assertSameOriginForMutation } from "@/server/api";
 import { CACHE_TAGS } from "@/server/cache-tags";
 import { notifyBulkCardChanges } from "@/server/services/notifications";
 import { logAdminAction } from "@/lib/admin-audit";
+import { syncUfcOddsForEvent } from "@/server/services/ufc-odds";
 
 function getFighterName(
   fighter: { name?: string | null } | Array<{ name?: string | null }> | null | undefined,
@@ -320,6 +321,25 @@ export async function POST(req: NextRequest) {
     appliedChangeCount += 1;
   }
 
+  let oddsSync: Record<string, unknown> = { updated: 0, skipped: 0 };
+  try {
+    const odds = await syncUfcOddsForEvent(adminSupabase, {
+      id: event.id,
+      name: event.name,
+    });
+    oddsSync = {
+      source: "UFC.com",
+      updated: odds.saved_count,
+      skipped: odds.skipped.length,
+    };
+  } catch (error) {
+    oddsSync = {
+      source: "UFC.com",
+      updated: 0,
+      error: error instanceof Error ? error.message : "falha ao sincronizar odds",
+    };
+  }
+
   await safelyNotifyBulkCardChanges(adminSupabase, {
     event,
     changeCount: appliedChangeCount,
@@ -344,6 +364,7 @@ export async function POST(req: NextRequest) {
       removed_count: (remove_ids || []).length,
       applied_count: appliedChangeCount,
       event_timing: eventTiming,
+      odds_sync: oddsSync,
       duration_ms: Date.now() - startedAt,
     },
   });
@@ -354,6 +375,7 @@ export async function POST(req: NextRequest) {
     attempted_urls: candidateUrls,
     attempted_errors: attemptedErrors,
     event_timing: eventTiming,
+    odds_sync: oddsSync,
     log,
   });
 }

@@ -9,7 +9,6 @@ const HOST_PROTOCOL_RULES: Record<string, string[]> = {
   // O UFCStats ainda expõe URLs reais em http em vários fluxos do site.
   "ufcstats.com": ["http:", "https:"],
   "www.ufcstats.com": ["http:", "https:"],
-  "api.the-odds-api.com": ["https:"],
 };
 
 export function normalizeSafeRedirectPath(next?: string | null): string {
@@ -67,7 +66,7 @@ export function applySecurityHeaders(headers: Headers) {
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com data:",
       "img-src 'self' data: blob: https:",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.beta.ufc.com https://*.ufc.com.br https://*.ufc.com https://api.the-odds-api.com https://ufcstats.com https://www.ufcstats.com",
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.beta.ufc.com https://*.ufc.com.br https://*.ufc.com https://ufcstats.com https://www.ufcstats.com",
       "frame-src 'none'",
       "object-src 'none'",
       "base-uri 'self'",

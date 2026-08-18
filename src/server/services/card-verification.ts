@@ -22,6 +22,7 @@ import {
 } from "@/lib/ufc-live-api";
 import { CACHE_TAGS } from "@/server/cache-tags";
 import { notifyBulkCardChanges } from "@/server/services/notifications";
+import { syncUfcOddsForEvent } from "@/server/services/ufc-odds";
 
 type VerificationEvent = {
   id: string;
@@ -174,6 +175,24 @@ async function runEventVerification(
     revalidateTag(CACHE_TAGS.events, "max");
   }
 
+  const oddsSync = await syncUfcOddsForEvent(adminSupabase, {
+    id: event.id,
+    name: event.name,
+  }).then(
+    (odds) => ({
+      available: true,
+      source: "UFC.com",
+      updated_count: odds.saved_count,
+      skipped_count: odds.skipped.length,
+    }),
+    (error) => ({
+      available: false,
+      source: "UFC.com",
+      updated_count: 0,
+      reason: error instanceof Error ? error.message : "falha desconhecida",
+    }),
+  );
+
   return {
     event_id: event.id,
     event_name: event.name,
@@ -192,6 +211,7 @@ async function runEventVerification(
         fight_count: ufcStats.fights.length,
         reason: ufcStats.reason,
       },
+      odds: oddsSync,
     },
     changes: {
       added: plan.added.map((fight) => `${fight.fighter_a.name} vs ${fight.fighter_b.name}`),

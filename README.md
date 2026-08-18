@@ -184,9 +184,6 @@ NOTIFICATIONS_CRON_SECRET=
 NEXT_PUBLIC_VAPID_PUBLIC_KEY=
 VAPID_PRIVATE_KEY=
 VAPID_SUBJECT=mailto:you@example.com
-
-# Optional
-ODDS_API_KEY=
 ```
 
 Apply the schema and pending migrations to your Supabase project, then start the development server:
@@ -209,6 +206,8 @@ The production lifecycle is driven by authenticated `POST` jobs:
 | Result sync | `/api/sync-results` | Every 10 minutes during events | Collect results, reach consensus, and score picks transactionally |
 | Notifications and lifecycle | `/api/cron/notifications` | Every 5 minutes | Send notifications and advance event states |
 | Card verification | `/api/cron/card-verification` | Hourly | Compare cards at key checkpoints and record alerts |
+
+Fight odds are synchronized from UFC.com using each official `FightId`; no third-party odds API key is required.
 
 Cron endpoints require their corresponding bearer secret. Never expose `SUPABASE_SERVICE_ROLE_KEY`, private VAPID keys, or cron secrets in client-side code or source control.
 

@@ -17,8 +17,6 @@ NOTIFICATIONS_CRON_SECRET=
 NEXT_PUBLIC_VAPID_PUBLIC_KEY=
 VAPID_PRIVATE_KEY=
 VAPID_SUBJECT=mailto:seu-email@exemplo.com
-
-ODDS_API_KEY=
 ```
 
 | Variável | Uso |
@@ -32,7 +30,6 @@ ODDS_API_KEY=
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | Chave pública Web Push |
 | `VAPID_PRIVATE_KEY` | Chave privada Web Push server-only |
 | `VAPID_SUBJECT` | E-mail/contato VAPID |
-| `ODDS_API_KEY` | Opcional, usada por `/api/sync-odds` |
 
 Gere segredos com:
 
@@ -83,7 +80,7 @@ O job de notificações também limpa status antigos: após uma janela de segura
 
 ## Odds
 
-`POST /api/sync-odds` usa `ODDS_API_KEY`. Sem essa variável, a sincronização de odds não deve ser considerada operacional.
+`POST /api/sync-odds` consulta a fonte oficial `https://www.ufc.com.br/fight-odds/{FightId}`. O `FightId` vem do card oficial e fica preservado no fragmento de `ufc_matchup_url`; nenhuma chave externa é necessária. Odds ainda não publicadas pelo UFC são ignoradas, sem apagar valores existentes.
 
 ## Rate Limiting
 
