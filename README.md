@@ -1,182 +1,258 @@
-# UFC Fantasy Pick'em
+<div align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./public/logo-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="./public/logo-light.svg">
+    <img alt="UFC Fantasy" src="./public/logo-light.svg" width="360">
+  </picture>
 
-App web/PWA para picks de eventos do UFC, com ranking, ligas, desafios, chat, notificações, páginas compartilháveis e painel admin para operar cards, resultados e usuários.
+  <p><strong>A full-stack UFC pick'em experience for competing with friends on every fight night.</strong></p>
 
-## Stack
+  <p>
+    <a href="https://ufc-fantasy.vercel.app/"><strong>Try the live app</strong></a>
+    ·
+    <a href="#getting-started">Run locally</a>
+    ·
+    <a href="#architecture">Architecture</a>
+  </p>
 
-- Next.js 16, React 19 e TypeScript
-- Tailwind CSS com tema claro/escuro via CSS variables
-- Supabase Auth, Postgres e RLS
-- Vitest e Playwright
-- Web Push com VAPID
-- `date-fns`, `react-hot-toast`, `html-to-image`, `zod`, `zustand`
+  <p>
+    <img alt="Next.js" src="https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white">
+    <img alt="React" src="https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white">
+    <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white">
+    <img alt="Supabase" src="https://img.shields.io/badge/Supabase-Postgres-3FCF8E?logo=supabase&logoColor=white">
+    <img alt="Tests" src="https://img.shields.io/badge/tests-Vitest%20%2B%20Playwright-6E9F18">
+    <img alt="License" src="https://img.shields.io/badge/license-MIT-blue">
+  </p>
+</div>
 
-## Funcionalidades
+![UFC Fantasy dashboard](./docs/screenshots/home-dashboard.png)
 
-- Cadastro/login com Supabase e callback seguro
-- Picks por luta com vencedor, método e round
-- Ranking geral, por evento e por temporada
-- Ligas com convite, standings e chat de grupo
-- Desafios entre jogadores
-- Chat global para usuários logados
-- Live fight-night com feed e placar durante eventos
-- Badges, trophy case, perfil público, rivalries e atribuição manual de badges especiais pelo admin
-- Páginas públicas de share para picks e resultados
-- Recap de evento
-- Notificações push e preferências por usuário
-- Painel admin para eventos, lutas, odds, links de fontes, resultados, badges, usuários, auditoria e analytics
-- Sincronização automática de eventos, cards, resultados e ciclo de eventos via cron externo
+## About the project
 
-## Setup Local
+UFC Fantasy is a production-deployed web app and Progressive Web App (PWA) where fans predict fight winners, methods, and rounds, then compete through global rankings, private leagues, and head-to-head challenges.
 
-1. Instale dependências:
+The application covers the full event lifecycle: discovering upcoming cards, collecting picks, locking them before the event, following fight-night activity, synchronizing official results, scoring players, and publishing recaps.
 
-```bash
-npm install
+The live app is available at **[ufc-fantasy.vercel.app](https://ufc-fantasy.vercel.app/)**. Create an account to start making picks—no demo credentials are required.
+
+> **Disclaimer:** This is an independent, unofficial fan project. It is not affiliated with, endorsed by, or sponsored by UFC.
+
+## Features
+
+- Picks for winner, method, and round, with automatic saving and event-aware lock times
+- Global, event, and season leaderboards with rank movement
+- Private leagues with invite links, standings, champions, and group chat
+- Head-to-head player challenges and rivalries
+- Live fight-night feed, scoring, and fighter comparison
+- Public profiles, experience levels, badges, and trophy cases
+- Shareable pick, result, and event recap pages
+- In-app and Web Push notifications with per-user preferences
+- Installable PWA with offline fallback and light/dark themes
+- Admin console for events, cards, fighters, odds, results, users, badges, audits, and analytics
+- Automated card discovery, verification, result synchronization, scoring, and event lifecycle jobs
+
+## Screenshots
+
+![Fight card pick interface](./docs/screenshots/event-picks.png)
+
+<p align="center"><strong>Fight card and pick interface</strong></p>
+
+## Architecture
+
+```mermaid
+flowchart LR
+    User["Browser / installed PWA"]
+    App["Next.js App Router<br/>pages and React components"]
+    API["Route handlers<br/>auth, validation and rate limiting"]
+    Domain["Server services<br/>business rules and event lifecycle"]
+    Data["Repository layer"]
+    DB[("Supabase Postgres<br/>Auth + RLS")]
+    Push["Web Push service"]
+    Jobs["External cron jobs"]
+    Sync["Card, result and<br/>verification pipelines"]
+    Sources["UFC.com, UFCStats<br/>and odds sources"]
+
+    User --> App
+    App --> API
+    API --> Domain
+    Domain --> Data
+    Data --> DB
+    Domain --> Push
+    Push --> User
+    Jobs --> API
+    API --> Sync
+    Sync --> Sources
+    Sync --> Domain
 ```
 
-2. Copie `.env.example` para `.env.local` e preencha:
+The application is organized as a layered modular monolith. Next.js serves the UI and HTTP endpoints, while server-side services own the business rules and repositories isolate data access. Supabase provides authentication, PostgreSQL, and Row Level Security (RLS).
 
-```env
-NEXT_PUBLIC_SUPABASE_URL=https://SEU_PROJETO.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=sua_anon_key
-SUPABASE_SERVICE_ROLE_KEY=sua_service_role_key
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+## Key engineering decisions
 
-SYNC_SECRET=um_segredo_para_jobs_externos
-NOTIFICATIONS_CRON_SECRET=um_segredo_para_o_cron_de_notificacoes
+### One deployable application
 
-NEXT_PUBLIC_VAPID_PUBLIC_KEY=sua_vapid_public_key
-VAPID_PRIVATE_KEY=sua_vapid_private_key
-VAPID_SUBJECT=mailto:seu-email@exemplo.com
+The frontend and backend use the Next.js App Router in the same codebase. This keeps deployment and local development simple while still maintaining boundaries between route handlers, services, repositories, validators, and shared types.
 
-ODDS_API_KEY=sua_key_da_the_odds_api
-```
+### Authorization at more than one layer
 
-3. Rode em desenvolvimento:
+Protected operations combine session checks, role and banned-user guards, server-only service-role access, and database RLS policies. Public clients never receive the Supabase service-role key.
 
-```bash
-npm run dev
-```
+### Transactional result processing
 
-## Banco De Dados
+Fight results affect picks, scores, rankings, badges, notifications, and event status. Result synchronization is therefore designed around validated inputs, audit records, idempotent operations, and transactional database functions instead of independent best-effort writes.
 
-O schema base histórico está em `schema.sql`, mas projetos em produção devem aplicar as migrations em ordem cronológica dentro de `supabase/migrations/`.
+### Defensive external-data synchronization
 
-Para um projeto novo:
+Fight cards and results can change and external sources can disagree. The synchronization pipeline normalizes fighter names, restricts accepted source hosts, compares sources, records verification runs, and requires confirmation before sensitive state transitions.
 
-1. Execute `schema.sql` se quiser partir do schema base.
-2. Aplique todas as migrations em `supabase/migrations/` que ainda não estão refletidas no banco.
+### Time-driven event lifecycle
 
-Para um projeto existente:
+Pick locks and event states are derived from scheduled fight times rather than manual toggles alone. External cron jobs keep cards, notifications, live states, results, and completion checks moving without requiring an always-running application server.
 
-1. Aplique somente as migrations pendentes, sempre em ordem pelo timestamp do nome do arquivo.
-2. Verifique especialmente as migrations recentes de chat, rivalries, `picks_lock_at` e RPC transacional de resultados.
+### Progressive Web App and push delivery
 
-Migrations recentes importantes:
+The app uses a web manifest, service worker, install flow, offline fallback, VAPID-based Web Push, and user-level notification preferences to make the browser experience feel closer to a native fight-night companion.
 
-- `20260614000001_chat_messages.sql`
-- `20260614000002_chat_group_id.sql`
-- `20260614000003_rivalries_and_badge_archive.sql`
-- `20260615000000_fix_picks_lock_at.sql`
-- `20260615000001_transactional_sync.sql`
-- `20260615000002_fix_transactional_sync_rpc.sql`
-- `20260615000003_badge_manual_awards.sql`
-- `20260814000000_event_timing_and_security.sql`
+### Automated quality gates
 
-## Admin
+Unit tests cover domain logic and server boundaries, Playwright provides browser smoke coverage, and GitHub Actions runs linting, TypeScript checks, tests, production builds, and E2E validation on pull requests and pushes to `main`.
 
-Depois de criar seu usuário, promova-o a admin no SQL Editor do Supabase:
+## Tech stack
 
-```sql
-UPDATE profiles
-SET role = 'admin'
-WHERE id = 'SEU_USER_UUID';
-```
+| Area | Technology |
+| --- | --- |
+| Framework | Next.js 16, React 19, TypeScript |
+| Styling and UI | Tailwind CSS, Radix UI, Motion |
+| Data and authentication | Supabase Auth, PostgreSQL, Row Level Security |
+| Validation and state | Zod, Zustand |
+| Notifications | Web Push with VAPID |
+| Testing | Vitest, Playwright, Storybook accessibility tooling |
+| Delivery | Vercel, GitHub Actions, external cron jobs |
 
-## Cron Jobs
-
-Use cron-job.org ou serviço equivalente. Todos os jobs abaixo usam `POST`.
-
-### Sincronizar Eventos
-
-- Endpoint: `POST /api/cron/sync-events`
-- Header: `Authorization: Bearer <SYNC_SECRET>`
-- Frequência no cron-job.org: diariamente
-- Função: cria/sincroniza eventos futuros, lê o início das preliminares na UFC.com, deriva o lock 30 minutos antes, tenta descobrir URL do UFCStats e sincroniza o card.
-
-### Sincronizar Resultados
-
-- Endpoint: `POST /api/sync-results`
-- Header: `Authorization: Bearer <SYNC_SECRET>`
-- Frequência sugerida: a cada 10 minutos durante janelas de evento
-- Função: busca resultados nas fontes configuradas, aplica consenso e pontua picks via RPC transacional.
-
-### Notificações E Ciclo Do Evento
-
-- Endpoint: `POST /api/cron/notifications`
-- Header: `Authorization: Bearer <NOTIFICATIONS_CRON_SECRET>`
-- Frequência no cron-job.org: a cada 5 minutos
-- Função: envia notificações, promove eventos para `live` no início das preliminares, completa eventos quando todos os resultados forem confirmados e encerra como fallback eventos ainda `upcoming/live` 8 horas após o início do main card.
-
-No cron-job.org, configure chamadas `POST` e envie o secret correspondente no header `Authorization` conforme descrito acima.
-
-### Verificação Do Card
-
-- Endpoint: `POST /api/cron/card-verification`
-- Header: `Authorization: Bearer <SYNC_SECRET>`
-- Frequência sugerida: a cada 1 hora
-- Função: verifica cards em T-72h e T-18h, compara fontes e registra alertas antes de alterações sensíveis.
-
-## Segurança
-
-- Rotas admin exigem sessão, role `admin` e usuário não banido.
-- Rotas cron exigem bearer secret.
-- RLS protege dados privados e ações de usuário.
-- Scrapers aceitam apenas hosts permitidos.
-- Middleware adiciona headers de segurança.
-- A `SUPABASE_SERVICE_ROLE_KEY` só deve ser usada server-side.
-
-## Estrutura
+## Project structure
 
 ```text
 src/
-  app/             rotas Next.js e APIs
-  components/      UI e fluxos client-side
-  lib/             integrações, scraping, helpers e segurança
-  server/          services, repositories, validators e auth server-side
-  stores/          estado client-side compartilhado
-  types/           tipos compartilhados
+├── app/                 # Pages, layouts and HTTP route handlers
+├── components/          # Feature and shared React components
+├── lib/                 # Integrations, synchronization and utilities
+├── server/
+│   ├── auth/            # Server-side authorization guards
+│   ├── repositories/    # Database access
+│   ├── services/        # Application and domain workflows
+│   └── validators/      # Request validation schemas
+├── stores/              # Shared client-side state
+└── types/               # Application and database types
+
 supabase/
-  migrations/      migrations incrementais do banco
-docs/              documentação de produto e specs
+├── migrations/          # Incremental database changes
+└── schema.sql            # Current schema reference
+
+tests/
+├── unit/                 # Domain and server tests
+└── e2e/                  # Playwright browser smoke tests
 ```
 
-## Scripts
+## Getting started
+
+### Prerequisites
+
+- Node.js 22+
+- npm
+- A Supabase project
+
+### Installation
+
+```bash
+git clone https://github.com/bynaassom/ufc-fantasy.git
+cd ufc-fantasy
+npm install
+cp .env.example .env.local
+```
+
+Fill in the required values in `.env.local`:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+SYNC_SECRET=
+NOTIFICATIONS_CRON_SECRET=
+
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=
+VAPID_PRIVATE_KEY=
+VAPID_SUBJECT=mailto:you@example.com
+
+# Optional
+ODDS_API_KEY=
+```
+
+Apply the schema and pending migrations to your Supabase project, then start the development server:
 
 ```bash
 npm run dev
-npm run build
-npm run start
-npm run test
-npm run test:e2e
 ```
 
-## Verificação Antes De Deploy
+Open [http://localhost:3000](http://localhost:3000). Detailed environment and infrastructure notes are available in [`CONFIG.md`](./CONFIG.md).
+
+## Database and background jobs
+
+For a new Supabase project, use `schema.sql` as the historical base and apply any migrations in `supabase/migrations/` that are not yet represented in the database. Existing environments should apply only pending migrations in timestamp order.
+
+The production lifecycle is driven by authenticated `POST` jobs:
+
+| Job | Endpoint | Suggested schedule | Responsibility |
+| --- | --- | --- | --- |
+| Event sync | `/api/cron/sync-events` | Daily | Discover events, derive pick locks, and synchronize cards |
+| Result sync | `/api/sync-results` | Every 10 minutes during events | Collect results, reach consensus, and score picks transactionally |
+| Notifications and lifecycle | `/api/cron/notifications` | Every 5 minutes | Send notifications and advance event states |
+| Card verification | `/api/cron/card-verification` | Hourly | Compare cards at key checkpoints and record alerts |
+
+Cron endpoints require their corresponding bearer secret. Never expose `SUPABASE_SERVICE_ROLE_KEY`, private VAPID keys, or cron secrets in client-side code or source control.
+
+## Testing and quality checks
 
 ```bash
+npm run lint
 npx tsc --noEmit
-npm run test
+npm test
+npm run test:e2e
 npm run build
 ```
 
-## Observações
+The same checks run in CI through [`.github/workflows/ci.yml`](./.github/workflows/ci.yml).
 
-- Não commite `.env.local` nem chaves do Supabase.
-- Se algum segredo já foi exposto, rotacione no provedor.
-- Artefatos como `.next/`, `*.tsbuildinfo`, `.playwright-cli/` e `output/` são ignorados.
-- Este projeto não possui vínculo oficial com o UFC.
+## What I learned
 
-## Licença
+<!--
+This section is intentionally left for the project author.
 
-MIT. Veja `LICENSE`.
+Write this in your own voice. Useful prompts:
+- What did you understand about frontend, backend, databases, and deployment?
+- Which bug or architectural decision taught you the most?
+- What did you build manually, and where did tools or AI assist you?
+- What would you design differently if you started again?
+- Which part can you now explain or implement without assistance?
+-->
+
+> **Author's note — replace this block:** Describe what you learned while turning an idea into a deployed full-stack product. Focus on specific decisions, mistakes, debugging moments, and concepts you can now explain—not only the list of technologies used.
+
+## Development process and project ownership
+
+This repository includes work across product design, interface implementation, backend APIs, database modeling and migrations, security rules, external integrations, automated tests, CI, and deployment.
+
+<!--
+Personalize this section before using the repository as a portfolio piece. Explain:
+1. Which parts you designed and implemented.
+2. Which references, libraries, tutorials, collaborators, or AI tools you used.
+3. How you reviewed, tested, and validated assisted code.
+4. What you are currently improving or studying.
+-->
+
+> **Author's note — replace this block:** Add a concise and transparent account of how the project was built and what you personally owned. Being able to explain the trade-offs and modify the implementation is more valuable than presenting the project as unaided work.
+
+## License
+
+Released under the [MIT License](./LICENSE).
