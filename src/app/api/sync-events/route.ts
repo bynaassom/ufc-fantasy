@@ -7,6 +7,7 @@ import {
   UFCEvent,
   fetchUpcomingUFCEvents,
   fetchUpcomingUFCEventsFromPage,
+  resolveSyncedEventBannerUrl,
 } from "@/lib/ufc-api";
 import { logAdminAction } from "@/lib/admin-audit";
 import { syncScrapedCardForEvent } from "@/lib/ufc-card-sync";
@@ -326,7 +327,10 @@ function buildSyncPlan(
       prelims_start_at: prelimsStartAt,
       timing_mode: timingMode,
       location: upstreamEvent.location || "",
-      banner_image_url: upstreamEvent.image || null,
+      banner_image_url: resolveSyncedEventBannerUrl(
+        existing?.banner_image_url,
+        upstreamEvent.image,
+      ),
       ufc_event_id: upstreamSourceId,
       status: getSafeSyncedEventStatus(upstreamEvent.status, existing?.status),
       picks_lock_at: picksLockAt,

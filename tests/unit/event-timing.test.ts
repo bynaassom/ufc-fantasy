@@ -1,7 +1,9 @@
 import { getAutomatedEventTiming } from "@/lib/event-timing";
 import {
   applyOfficialUfcEventMetadata,
+  extractUfcEventBannerUrl,
   parseUpcomingEventsFromHtml,
+  resolveSyncedEventBannerUrl,
 } from "@/lib/ufc-api";
 
 describe("event timing automation", () => {
@@ -64,5 +66,34 @@ describe("event timing automation", () => {
       prelimsStartAt: "2026-08-15T21:30:00.000Z",
       officialApiEventId: "1317",
     });
+  });
+
+  it("extracts the highest resolution official event banner from srcset", () => {
+    const html = `
+      <picture>
+        <source srcset="https://ufc.com/images/styles/background_image_xl/s3/event-EVENT-ART.jpg?h=abc&amp;itok=small 1x,
+          https://ufc.com/images/styles/background_image_xl_2x/s3/event-EVENT-ART.jpg?h=abc&amp;itok=large 2x">
+        <img src="https://ufc.com/images/styles/background_image_sm/s3/event-EVENT-ART.jpg?h=abc&amp;itok=mobile">
+      </picture>`;
+
+    expect(extractUfcEventBannerUrl(html)).toBe(
+      "https://ufc.com/images/styles/background_image_xl_2x/s3/event-EVENT-ART.jpg?h=abc&itok=large",
+    );
+  });
+
+  it("fills missing banners, refreshes official ones and preserves manual URLs", () => {
+    const official = "https://ufc.com/images/styles/background_image_xl_2x/s3/new-EVENT-ART.jpg";
+
+    expect(resolveSyncedEventBannerUrl(null, official)).toBe(official);
+    expect(
+      resolveSyncedEventBannerUrl(
+        "https://ufc.com/images/styles/background_image_sm/s3/old-EVENT-ART.jpg",
+        official,
+      ),
+    ).toBe(official);
+    expect(
+      resolveSyncedEventBannerUrl("https://images.example.com/manual.jpg", official),
+    ).toBe("https://images.example.com/manual.jpg");
+    expect(resolveSyncedEventBannerUrl(official, null)).toBe(official);
   });
 });

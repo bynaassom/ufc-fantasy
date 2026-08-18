@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { parseUfcEventCardHtml } from "@/lib/ufc-card-sync";
+import { extractUfcEventBannerUrl } from "@/lib/ufc-api";
 import { isAllowedScrapeUrl } from "@/lib/security";
 import { assertSameOriginForMutation } from "@/server/api";
 
@@ -102,8 +103,7 @@ export async function POST(req: NextRequest) {
   );
   const location = locationMatch ? extractText(locationMatch[0]) : "";
 
-  const bannerMatch = html.match(/background_image_[^"']*['"]\s*([^"']+EVENT-ART[^"']+)['"]/i);
-  const banner_image_url = bannerMatch ? bannerMatch[1] : "";
+  const banner_image_url = extractUfcEventBannerUrl(html) || "";
 
   return NextResponse.json({
     event: {

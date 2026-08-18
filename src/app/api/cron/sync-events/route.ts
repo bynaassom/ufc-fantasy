@@ -4,7 +4,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { syncScrapedCardForEvent } from "@/lib/ufc-card-sync";
 import { discoverUfcStatsUrl } from "@/lib/ufc-stats-discovery";
-import { fetchUpcomingUFCEvents, fetchUpcomingUFCEventsFromPage } from "@/lib/ufc-api";
+import {
+  fetchUpcomingUFCEvents,
+  fetchUpcomingUFCEventsFromPage,
+  resolveSyncedEventBannerUrl,
+} from "@/lib/ufc-api";
 import { getAutomatedEventTiming } from "@/lib/event-timing";
 import { getSafeSyncedEventStatus } from "@/lib/event-lifecycle";
 
@@ -80,7 +84,7 @@ export async function POST(req: NextRequest) {
       try {
         const result = await adminSupabase
           .from("events")
-          .select("id, name, slug, status, ufc_event_id, ufc_stats_url, timing_mode, picks_open_at")
+          .select("id, name, slug, status, ufc_event_id, ufc_stats_url, timing_mode, picks_open_at, banner_image_url")
           .in("ufc_event_id", Array.from(new Set([sourceId, event.id])))
           .limit(1)
           .maybeSingle();
@@ -95,6 +99,10 @@ export async function POST(req: NextRequest) {
         const update: Record<string, unknown> = {
           name: event.name,
           status: getSafeSyncedEventStatus(event.status, existing.status),
+          banner_image_url: resolveSyncedEventBannerUrl(
+            existing.banner_image_url,
+            event.image,
+          ),
         };
         if (existing.timing_mode !== "manual" && automaticTiming) {
           update.event_date = event.date;

@@ -68,6 +68,103 @@ function decodeHtml(value: string) {
     .replace(/&gt;/g, ">");
 }
 
+export function normalizeUfcEventImageUrl(value: unknown): string | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+
+  const cleaned = decodeHtml(value)
+    .replace(/\\u0026/gi, "&")
+    .replace(/\\\//g, "/")
+    .trim()
+    .replace(/^["']|["']$/g, "")
+    .replace(/\s+(?:\d+(?:\.\d+)?x|\d+w)$/i, "");
+  const absolute = cleaned.startsWith("//")
+    ? `https:${cleaned}`
+    : cleaned.startsWith("/")
+      ? `${UFC_SITE_BASE}${cleaned}`
+      : cleaned;
+
+  try {
+    const parsed = new URL(absolute);
+    const host = parsed.hostname.toLowerCase();
+    const isOfficialHost =
+      host === "ufc.com" ||
+      host.endsWith(".ufc.com") ||
+      host === "ufc.com.br" ||
+      host.endsWith(".ufc.com.br");
+    const isImage = /\.(?:avif|gif|jpe?g|png|webp)$/i.test(parsed.pathname);
+
+    if (!isOfficialHost || !isImage) return null;
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+export function isOfficialUfcEventImageUrl(value: unknown) {
+  return normalizeUfcEventImageUrl(value) !== null;
+}
+
+function getEventImageScore(url: string) {
+  const normalized = url.toLowerCase();
+  let score = normalized.includes("event-art") ? 1_000 : 0;
+  if (normalized.includes("background_image_xl_2x")) score += 500;
+  else if (normalized.includes("background_image_xl")) score += 400;
+  else if (normalized.includes("background_image_lg_2x")) score += 300;
+  else if (normalized.includes("background_image_lg")) score += 200;
+  else if (normalized.includes("background_image_")) score += 100;
+  return score;
+}
+
+export function extractUfcEventBannerUrl(html: string): string | null {
+  if (!html) return null;
+
+  const decoded = decodeHtml(html)
+    .replace(/\\u0026/gi, "&")
+    .replace(/\\\//g, "/");
+  const rawCandidates = decoded.match(
+    /(?:(?:https?:)?\/\/|\/)[^\s"'<>(),]+\.(?:avif|gif|jpe?g|png|webp)(?:\?[^\s"'<>(),]*)?/gi,
+  ) || [];
+  const metaCandidates = [
+    ...Array.from(
+      decoded.matchAll(
+        /<meta[^>]+(?:property|name)=["'](?:og:image|twitter:image)["'][^>]+content=["']([^"']+)["'][^>]*>/gi,
+      ),
+      (match) => match[1],
+    ),
+    ...Array.from(
+      decoded.matchAll(
+        /<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["'](?:og:image|twitter:image)["'][^>]*>/gi,
+      ),
+      (match) => match[1],
+    ),
+  ];
+  const candidates = [...rawCandidates, ...metaCandidates]
+    .map(normalizeUfcEventImageUrl)
+    .filter((value): value is string => Boolean(value));
+  const eventArtCandidates = candidates.filter((url) => /event-art/i.test(url));
+  const eligible = eventArtCandidates.length
+    ? eventArtCandidates
+    : metaCandidates
+        .map(normalizeUfcEventImageUrl)
+        .filter((value): value is string => Boolean(value));
+
+  return [...new Set(eligible)]
+    .map((url, index) => ({ url, index, score: getEventImageScore(url) }))
+    .sort((a, b) => b.score - a.score || a.index - b.index)[0]?.url || null;
+}
+
+export function resolveSyncedEventBannerUrl(
+  existingBanner: string | null | undefined,
+  upstreamBanner: string | null | undefined,
+) {
+  const incoming = normalizeUfcEventImageUrl(upstreamBanner);
+  const existing = existingBanner?.trim() || null;
+
+  if (!incoming) return existing;
+  if (!existing || isOfficialUfcEventImageUrl(existing)) return incoming;
+  return existing;
+}
+
 function stripTags(value: string) {
   return decodeHtml(value.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
 }
@@ -200,6 +297,7 @@ async function enrichUpcomingEventNames(events: UFCEvent[]): Promise<UFCEvent[]>
 
         const html = await response.text();
         const fullTitle = parseEventPageTitle(html);
+        const bannerImage = extractUfcEventBannerUrl(html);
         const liveEventId = extractUfcLiveEventId(html);
         const official = liveEventId
           ? await fetchUfcLiveEvent(liveEventId).catch(() => null)
@@ -209,6 +307,7 @@ async function enrichUpcomingEventNames(events: UFCEvent[]): Promise<UFCEvent[]>
           ...event,
           name:
             needsFullEventTitle(event.name) && fullTitle ? fullTitle : event.name,
+          image: bannerImage || event.image,
           officialApiEventId: liveEventId || undefined,
         };
         return official
@@ -239,9 +338,7 @@ export function parseUpcomingEventsFromHtml(html: string): UFCEvent[] {
     const timestamp = card.match(/data-main-card-timestamp="([^"]+)"/)?.[1];
     const prelimsTimestamp = card.match(/data-prelims-card-timestamp="([^"]+)"/)?.[1];
     const earlyPrelimsTimestamp = card.match(/data-early-card-timestamp="([^"]+)"/)?.[1];
-    const image =
-      card.match(/<img[^>]+src="([^"]+EVENT-ART[^"]+)"/)?.[1] ||
-      card.match(/<img[^>]+src="([^"]+)"/)?.[1];
+    const image = extractUfcEventBannerUrl(card);
     const venue = card.match(/field--name-taxonomy-term-title[\s\S]*?<h5>\s*([\s\S]*?)\s*<\/h5>/)?.[1];
     const address = card.match(/field--name-location[\s\S]*?<p class="address"[^>]*>([\s\S]*?)<\/p>/)?.[1];
 
@@ -296,12 +393,20 @@ function normalizeUpcomingApiEvent(rawEvent: any): UFCEvent | null {
     [rawEvent?.city, rawEvent?.state, rawEvent?.country].filter(Boolean).join(", "),
   );
 
-  const image = pickFirstString(
+  const image = [
     rawEvent?.image,
+    rawEvent?.image?.url,
     rawEvent?.heroImage,
+    rawEvent?.heroImage?.url,
     rawEvent?.eventImage,
+    rawEvent?.eventImage?.url,
     rawEvent?.posterImage,
-  );
+    rawEvent?.posterImage?.url,
+    rawEvent?.banner,
+    rawEvent?.banner?.url,
+  ]
+    .map(normalizeUfcEventImageUrl)
+    .find((value): value is string => Boolean(value));
 
   return {
     id: String(rawEvent?.id ?? rawEvent?.eventId ?? rawEvent?.slug ?? name),
