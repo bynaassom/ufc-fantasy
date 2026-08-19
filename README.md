@@ -225,18 +225,13 @@ The same checks run in CI through [`.github/workflows/ci.yml`](./.github/workflo
 
 ## What I learned
 
-<!--
-This section is intentionally left for the project author.
+This project taught me how to turn an idea into a working product and improve it iteratively. Working with AI became part of that process—not just by asking for code in natural language, but by asking the tool to analyze decisions, suggest optimizations, review implementations, identify risks, and explain concepts. That made AI a learning partner and a way to accelerate practice, not a replacement for understanding the code.
 
-Write this in your own voice. Useful prompts:
-- What did you understand about frontend, backend, databases, and deployment?
-- Which bug or architectural decision taught you the most?
-- What did you build manually, and where did tools or AI assist you?
-- What would you design differently if you started again?
-- Which part can you now explain or implement without assistance?
--->
+I built a practical foundation in databases: how records are modeled and persisted, how relationships and access rules shape the data layer, and how data is queried on the server and delivered to the frontend. I also learned to read deployment logs and browser-console output systematically, using them to trace failures, investigate unexpected behavior, and validate fixes.
 
-> **Author's note — replace this block:** Describe what you learned while turning an idea into a deployed full-stack product. Focus on specific decisions, mistakes, debugging moments, and concepts you can now explain—not only the list of technologies used.
+The project introduced me to web scraping and external data integration. I learned how to inspect browser network requests and APIs, distinguish first-party sources from unreliable ones, restrict accepted hosts, and design synchronization around data that can change or disagree. Finally, I learned how cron jobs can automate recurring work such as discovering events, verifying cards, synchronizing results, sending notifications, and advancing the event lifecycle.
+
+The most important lesson was that building software is an iterative loop: make an idea concrete, observe what actually happens, understand the failure, improve the design, and test the result.
 
 ## Development process and project ownership
 
