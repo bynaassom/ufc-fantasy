@@ -235,17 +235,11 @@ The most important lesson was that building software is an iterative loop: make 
 
 ## Development process and project ownership
 
-This repository includes work across product design, interface implementation, backend APIs, database modeling and migrations, security rules, external integrations, automated tests, CI, and deployment.
+The project started after the official UFC Fantasy experience was discontinued in Brazil. Following UFC's transition to Paramount, the fantasy product was no longer available to Brazilian fans, even though it had been a fun way to follow fight cards every weekend.
 
-<!--
-Personalize this section before using the repository as a portfolio piece. Explain:
-1. Which parts you designed and implemented.
-2. Which references, libraries, tutorials, collaborators, or AI tools you used.
-3. How you reviewed, tested, and validated assisted code.
-4. What you are currently improving or studying.
--->
+While studying programming and systems development with AI, I decided to build an independent alternative: a platform with a similar core experience, but with my own ideas, improvements, and features. That decision became UFC Fantasy.
 
-> **Author's note — replace this block:** Add a concise and transparent account of how the project was built and what you personally owned. Being able to explain the trade-offs and modify the implementation is more valuable than presenting the project as unaided work.
+I designed and developed the project across the product and technical layers, including the interface, backend APIs, database schema and migrations, security rules, external data integrations, automated tests, CI, and deployment. AI was part of the development process as a learning and review partner: I used it to explore solutions, analyze trade-offs, investigate bugs, improve implementations, and explain unfamiliar concepts. I then reviewed, tested, and validated the resulting behavior so that I could understand and take ownership of the system rather than treat generated code as a black box.
 
 ## License
 
