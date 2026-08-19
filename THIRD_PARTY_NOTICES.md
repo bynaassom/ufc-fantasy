@@ -35,4 +35,4 @@ Screenshots and promotional images in `docs/screenshots/` may include UFC names,
 
 ## Contact and takedown requests
 
-If you own or represent rights in material referenced by this project and believe it should be corrected or removed, contact [contato@ufcfantasy.com](mailto:contato@ufcfantasy.com) with the relevant URL or file path.
+If you own or represent rights in material referenced by this project and believe it should be corrected or removed, contact [naassom.dsgn@gmail.com](mailto:naassom.dsgn@gmail.com) with the relevant URL or file path.
