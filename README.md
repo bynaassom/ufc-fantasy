@@ -243,4 +243,7 @@ I designed and developed the project across the product and technical layers, in
 
 ## License
 
-Released under the [MIT License](./LICENSE).
+Released under the [MIT License](./LICENSE). The MIT License covers the
+project's original code and documentation; see the [Third-Party Notices](./THIRD_PARTY_NOTICES.md)
+for UFC content, external services, data sources, screenshots, and dependency
+licensing notes.
