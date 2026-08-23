@@ -228,8 +228,32 @@ describe("getHomePageData", () => {
     const result = await getHomePageData();
 
     expect(result.upcomingEvents.map((event) => event.id)).toEqual(["later-event"]);
-    expect(result.completedEvents).toHaveLength(3);
+    expect(result.previousEvents).toHaveLength(6);
     expect(mocks.listUpcomingEvents).toHaveBeenCalledOnce();
     expect(mocks.listRecentCompletedEvents).toHaveBeenCalledOnce();
+  });
+
+  it("loads the events index without fetching completed events or home-only data", async () => {
+    const currentEvent = makeEvent({
+      id: "current-event",
+      slug: "current-event",
+      event_date: "2026-06-07T00:00:00.000Z",
+    });
+    const laterEvent = makeEvent({
+      id: "later-event",
+      slug: "later-event",
+      event_date: "2026-06-15T00:00:00.000Z",
+    });
+    mocks.getCurrentPublicEvent.mockResolvedValue(currentEvent);
+    mocks.listUpcomingEvents.mockResolvedValue([currentEvent, laterEvent]);
+
+    const { getEventsIndexPageData } = await import("@/server/services/app");
+    const result = await getEventsIndexPageData();
+
+    expect(result.currentEvent?.id).toBe("current-event");
+    expect(result.upcomingEvents.map((event) => event.id)).toEqual(["later-event"]);
+    expect(mocks.listUpcomingEvents).toHaveBeenCalledWith({}, 50);
+    expect(mocks.listRecentCompletedEvents).not.toHaveBeenCalled();
+    expect(mocks.listChallengesForUser).not.toHaveBeenCalled();
   });
 });

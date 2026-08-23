@@ -79,6 +79,7 @@ export interface Event {
 export interface Fighter {
   id: string;
   name: string;
+  slug?: string | null;
   ufc_fighter_id?: string;
   headshot_url?: string;
   country?: string;
@@ -134,7 +135,51 @@ export interface EventScore {
   fights_scored: number;
   rank_position?: number;
   updated_at: string;
+  perfect_picks?: number;
   profile?: Profile;
+}
+
+export interface HomeFighterStats {
+  record: string | null;
+  winsByKoTko: number | null;
+  winsBySubmission: number | null;
+  firstRoundWins: number | null;
+  sourceUrl: string;
+}
+
+export interface HomeFighter {
+  id: string;
+  name: string;
+  slug: string | null;
+  imageUrl: string | null;
+  stats: HomeFighterStats | null;
+}
+
+export interface HomeMainEvent {
+  fightId: string;
+  eventSlug: string;
+  weightClass: string;
+  isTitleFight: boolean;
+  fighterA: HomeFighter;
+  fighterB: HomeFighter;
+}
+
+export interface SuggestedRival {
+  userId: string;
+  nickname: string;
+  displayName: string;
+  reason: string;
+  rankPosition: number | null;
+  lastEventPoints: number | null;
+}
+
+export interface PreviousEventPerformance {
+  eventId: string;
+  participated: boolean;
+  totalPoints: number | null;
+  rankPosition: number | null;
+  correctWinners: number | null;
+  perfectPicks: number | null;
 }
 
 export interface ActivityLog {

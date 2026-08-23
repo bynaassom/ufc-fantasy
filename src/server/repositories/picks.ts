@@ -43,6 +43,21 @@ export async function listPicksForUser(client: any, userId: string) {
   return data || [];
 }
 
+export async function listPicksForUserAndEvents(
+  client: DbClient,
+  userId: string,
+  eventIds: string[],
+) {
+  if (!eventIds.length) return [];
+  const { data, error } = await client
+    .from("picks")
+    .select("event_id, points_winner, total_points")
+    .eq("user_id", userId)
+    .in("event_id", eventIds);
+  if (error) throw error;
+  return data || [];
+}
+
 export async function upsertUserPicks(
   client: DbClient,
   payload: Record<string, unknown>[],

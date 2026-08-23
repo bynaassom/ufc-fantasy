@@ -1,3 +1,5 @@
+import { unstable_cache } from "next/cache";
+
 const UFC_ATHLETE_BASES = ["https://www.ufc.com.br", "https://www.ufc.com"];
 
 type FighterMediaResult = {
@@ -135,6 +137,7 @@ export function extractEventCardHeadshots(htmlBlock: string, base: string) {
 async function scrapeAthletePage(
   slug: string,
   base: string,
+  timeoutMs: number,
 ): Promise<FighterMediaResult | null> {
   const ufcUrl = `${base}/athlete/${slug}`;
 
@@ -148,7 +151,7 @@ async function scrapeAthletePage(
         "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
         Referer: `${base}/`,
       },
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(Math.max(1, timeoutMs)),
       cache: "no-store",
     });
 
@@ -216,12 +219,16 @@ export function generateFighterSlugCandidates(name: string) {
 
 export async function resolveUfcFighterMedia(
   name: string,
+  totalTimeoutMs = 10_000,
 ): Promise<FighterMediaResult | null> {
   const slugs = generateFighterSlugCandidates(name);
+  const deadline = Date.now() + Math.max(1, totalTimeoutMs);
 
   for (const slug of slugs) {
     for (const base of UFC_ATHLETE_BASES) {
-      const result = await scrapeAthletePage(slug, base);
+      const remainingMs = deadline - Date.now();
+      if (remainingMs <= 0) return null;
+      const result = await scrapeAthletePage(slug, base, Math.min(10_000, remainingMs));
       if (result?.headshot_url) {
         return result;
       }
@@ -229,4 +236,12 @@ export async function resolveUfcFighterMedia(
   }
 
   return null;
+}
+
+export function getCachedUfcFighterMedia(name: string, totalTimeoutMs = 10_000) {
+  return unstable_cache(
+    () => resolveUfcFighterMedia(name, totalTimeoutMs),
+    ["ufc-fighter-media", name],
+    { revalidate: 21_600 },
+  )();
 }

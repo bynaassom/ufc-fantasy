@@ -43,6 +43,7 @@ import {
 import {
   getEventRankForUser,
   getEventScoreForUserAndEvent as getEventScoreRowForUserAndEvent,
+  listEventScoresForUserAndEvents,
   listEventLeaderboard,
   listEventScoresForRankMovement,
 } from "@/server/repositories/event-scores";
@@ -65,6 +66,7 @@ import {
   getPickDistributionForEvent,
   listPerfectPickUsersForFight,
   listPicksForUser,
+  listPicksForUserAndEvents,
   listPicksForUserEvent,
   listPicksForUsersEvent,
   upsertUserPicks,
@@ -139,6 +141,11 @@ import {
   updatePickSaveAttempt,
 } from "@/server/repositories/pick-audit";
 import { buildPickAuditSummary } from "@/lib/pick-audit";
+import { buildChallengeSuggestions } from "@/lib/challenge-suggestions";
+import { buildPreviousEventPerformances } from "@/lib/home-event-performance";
+import { selectHomeMainEventFight } from "@/lib/home-main-event";
+import { fetchUfcFighterStats, toHomeFighterStats } from "@/lib/ufc-fighter-stats";
+import { getCachedUfcFighterMedia, isUsableHeadshotUrl } from "@/lib/ufc-fighter-media";
 
 type RankingProfileRow = Pick<
   Profile,
@@ -182,6 +189,7 @@ type ChallengeView = Challenge & {
 const EVENTS_CACHE_SECONDS = 60;
 const EVENT_DETAIL_CACHE_SECONDS = 30;
 const RANKING_CACHE_SECONDS = 30;
+const HOME_UFC_ENRICHMENT_BUDGET_MS = 2_000;
 
 const getCachedCurrentPublicEvent = unstable_cache(
   async () => {
@@ -261,6 +269,21 @@ const getCachedGlobalSeasonStandings = unstable_cache(
     return listGlobalSeasonStandings(supabase, seasonId, 100);
   },
   ["global-season-standings"],
+  {
+    revalidate: RANKING_CACHE_SECONDS,
+    tags: [CACHE_TAGS.ranking],
+  },
+);
+
+// Home-only discovery cache. Ranking pages intentionally keep their 100-row
+// contract; rival suggestions need a much wider pool so users outside the
+// leaderboard preview can still receive a meaningful opponent.
+const getCachedHomeSeasonStandings = unstable_cache(
+  async (seasonId: string) => {
+    const supabase = getServiceRoleSupabase();
+    return listGlobalSeasonStandings(supabase, seasonId, 5_000);
+  },
+  ["home-global-season-standings"],
   {
     revalidate: RANKING_CACHE_SECONDS,
     tags: [CACHE_TAGS.ranking],
@@ -921,12 +944,74 @@ export async function getPublicEventPickShareData(
   };
 }
 
+async function buildHomeFighter(fighter: any) {
+  const mediaPromise = isUsableHeadshotUrl(fighter?.headshot_url)
+    ? Promise.resolve(null)
+    : getCachedUfcFighterMedia(fighter?.name || "", HOME_UFC_ENRICHMENT_BUDGET_MS);
+  const statsPromise = fetchUfcFighterStats({
+    slug: fighter?.slug,
+    name: fighter?.name || "",
+    totalTimeoutMs: HOME_UFC_ENRICHMENT_BUDGET_MS,
+  });
+  const [mediaResult, statsResult] = await Promise.allSettled([mediaPromise, statsPromise]);
+  const media = mediaResult.status === "fulfilled" ? mediaResult.value : null;
+  const stats = statsResult.status === "fulfilled" ? statsResult.value : null;
+  return {
+    id: String(fighter.id),
+    name: fighter.name,
+    slug: fighter.slug || media?.slug || null,
+    imageUrl: isUsableHeadshotUrl(fighter.headshot_url)
+      ? fighter.headshot_url
+      : media?.headshot_url || null,
+    stats: toHomeFighterStats(stats),
+  };
+}
+
+async function buildHomeMainEvent(event: Event | null, fights: any[]) {
+  if (!event) return null;
+  const mainFight = selectHomeMainEventFight(fights);
+  if (!mainFight?.fighter_a || !mainFight?.fighter_b) return null;
+  const [fighterA, fighterB] = await Promise.all([
+    buildHomeFighter(mainFight.fighter_a),
+    buildHomeFighter(mainFight.fighter_b),
+  ]);
+  return {
+    fightId: mainFight.id,
+    eventSlug: event.slug,
+    weightClass: mainFight.weight_class,
+    isTitleFight: Boolean(mainFight.is_title_fight),
+    fighterA,
+    fighterB,
+  };
+}
+
+export async function getEventsIndexPageData() {
+  const { profile } = await requirePageUserProfile();
+  const [cachedCurrentEvent, rawUpcomingEvents] = await Promise.all([
+    getCachedCurrentPublicEvent(),
+    getCachedUpcomingEvents(50),
+  ]);
+  const eventSequence = resolvePublicEventSequence([
+    cachedCurrentEvent,
+    ...rawUpcomingEvents,
+  ]);
+  const currentEvent = eventSequence[0] || null;
+
+  return {
+    profile,
+    currentEvent,
+    upcomingEvents: eventSequence.filter(
+      (event) => event.status === "upcoming" && event.id !== currentEvent?.id,
+    ),
+  };
+}
+
 export async function getHomePageData() {
   const { profile, user } = await requirePageUserProfile();
   const [cachedCurrentEvent, rawUpcomingEvents, completedEvents] = await Promise.all([
     getCachedCurrentPublicEvent(),
     getCachedUpcomingEvents(10),
-    getCachedRecentCompletedEvents(3),
+    getCachedRecentCompletedEvents(6),
   ]);
 
   const eventSequence = resolvePublicEventSequence([
@@ -939,7 +1024,7 @@ export async function getHomePageData() {
   );
 
   const adminSupabase = await getAdminSupabase();
-  const [rawChallenges, currentEventPicks, currentEventFightCount] = await Promise.all([
+  const [rawChallenges, currentEventPicks, currentEventFightCount, currentEventFights] = await Promise.all([
     listChallengesForUser(adminSupabase, user.id) as Promise<ChallengeRow[]>,
     currentEvent
       ? listPicksForUserEvent(adminSupabase, user.id, currentEvent.id)
@@ -947,6 +1032,9 @@ export async function getHomePageData() {
     currentEvent
       ? countFightsForEvent(adminSupabase, currentEvent.id)
       : Promise.resolve(0),
+    currentEvent && typeof adminSupabase?.from === "function"
+      ? listEventFights(adminSupabase, currentEvent.id)
+      : Promise.resolve([]),
   ]);
 
   const activeChallengeRows = rawChallenges
@@ -955,7 +1043,7 @@ export async function getHomePageData() {
         (c.status === "pending" && c.challenged_id === user.id) ||
         c.status === "accepted",
     )
-    .slice(0, 5);
+    .slice(0, 3);
 
   const profileIds = Array.from(
     new Set(activeChallengeRows.flatMap((c) => [c.challenger_id, c.challenged_id])),
@@ -965,12 +1053,70 @@ export async function getHomePageData() {
     profiles.map((p: any) => [String(p.id), p as RankingProfileRow]),
   );
 
+  const previousEvents = completedEvents.slice(0, 6);
+  const previousEventIds = previousEvents.map((event) => event.id);
+  const [previousScores, previousPicks] = await Promise.all([
+    typeof adminSupabase?.from === "function"
+      ? listEventScoresForUserAndEvents(adminSupabase, user.id, previousEventIds)
+      : Promise.resolve([]),
+    typeof adminSupabase?.from === "function"
+      ? listPicksForUserAndEvents(adminSupabase, user.id, previousEventIds)
+      : Promise.resolve([]),
+  ]);
+  const performances = buildPreviousEventPerformances(previousEventIds, previousScores as any[], previousPicks as any[]);
+  const performanceByEvent = new Map(performances.map((performance) => [performance.eventId, performance]));
+
+  let standings: any[] = [];
+  let lastEventScores: any[] = [];
+  try {
+    if (typeof adminSupabase?.from !== "function") throw new Error("Supabase indisponível");
+    const season = await getCachedCurrentSeason();
+    if (season) standings = await getCachedHomeSeasonStandings(season.id);
+    if (previousEventIds.length) {
+      const { data, error } = await adminSupabase
+        .from("event_scores")
+        .select("user_id, total_points")
+        .eq("event_id", previousEventIds[0]);
+      if (!error) lastEventScores = data || [];
+    }
+  } catch (error) {
+    console.warn("[home] Não foi possível carregar ranking para sugestão de rival.", error);
+  }
+  const currentStanding = standings.find((standing) => standing.user_id === user.id);
+  const lastEventScore = previousScores.find((score: any) => score.event_id === previousEventIds[0]);
+  const lastEventScoreByUser = new Map(lastEventScores.map((score) => [score.user_id, score.total_points]));
+  const challengedIds = rawChallenges
+    .filter((challenge) => challenge.event_id === currentEvent?.id && ["pending", "accepted"].includes(challenge.status))
+    .flatMap((challenge) => [challenge.challenger_id, challenge.challenged_id]);
+  const suggestedRivals = buildChallengeSuggestions(
+    standings.map((standing) => ({
+      userId: standing.user_id,
+      nickname: standing.nickname,
+      displayName: [standing.first_name, standing.last_name].filter(Boolean).join(" ") || standing.nickname,
+      rankPosition: standing.rank_position,
+      totalPoints: standing.total_points,
+      lastEventPoints: lastEventScoreByUser.get(standing.user_id) ?? null,
+      isPublic: true,
+    })),
+    {
+      currentUserId: user.id,
+      currentRankPosition: currentStanding?.rank_position ?? null,
+      currentLastEventPoints: lastEventScore?.total_points ?? null,
+      excludedUserIds: [...challengedIds, ...profileIds],
+      max: 3,
+    },
+  );
+
   return {
     profile,
     userId: user.id,
     currentEvent,
-    upcomingEvents,
-    completedEvents: completedEvents.slice(0, 3),
+    upcomingEvents: upcomingEvents.slice(0, 6),
+    previousEvents: previousEvents.map((event) => ({
+      event,
+      performance: performanceByEvent.get(event.id) || buildPreviousEventPerformances([event.id], [], [])[0],
+    })),
+    mainEvent: await buildHomeMainEvent(currentEvent, currentEventFights),
     currentEventPickProgress: {
       picked: currentEventPicks.length,
       total: currentEventFightCount,
@@ -985,6 +1131,7 @@ export async function getHomePageData() {
         c.challenger_id === user.id ? c.challenged_id : c.challenger_id,
       ) as PublicProfileSummary | undefined) || null,
     })),
+    suggestedRivals,
   };
 }
 

@@ -132,20 +132,16 @@ export function FightCardsSkeleton({ rows = 3 }: { rows?: number }) {
 function HomePreset() {
   return (
     <>
-      <div className="mb-8 border-b pb-6" style={{ borderColor: "var(--border)" }}>
-        <SkeletonBlock className="mb-2 h-2.5 w-32" />
-        <SkeletonBlock className="mb-2 h-8 w-56 max-w-[80%]" />
-        <SkeletonBlock className="h-3 w-24" />
-      </div>
+      <div className="mb-5 flex items-center justify-between border-b py-3" style={{ borderColor: "var(--border)" }}><SkeletonBlock className="h-5 w-40" /><SkeletonBlock className="h-5 w-24" /></div>
       <SectionLabel width="w-24" />
-      <SkeletonBlock className="skeleton-feature aspect-[16/7] w-full" />
-      <div className="mb-10 flex h-16 items-center justify-between border border-t-0 px-4" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg-card)" }}>
-        <div className="space-y-2"><SkeletonBlock className="h-2 w-36" /><SkeletonBlock className="h-2 w-24" /></div>
-        <SkeletonBlock className="h-9 w-28" />
-      </div>
-      <SectionLabel width="w-36" />
+      <SkeletonBlock className="skeleton-feature aspect-[16/8] w-full" />
+      <div className="mb-10 grid h-24 grid-cols-[1fr_auto] gap-4 border border-t-0 p-4" style={{ borderColor: "var(--border)", backgroundColor: "var(--bg-card)" }}><div className="space-y-2"><SkeletonBlock className="h-3 w-32" /><SkeletonBlock className="h-2 w-full" /><SkeletonBlock className="h-2 w-24" /></div><SkeletonBlock className="h-11 w-32" /></div>
+      <SectionLabel width="w-32" />
+      <SkeletonBlock className="mb-10 h-72 w-full" />
+      <SectionLabel width="w-24" />
       <ListRows rows={3} compact />
-      <div className="mt-10"><SectionLabel width="w-28" /><ListRows rows={2} /></div>
+      <div className="mt-10"><SectionLabel width="w-28" /><div className="flex gap-3"><SkeletonBlock className="h-64 w-[82vw] max-w-[320px]" /><SkeletonBlock className="h-64 w-[82vw] max-w-[320px]" /></div></div>
+      <div className="mt-10"><SectionLabel width="w-28" /><div className="flex gap-3"><SkeletonBlock className="h-64 w-[82vw] max-w-[320px]" /><SkeletonBlock className="h-64 w-[82vw] max-w-[320px]" /></div></div>
     </>
   );
 }
@@ -267,7 +263,7 @@ export function PageSkeleton({
   const maxWidth = ["admin", "challenge", "league", "share"].includes(variant)
     ? "max-w-5xl"
     : variant === "home"
-      ? "max-w-4xl"
+      ? "max-w-[1180px]"
       : variant === "profile"
         ? "max-w-lg"
         : "max-w-3xl";

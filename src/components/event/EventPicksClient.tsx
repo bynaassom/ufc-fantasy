@@ -437,14 +437,15 @@ export default function EventPicksClient({
           </div>
           <div className="space-y-4">
             {mainCard.map((fight) => (
-              <FightCard
-                key={fight.id}
-                fight={fight}
-                existingPick={picksForCards[fight.id]}
-                locked={locked}
-                unavailablePicksLabel={unavailablePicksLabel}
-                onPickChange={handlePickChange}
-              />
+              <div key={fight.id} id={`fight-${fight.id}`} className="scroll-mt-20">
+                <FightCard
+                  fight={fight}
+                  existingPick={picksForCards[fight.id]}
+                  locked={locked}
+                  unavailablePicksLabel={unavailablePicksLabel}
+                  onPickChange={handlePickChange}
+                />
+              </div>
             ))}
           </div>
         </section>
@@ -475,14 +476,15 @@ export default function EventPicksClient({
           </div>
           <div className="space-y-4">
             {prelimCard.map((fight) => (
-              <FightCard
-                key={fight.id}
-                fight={fight}
-                existingPick={picksForCards[fight.id]}
-                locked={locked}
-                unavailablePicksLabel={unavailablePicksLabel}
-                onPickChange={handlePickChange}
-              />
+              <div key={fight.id} id={`fight-${fight.id}`} className="scroll-mt-20">
+                <FightCard
+                  fight={fight}
+                  existingPick={picksForCards[fight.id]}
+                  locked={locked}
+                  unavailablePicksLabel={unavailablePicksLabel}
+                  onPickChange={handlePickChange}
+                />
+              </div>
             ))}
           </div>
         </section>

@@ -4,7 +4,7 @@ export async function listEventFights(client: DbClient, eventId: string) {
   const { data, error } = await client
     .from("fights")
     .select(
-      "id, card_type, fight_order, weight_class, is_title_fight, total_rounds, result_confirmed, odds_a, odds_b, ufc_matchup_url, fighter_a:fighters!fighter_a_id(id,name), fighter_b:fighters!fighter_b_id(id,name)",
+      "id, card_type, fight_order, weight_class, is_title_fight, total_rounds, result_confirmed, odds_a, odds_b, ufc_matchup_url, fighter_a:fighters!fighter_a_id(id,name,slug,ufc_fighter_id,headshot_url,country), fighter_b:fighters!fighter_b_id(id,name,slug,ufc_fighter_id,headshot_url,country)",
     )
     .eq("event_id", eventId)
     .order("card_type")

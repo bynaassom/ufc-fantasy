@@ -1,3 +1,5 @@
+import type { DbClient } from "@/types/database";
+
 export async function getEventScoreForUserAndEvent(
   client: any,
   userId: string,
@@ -12,6 +14,21 @@ export async function getEventScoreForUserAndEvent(
 
   if (error) throw error;
   return data;
+}
+
+export async function listEventScoresForUserAndEvents(
+  client: DbClient,
+  userId: string,
+  eventIds: string[],
+) {
+  if (!eventIds.length) return [];
+  const { data, error } = await client
+    .from("event_scores")
+    .select("user_id, event_id, total_points, fights_scored, rank_position, perfect_picks")
+    .eq("user_id", userId)
+    .in("event_id", eventIds);
+  if (error) throw error;
+  return data || [];
 }
 
 export async function getEventRankForUser(

@@ -1,124 +1,22 @@
 import Link from "next/link";
 import type { HomeChallenge } from "@/types/api";
+import type { SuggestedRival } from "@/types";
+import SuggestedChallengeCard from "@/components/home/SuggestedChallengeCard";
 
 function getStatusLabel(status: HomeChallenge["status"]) {
-  const labels: Record<HomeChallenge["status"], string> = {
-    pending: "Pendente",
-    accepted: "Ativo",
-    declined: "Recusado",
-    expired: "Expirado",
-    completed: "Encerrado",
-  };
-  return labels[status];
+  return ({ pending: "Pendente", accepted: "Ativo", declined: "Recusado", expired: "Expirado", completed: "Encerrado" } satisfies Record<HomeChallenge["status"], string>)[status];
 }
-
 function getStatusColor(status: HomeChallenge["status"]) {
-  const colors: Record<HomeChallenge["status"], string> = {
-    pending: "var(--red)",
-    accepted: "#22c55e",
-    declined: "var(--text-muted)",
-    expired: "var(--text-muted)",
-    completed: "var(--red)",
-  };
-  return colors[status];
+  return ({ pending: "var(--red)", accepted: "var(--green)", declined: "var(--text-muted)", expired: "var(--text-muted)", completed: "var(--red)" } satisfies Record<HomeChallenge["status"], string>)[status];
 }
 
-export default function HomeChallenges({
-  challenges,
-}: {
-  challenges: HomeChallenge[];
-}) {
-  return (
-    <section className="mb-10">
-      <div className="flex items-center justify-between mb-4">
-        <div className="red-line flex-1">
-          <span className="section-title">Desafios</span>
-        </div>
-        <Link
-          href="/desafios"
-          className="font-condensed font-700 text-xs uppercase tracking-widest ml-4 transition-opacity hover:opacity-70"
-          style={{ color: "var(--red)" }}
-        >
-          VER TODOS →
-        </Link>
-      </div>
-      {challenges.length === 0 ? (
-        <div
-          className="flex items-center justify-between gap-4 px-5 py-4"
-          style={{ border: "1px solid var(--border)" }}
-        >
-          <div>
-            <p className="font-condensed font-900 text-sm uppercase tracking-wide" style={{ color: "var(--text)" }}>
-              Nenhum desafio ativo
-            </p>
-            <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-              Convide um rival para disputar o próximo card.
-            </p>
-          </div>
-          <Link
-            href="/desafios"
-            className="min-tap flex-shrink-0 px-3 py-2 font-condensed font-900 text-xs uppercase tracking-widest text-white"
-            style={{ backgroundColor: "var(--red)" }}
-          >
-            Desafiar
-          </Link>
-        </div>
-      ) : (
-        <div style={{ border: "1px solid var(--border)" }}>
-          {challenges.map((challenge, index) => {
-          const isIncoming =
-            challenge.status === "pending";
-          const opponent = challenge.opponent;
-
-          return (
-            <Link
-              key={challenge.id}
-              href={`/desafios/${challenge.id}`}
-              className="flex items-center justify-between gap-4 px-5 py-4 hover-bg-elevated"
-              style={{
-                borderBottom:
-                  index < challenges.length - 1
-                    ? "1px solid var(--border)"
-                    : "none",
-              }}
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <span
-                  className="font-condensed font-900 text-[10px] uppercase tracking-widest px-2 py-1 flex-shrink-0"
-                  style={{
-                    color: getStatusColor(challenge.status),
-                    border: `1px solid ${getStatusColor(challenge.status)}`,
-                  }}
-                >
-                  {getStatusLabel(challenge.status)}
-                </span>
-                <div className="min-w-0">
-                  <p
-                    className="font-condensed font-900 text-sm uppercase tracking-wide truncate"
-                    style={{ color: "var(--text)" }}
-                  >
-                    {opponent ? opponent.nickname : "Desconhecido"}
-                  </p>
-                  <p
-                    className="font-condensed font-600 text-xs uppercase tracking-widest mt-0.5"
-                    style={{ color: "var(--text-muted)" }}
-                  >
-                    {challenge.event?.name || "Evento"}
-                    {isIncoming && " · Precisa responder"}
-                  </p>
-                </div>
-              </div>
-              <span
-                className="font-condensed font-900 text-xs uppercase tracking-widest flex-shrink-0"
-                style={{ color: "var(--red)" }}
-              >
-                ABRIR
-              </span>
-            </Link>
-          );
-          })}
-        </div>
-      )}
-    </section>
-  );
+export default function HomeChallenges({ challenges, suggestedRivals = [], currentEvent = null }: { challenges: HomeChallenge[]; suggestedRivals?: SuggestedRival[]; currentEvent?: { id: string; name: string } | null }) {
+  return <section className="home-reveal" aria-labelledby="home-challenges-heading">
+    <div className="mb-3 flex items-center justify-between gap-3"><div className="red-line !mb-0"><h2 id="home-challenges-heading" className="section-title">Desafios</h2></div><Link href="/desafios" className="min-tap px-2 font-condensed text-[10px] font-900 uppercase tracking-[0.14em] text-[var(--red)]">Ver todos →</Link></div>
+    <div className="overflow-hidden border border-[var(--border)] bg-[var(--bg-card)]">
+      {challenges.length === 0 && !suggestedRivals.length && <div className="px-4 py-5"><p className="font-condensed text-sm font-900 uppercase text-[var(--text)]">Nenhum desafio ativo</p><p className="mt-1 text-sm text-[var(--text-secondary)]">Convide um rival para o próximo card.</p></div>}
+      {challenges.map((challenge) => <Link key={challenge.id} href={`/desafios/${challenge.id}`} className="flex min-h-[70px] items-center justify-between gap-4 border-b border-[var(--border)] px-4 py-3 transition-colors hover:bg-[var(--bg-elevated)]"><div className="flex min-w-0 items-center gap-3"><span className="shrink-0 border px-2 py-1 font-condensed text-[10px] font-900 uppercase tracking-[0.1em]" style={{ color: getStatusColor(challenge.status), borderColor: getStatusColor(challenge.status) }}>{getStatusLabel(challenge.status)}</span><div className="min-w-0"><p className="truncate font-condensed text-sm font-900 uppercase text-[var(--text)]">{challenge.opponent?.nickname || "Desconhecido"}</p><p className="truncate font-condensed text-[10px] font-700 uppercase tracking-[0.12em] text-[var(--text-muted)]">{challenge.event?.name || "Evento"}{challenge.status === "pending" ? " · Precisa responder" : ""}</p></div></div><span className="shrink-0 font-condensed text-[10px] font-900 uppercase tracking-[0.12em] text-[var(--red)]">Abrir →</span></Link>)}
+      <SuggestedChallengeCard rivals={suggestedRivals} event={currentEvent} />
+    </div>
+  </section>;
 }

@@ -29,6 +29,13 @@
     --bg-overlay-45: rgba(13, 13, 13, 0.45);
     --bg-overlay-30: rgba(13, 13, 13, 0.3);
     --bg-overlay-20: rgba(13, 13, 13, 0.2);
+    --corner-red: #e8001a;
+    --corner-blue: #2878ff;
+    --focus: #ff3048;
+    --hero-ink: #090909;
+    --hero-paper: #f4f2ec;
+    --home-gutter: 1rem;
+    --home-section-gap: 2.75rem;
 }
 
 /* ============================================================
@@ -53,6 +60,15 @@
     --bg-overlay-45: rgba(245, 245, 240, 0.45);
     --bg-overlay-30: rgba(245, 245, 240, 0.3);
     --bg-overlay-20: rgba(245, 245, 240, 0.2);
+    --hero-ink: #171717;
+    --hero-paper: #f4f2ec;
+}
+
+@media (min-width: 768px) {
+    :root {
+        --home-gutter: 1.5rem;
+        --home-section-gap: 4rem;
+    }
 }
 
 .brand-logo-light {
@@ -288,6 +304,79 @@ button:disabled {
     height: 1.1rem;
     background-color: var(--red);
     flex-shrink: 0;
+}
+
+/* Home Fight Night rails: native touch scrolling + deterministic snap. */
+.event-rail {
+    display: flex;
+    gap: 0.75rem;
+    overflow-x: auto;
+    padding-inline: 1px;
+    scroll-padding-inline: var(--home-gutter);
+    scroll-snap-type: x mandatory;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: none;
+}
+
+.event-rail::-webkit-scrollbar { display: none; }
+
+.event-rail-card {
+    /* Leaves at least ~12% of the rail visible for the next card, even at 320px. */
+    flex: 0 0 min(320px, calc(100% - 3.5rem));
+    scroll-snap-align: start;
+}
+
+.event-rail-arrow {
+    position: absolute;
+    top: 50%;
+    z-index: 2;
+    display: none;
+    min-width: 44px;
+    min-height: 44px;
+    transform: translateY(-50%);
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text);
+    font-family: var(--font-saira-condensed), "Saira Condensed", sans-serif;
+    font-size: 1.15rem;
+    font-weight: 900;
+}
+
+.event-rail-arrow:disabled { opacity: 0.35; cursor: not-allowed; }
+.event-rail-arrow-left { left: -0.75rem; }
+.event-rail-arrow-right { right: -0.75rem; }
+
+@media (pointer: fine) and (min-width: 768px) {
+    .event-rail-arrow { display: flex; }
+}
+
+@media (min-width: 768px) {
+    .event-rail-card { flex-basis: min(44vw, 360px); }
+}
+
+@media (min-width: 1024px) {
+    .event-rail-card { flex-basis: calc((100% - 1.5rem) / 3); }
+}
+
+.home-event-poster { background: linear-gradient(135deg, #111 0%, #242424 100%); }
+.home-event-poster-grid {
+    opacity: 0.38;
+    background-image: linear-gradient(rgba(255,255,255,.12) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.12) 1px, transparent 1px);
+    background-size: 28px 28px;
+}
+
+.home-reveal { animation: home-reveal-mobile 0.24s cubic-bezier(.22,1,.36,1) both; }
+@keyframes home-reveal-mobile { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+@media (min-width: 768px) {
+    .home-reveal { animation: home-reveal-desktop 0.34s cubic-bezier(.22,1,.36,1) both; }
+    @keyframes home-reveal-desktop { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .home-reveal { animation: none; }
 }
 
 /* ============================================================

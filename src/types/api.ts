@@ -7,6 +7,7 @@ import type {
   Profile,
   PublicProfileStats,
   PublicProfileSummary,
+  SuggestedRival,
 } from "@/types";
 
 export type ApiSuccess<T> = {
@@ -170,6 +171,8 @@ export type HomeChallenge = {
   event: { id: string; name: string; slug: string } | null;
   opponent: PublicProfileSummary | null;
 };
+
+export type HomeSuggestedRival = SuggestedRival;
 
 export type ChatListResponse = {
   messages: import("@/types").ChatMessage[];

@@ -16,10 +16,10 @@ test("landing page loads and exposes auth entrypoints", async ({ page }) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
   await expect(page.getByRole("link", { name: /entrar/i })).toBeVisible();
-  await expect(page.getByRole("link", { name: /registrar/i })).toBeVisible();
-  await expect(page.getByRole("heading", { name: /faça seus picks/i })).toBeVisible();
-  await expect(page.getByText(/como funciona/i)).toBeVisible();
-  await expect(page.getByText(/acerte o vencedor/i)).toBeVisible();
+  await expect(page.getByLabel("Acesso").getByRole("link", { name: /criar conta/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /jogue o card/i })).toBeVisible();
+  await expect(page.getByText(/dois jeitos de entrar no card/i)).toBeVisible();
+  await expect(page.getByText(/picks por luta/i)).toBeVisible();
 });
 
 test.describe("authenticated smoke", () => {
