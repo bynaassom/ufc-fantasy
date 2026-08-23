@@ -258,6 +258,20 @@ describe("notifications", () => {
     });
   });
 
+  it("keeps result details inside the explicit spoiler notification", () => {
+    expect(
+      buildNotificationContent({
+        type: "fight_result",
+        eventName: "UFC Fortaleza",
+        fightName: "Lutador A vs Lutador B",
+        fightResult: "Lutador A venceu por nocaute no R2",
+      }),
+    ).toEqual({
+      title: "Resultado da luta",
+      message: "Lutador A venceu por nocaute no R2 no UFC Fortaleza.",
+    });
+  });
+
   it("filters active users that do not have confirmed picks for the event", () => {
     const recipients = filterUsersWithoutConfirmedPicks({
       profiles: [

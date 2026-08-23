@@ -36,7 +36,10 @@ import { logAdminAction } from "@/lib/admin-audit";
 import { assertSameOriginForMutation } from "@/server/api";
 import { CACHE_TAGS } from "@/server/cache-tags";
 import { completeEventIfAllResultsConfirmed } from "@/server/services/event-lifecycle";
-import { dispatchLiveFightAlerts } from "@/server/services/live-fight-alerts";
+import {
+  dispatchFightResultAlerts,
+  dispatchLiveFightAlerts,
+} from "@/server/services/live-fight-alerts";
 import { disableResultPolling } from "@/server/services/cron-job-org";
 
 type ResultSyncEvent = {
@@ -652,6 +655,26 @@ export async function POST(req: NextRequest) {
 
   const saved = typeof rpcResult === "number" ? rpcResult : 0;
   const savedLabels: string[] = updates.slice(0, saved).map((upd) => upd.label);
+  let resultAlerts = null;
+  if (saved > 0) {
+    try {
+      resultAlerts = await dispatchFightResultAlerts(
+        adminSupabase,
+        { id: event.id, name: event.name, slug: event.slug },
+        updates.slice(0, saved),
+        fights as any[],
+      );
+    } catch (error) {
+      await logAttempt({
+        step: "fight_result_alerts_failed",
+        event_id,
+        error:
+          error instanceof Error
+            ? error.message
+            : "falha nos alertas de resultado",
+      });
+    }
+  }
   const slugsToRevalidate = new Set<string>();
   updates.slice(0, saved).forEach((upd) => {
     if (upd.eventSlug) slugsToRevalidate.add(upd.eventSlug);
@@ -701,6 +724,7 @@ export async function POST(req: NextRequest) {
     event_completed: lifecycle.completed,
     next_event: lifecycle.nextEvent,
     live_alerts: liveAlerts,
+    result_alerts: resultAlerts,
     should_continue: !lifecycle.completed,
     result_cron: resultCron,
   });

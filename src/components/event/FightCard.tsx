@@ -167,7 +167,11 @@ export default function FightCard({
               5 ROUNDS
             </span>
           )}
-          <FightAlertButton fightId={fight.id} completed={completed} />
+          <FightAlertButton
+            fightId={fight.id}
+            fightName={`${fight.fighter_a.name} vs ${fight.fighter_b.name}`}
+            completed={completed}
+          />
         </div>
       </div>
 

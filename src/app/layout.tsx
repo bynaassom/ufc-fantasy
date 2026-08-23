@@ -21,18 +21,18 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "UFC Fantasy | Faça seus picks",
+  title: "UFC Fantasy | Jogue ou acompanhe cada luta",
   description:
-    "Faça seus picks, acerte os resultados e suba no ranking com seus amigos.",
+    "Faça seus picks ou acompanhe o card com alertas personalizados e resultados opcionais sem spoilers.",
   icons: {
     icon: "/favicon.ico",
     apple: "/apple-touch-icon.png?v=3",
   },
   manifest: "/manifest.webmanifest",
   openGraph: {
-    title: "UFC Fantasy | Faça seus picks",
+    title: "UFC Fantasy | Jogue ou acompanhe cada luta",
     description:
-      "Faça seus picks, acerte os resultados e suba no ranking com seus amigos.",
+      "Fantasy, rankings, ligas e um modo Companion com alertas personalizados por evento ou luta.",
     url: process.env.NEXT_PUBLIC_APP_URL,
     siteName: "UFC Fantasy",
     locale: "pt_BR",
@@ -40,9 +40,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "UFC Fantasy | Faça seus picks",
+    title: "UFC Fantasy | Jogue ou acompanhe cada luta",
     description:
-      "Faça seus picks, acerte os resultados e suba no ranking com seus amigos.",
+      "Fantasy, rankings, ligas e um modo Companion com alertas personalizados por evento ou luta.",
   },
 };
 
@@ -52,7 +52,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="pt-BR" suppressHydrationWarning className={sairaCondensed.variable}>
+    <html
+      lang="pt-BR"
+      suppressHydrationWarning
+      data-scroll-behavior="smooth"
+      className={sairaCondensed.variable}
+    >
       <head>
         <script
           dangerouslySetInnerHTML={{

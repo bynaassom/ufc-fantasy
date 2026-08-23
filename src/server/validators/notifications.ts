@@ -21,6 +21,13 @@ export const fightAlertMutationSchema = z
     scope: z.enum(["event", "fight"]),
     fightId: z.string().uuid().nullable().optional(),
     enabled: z.boolean(),
+    preferences: z
+      .object({
+        upNext: z.boolean(),
+        starting: z.boolean(),
+        results: z.boolean(),
+      })
+      .optional(),
   })
   .superRefine((value, ctx) => {
     if (value.scope === "fight" && !value.fightId) {
@@ -35,6 +42,26 @@ export const fightAlertMutationSchema = z
         code: "custom",
         path: ["fightId"],
         message: "fightId não deve ser enviado para alertas do evento.",
+      });
+    }
+    if (value.enabled && !value.preferences) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["preferences"],
+        message: "Escolha quais alertas deseja receber.",
+      });
+    }
+    if (
+      value.enabled &&
+      value.preferences &&
+      !value.preferences.upNext &&
+      !value.preferences.starting &&
+      !value.preferences.results
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["preferences"],
+        message: "Ative ao menos um tipo de alerta.",
       });
     }
   });

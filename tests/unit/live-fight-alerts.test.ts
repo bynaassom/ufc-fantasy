@@ -1,4 +1,7 @@
-import { dispatchLiveFightAlerts } from "@/server/services/live-fight-alerts";
+import {
+  dispatchFightResultAlerts,
+  dispatchLiveFightAlerts,
+} from "@/server/services/live-fight-alerts";
 
 const batch = { created: 1, pushSent: 1, pushFailed: 0, pushRemoved: 0 };
 
@@ -89,6 +92,12 @@ describe("live fight alerts", () => {
         fightId: "fight-current",
       }),
     );
+    expect(listRecipientIds).toHaveBeenCalledWith(
+      expect.anything(),
+      "event-1",
+      "fight-current",
+      "starting",
+    );
     expect(createNotifications).not.toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ type: "fight_up_next" }),
@@ -153,6 +162,50 @@ describe("live fight alerts", () => {
         type: "fight_up_next",
         fightId: "fight-next",
         targetPath: "/event/ufc-fortaleza#fight-fight-next",
+      }),
+    );
+    expect(listRecipientIds).toHaveBeenCalledWith(
+      expect.anything(),
+      "event-1",
+      "fight-next",
+      "up_next",
+    );
+  });
+
+  it("sends confirmed results only to spoiler opt-ins", async () => {
+    const listRecipientIds = vi.fn(async () => ["user-spoiler-opt-in"]);
+    const createNotifications = vi.fn(async () => batch);
+
+    const result = await dispatchFightResultAlerts(
+      {} as any,
+      { id: "event-1", name: "UFC Fortaleza", slug: "ufc-fortaleza" },
+      [{
+        fight_id: "fight-1",
+        winner_id: "fighter-a",
+        method: "knockout",
+        round: 2,
+      }],
+      [{
+        id: "fight-1",
+        fighter_a: { id: "fighter-a", name: "Lutador A" },
+        fighter_b: { id: "fighter-b", name: "Lutador B" },
+      }],
+      { listRecipientIds, createNotifications },
+    );
+
+    expect(result.created).toBe(1);
+    expect(listRecipientIds).toHaveBeenCalledWith(
+      expect.anything(),
+      "event-1",
+      "fight-1",
+      "result",
+    );
+    expect(createNotifications).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        userIds: ["user-spoiler-opt-in"],
+        type: "fight_result",
+        fightResult: "Lutador A venceu por nocaute no R2",
       }),
     );
   });

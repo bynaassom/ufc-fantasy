@@ -10,9 +10,9 @@ import {
 } from "@/server/api";
 import { requireActiveUser } from "@/server/auth/guards";
 import {
-  createFightAlert,
   deleteFightAlert,
   listFightAlertsForUserEvent,
+  saveFightAlert,
 } from "@/server/repositories/fight-alerts";
 import { getAdminSupabase } from "@/server/supabase";
 import { fightAlertMutationSchema } from "@/server/validators/notifications";
@@ -36,11 +36,24 @@ async function serializeState(
   eventId: string,
 ) {
   const subscriptions = await listFightAlertsForUserEvent(client, userId, eventId);
+  const serializePreferences = (subscription: (typeof subscriptions)[number]) => ({
+    upNext: subscription.notify_up_next,
+    starting: subscription.notify_starting,
+    results: subscription.notify_result,
+  });
+  const eventSubscription = subscriptions.find((subscription) => !subscription.fight_id);
   return {
-    eventSubscribed: subscriptions.some((subscription) => !subscription.fight_id),
-    fightIds: subscriptions
-      .map((subscription) => subscription.fight_id)
-      .filter((fightId): fightId is string => Boolean(fightId)),
+    eventSubscription: eventSubscription
+      ? serializePreferences(eventSubscription)
+      : null,
+    fightSubscriptions: Object.fromEntries(
+      subscriptions
+        .filter((subscription) => subscription.fight_id)
+        .map((subscription) => [
+          subscription.fight_id!,
+          serializePreferences(subscription),
+        ]),
+    ),
   };
 }
 
@@ -88,7 +101,12 @@ export async function PUT(request: NextRequest, props: Params) {
     }
 
     if (body.enabled) {
-      await createFightAlert(client, { userId: user.id, eventId: event.id, fightId });
+      await saveFightAlert(client, {
+        userId: user.id,
+        eventId: event.id,
+        fightId,
+        preferences: body.preferences!,
+      });
     } else {
       await deleteFightAlert(client, { userId: user.id, eventId: event.id, fightId });
     }

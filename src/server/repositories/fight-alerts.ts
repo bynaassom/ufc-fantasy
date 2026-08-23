@@ -5,10 +5,22 @@ export type FightAlertSubscription = {
   user_id: string;
   event_id: string;
   fight_id: string | null;
+  notify_up_next: boolean;
+  notify_starting: boolean;
+  notify_result: boolean;
   created_at: string;
 };
 
-const FIELDS = "id, user_id, event_id, fight_id, created_at";
+export type FightAlertPreferences = {
+  upNext: boolean;
+  starting: boolean;
+  results: boolean;
+};
+
+export type FightAlertKind = "up_next" | "starting" | "result";
+
+const FIELDS =
+  "id, user_id, event_id, fight_id, notify_up_next, notify_starting, notify_result, created_at";
 
 export async function listFightAlertsForUserEvent(
   client: DbClient,
@@ -25,9 +37,14 @@ export async function listFightAlertsForUserEvent(
   return (data || []) as FightAlertSubscription[];
 }
 
-export async function createFightAlert(
+export async function saveFightAlert(
   client: DbClient,
-  input: { userId: string; eventId: string; fightId: string | null },
+  input: {
+    userId: string;
+    eventId: string;
+    fightId: string | null;
+    preferences: FightAlertPreferences;
+  },
 ) {
   const query = client
     .from("fight_alert_subscriptions")
@@ -39,12 +56,26 @@ export async function createFightAlert(
     : query.is("fight_id", null);
   const { data: existing, error: existingError } = await scopedQuery.maybeSingle();
   if (existingError) throw existingError;
-  if (existing) return;
+  const preferenceColumns = {
+    notify_up_next: input.preferences.upNext,
+    notify_starting: input.preferences.starting,
+    notify_result: input.preferences.results,
+  };
+
+  if (existing) {
+    const { error } = await client
+      .from("fight_alert_subscriptions")
+      .update(preferenceColumns)
+      .eq("id", existing.id);
+    if (error) throw error;
+    return;
+  }
 
   const { error } = await client.from("fight_alert_subscriptions").insert({
     user_id: input.userId,
     event_id: input.eventId,
     fight_id: input.fightId,
+    ...preferenceColumns,
   });
   if (error && error.code !== "23505") throw error;
 }
@@ -68,11 +99,19 @@ export async function listFightAlertRecipientIds(
   client: DbClient,
   eventId: string,
   fightId: string,
+  kind: FightAlertKind,
 ) {
+  const preferenceColumn = {
+    up_next: "notify_up_next",
+    starting: "notify_starting",
+    result: "notify_result",
+  }[kind];
+
   const { data, error } = await client
     .from("fight_alert_subscriptions")
     .select("user_id")
     .eq("event_id", eventId)
+    .eq(preferenceColumn, true)
     .or(`fight_id.is.null,fight_id.eq.${fightId}`);
   if (error) throw error;
 

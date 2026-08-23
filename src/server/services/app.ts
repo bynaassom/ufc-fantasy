@@ -123,6 +123,7 @@ import {
   getLeagueStats,
 } from "@/server/repositories/stats";
 import { completeEventIfAllResultsConfirmed } from "@/server/services/event-lifecycle";
+import { dispatchFightResultAlerts } from "@/server/services/live-fight-alerts";
 import { getAutomatedEventTiming } from "@/lib/event-timing";
 import {
   requireAdminPageProfile,
@@ -2415,6 +2416,26 @@ export async function setAdminFightResult(
         confirmedPickCount,
       },
     });
+
+    try {
+      await dispatchFightResultAlerts(
+        adminSupabase,
+        { id: event.id, name: event.name, slug: event.slug },
+        [{
+          fight_id: fightId,
+          winner_id: winnerId,
+          method: payload.method,
+          round: resultRound,
+        }],
+        [{
+          id: fightId,
+          fighter_a: getSingleRelation(fight.fighter_a),
+          fighter_b: getSingleRelation(fight.fighter_b),
+        }],
+      );
+    } catch (error) {
+      console.error("Failed to create Companion result notification", error);
+    }
 
     await completeEventIfAllResultsConfirmed(adminSupabase, event.id);
   }

@@ -18,7 +18,8 @@ export type UfcNotificationType =
   | "card_updated"
   | "perfect_pick"
   | "fight_up_next"
-  | "fight_starting";
+  | "fight_starting"
+  | "fight_result";
 
 export type PickReminderType = Extract<
   UfcNotificationType,
@@ -51,6 +52,7 @@ export function getNotificationPreferenceKey(
     badge_earned: "badge_earned",
     fight_up_next: null,
     fight_starting: null,
+    fight_result: null,
   };
   return map[type] ?? null;
 }
@@ -84,6 +86,7 @@ type NotificationContentInput = {
   type: UfcNotificationType;
   eventName: string;
   fightName?: string;
+  fightResult?: string;
   perfectPickRarity?: PerfectPickRarity | null;
 };
 
@@ -272,6 +275,7 @@ export function buildNotificationContent({
   type,
   eventName,
   fightName,
+  fightResult,
   perfectPickRarity,
 }: NotificationContentInput) {
   const displayFightName = fightName || "essa luta";
@@ -345,6 +349,13 @@ export function buildNotificationContent({
       return {
         title: "A luta está começando",
         message: `As entradas de ${displayFightName} começaram no ${eventName}.`,
+      };
+    case "fight_result":
+      return {
+        title: "Resultado da luta",
+        message: fightResult
+          ? `${fightResult} no ${eventName}.`
+          : `O resultado de ${displayFightName} saiu no ${eventName}.`,
       };
     default:
       return {

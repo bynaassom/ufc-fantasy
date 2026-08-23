@@ -41,6 +41,7 @@ export default async function EventPage(props: EventPageProps) {
       <LiveFeed eventSlug={params.slug} />
       <EventAlertProvider
         eventSlug={params.slug}
+        eventName={event.name}
         disabled={event.status === "completed"}
       >
       <main className="max-w-2xl mx-auto px-4 py-8">

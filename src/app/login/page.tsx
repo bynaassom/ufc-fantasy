@@ -1,17 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createAuthClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
 import BrandLogo from "@/components/ui/BrandLogo";
+import { normalizeSafeRedirectPath } from "@/lib/security";
 
 export default function LoginPage() {
   const router = useRouter();
+  const [nextPath, setNextPath] = useState("/home");
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ email: "", password: "" });
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    setNextPath(
+      normalizeSafeRedirectPath(
+        new URLSearchParams(window.location.search).get("next"),
+      ),
+    );
+  }, []);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -35,7 +45,7 @@ export default function LoginPage() {
       setLoading(false);
       return;
     }
-    router.push("/home");
+    router.push(nextPath);
     router.refresh();
   }
 
@@ -94,7 +104,9 @@ export default function LoginPage() {
               </h1>
             </div>
             <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-              Acesse sua conta para fazer seus picks
+              {nextPath === "/event"
+                ? "Entre para acompanhar o card"
+                : "Acesse sua conta para fazer seus picks"}
             </p>
           </div>
 
@@ -196,7 +208,7 @@ export default function LoginPage() {
               Crie sua conta e comece a fazer seus picks agora mesmo.
             </p>
             <Link
-              href="/register"
+              href={nextPath === "/event" ? "/register?mode=companion" : "/register"}
               className="block w-full py-3.5 font-condensed font-900 text-sm uppercase tracking-widest text-center transition-all hover:opacity-80"
               style={{ border: "2px solid var(--red)", color: "var(--red)" }}
             >
