@@ -208,7 +208,7 @@ export default function LoginPage() {
               Crie sua conta e comece a fazer seus picks agora mesmo.
             </p>
             <Link
-              href={nextPath === "/event" ? "/register?mode=companion" : "/register"}
+              href="/register"
               className="block w-full py-3.5 font-condensed font-900 text-sm uppercase tracking-widest text-center transition-all hover:opacity-80"
               style={{ border: "2px solid var(--red)", color: "var(--red)" }}
             >

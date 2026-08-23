@@ -23,7 +23,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "UFC Fantasy | Jogue ou acompanhe cada luta",
   description:
-    "Faça seus picks ou acompanhe o card com alertas personalizados e resultados opcionais sem spoilers.",
+    "Faça seus picks ou acompanhe o card sem cadastro, com alertas personalizados e resultados opcionais sem spoilers.",
   icons: {
     icon: "/favicon.ico",
     apple: "/apple-touch-icon.png?v=3",
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "UFC Fantasy | Jogue ou acompanhe cada luta",
     description:
-      "Fantasy, rankings, ligas e um modo Companion com alertas personalizados por evento ou luta.",
+      "Fantasy, rankings, ligas e um modo Companion sem cadastro, com alertas por evento ou luta.",
     url: process.env.NEXT_PUBLIC_APP_URL,
     siteName: "UFC Fantasy",
     locale: "pt_BR",
@@ -42,7 +42,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "UFC Fantasy | Jogue ou acompanhe cada luta",
     description:
-      "Fantasy, rankings, ligas e um modo Companion com alertas personalizados por evento ou luta.",
+      "Fantasy, rankings, ligas e um modo Companion sem cadastro, com alertas por evento ou luta.",
   },
 };
 

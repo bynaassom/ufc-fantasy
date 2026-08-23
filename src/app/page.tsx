@@ -79,12 +79,12 @@ export default async function LandingPage() {
               <Link href="/register" className="min-tap inline-flex justify-center gap-3 bg-[var(--red)] px-6 py-4 font-condensed text-sm font-900 uppercase tracking-widest text-white transition-opacity hover:opacity-90">
                 Jogar o Fantasy <ArrowIcon />
               </Link>
-              <Link href="/register?mode=companion" className="min-tap inline-flex justify-center gap-3 border border-[var(--border)] bg-[var(--bg-card)] px-6 py-4 font-condensed text-sm font-900 uppercase tracking-widest text-[var(--text)] transition-colors hover:border-[var(--text-muted)]">
+              <Link href="/companion" className="min-tap inline-flex justify-center gap-3 border border-[var(--border)] bg-[var(--bg-card)] px-6 py-4 font-condensed text-sm font-900 uppercase tracking-widest text-[var(--text)] transition-colors hover:border-[var(--text-muted)]">
                 <BellIcon /> Ativar Companion
               </Link>
             </div>
             <p className="mt-4 font-condensed text-[10px] font-700 uppercase tracking-[0.18em] text-[var(--text-muted)]">
-              Conta grátis · escolha seu modo depois
+              Fantasy com conta · Companion sem cadastro
             </p>
           </div>
 
@@ -197,7 +197,7 @@ export default async function LandingPage() {
                 </div>
               ))}
             </div>
-            <Link href="/register?mode=companion" className="mt-6 inline-flex items-center gap-2 font-condensed text-xs font-900 uppercase tracking-widest text-[var(--red)] hover:underline">
+            <Link href="/companion" className="mt-6 inline-flex items-center gap-2 font-condensed text-xs font-900 uppercase tracking-widest text-[var(--red)] hover:underline">
               Ativar meu Companion <ArrowIcon />
             </Link>
           </article>
@@ -224,7 +224,7 @@ export default async function LandingPage() {
             <h2 className="mt-2 font-condensed text-3xl font-900 uppercase leading-none sm:text-4xl">Entre para competir ou só para acompanhar.</h2>
           </div>
           <div className="flex flex-col gap-3 min-[430px]:flex-row">
-            <Link href="/register?mode=companion" className="min-tap border border-[var(--border)] px-5 font-condensed text-xs font-900 uppercase tracking-widest hover:border-[var(--text-muted)]">Só acompanhar</Link>
+            <Link href="/companion" className="min-tap border border-[var(--border)] px-5 font-condensed text-xs font-900 uppercase tracking-widest hover:border-[var(--text-muted)]">Só acompanhar</Link>
             <Link href="/register" className="min-tap bg-[var(--red)] px-5 font-condensed text-xs font-900 uppercase tracking-widest text-white hover:opacity-90">Criar conta</Link>
           </div>
         </div>

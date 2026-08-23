@@ -1,8 +1,8 @@
 {
   "name": "UFC Fantasy",
   "short_name": "UFC Fantasy",
-  "description": "Faça seus picks, acerte os resultados e suba no ranking com seus amigos.",
-  "start_url": "/home",
+  "description": "Jogue o Fantasy ou acompanhe cada luta sem cadastro com o Modo Companion.",
+  "start_url": "/",
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone"],
   "background_color": "#0d0d0d",

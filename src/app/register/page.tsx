@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createAuthClient } from "@/lib/supabase/client";
@@ -10,7 +10,6 @@ import BrandLogo from "@/components/ui/BrandLogo";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const [companionMode, setCompanionMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [needsEmailConfirmation, setNeedsEmailConfirmation] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -22,12 +21,6 @@ export default function RegisterPage() {
     password: "",
     confirm_password: "",
   });
-
-  useEffect(() => {
-    setCompanionMode(
-      new URLSearchParams(window.location.search).get("mode") === "companion",
-    );
-  }, []);
 
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
@@ -63,9 +56,7 @@ export default function RegisterPage() {
       email: form.email,
       password: form.password,
       options: {
-        emailRedirectTo: companionMode
-          ? `${window.location.origin}/auth/callback?next=${encodeURIComponent("/event")}`
-          : `${window.location.origin}/auth/callback`,
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
         data: {
           nickname: form.nickname,
           first_name: form.first_name,
@@ -87,7 +78,7 @@ export default function RegisterPage() {
     }
 
     if (data.session) {
-      router.push(companionMode ? "/event" : "/home");
+      router.push("/home");
       setLoading(false);
       return;
     }
@@ -183,7 +174,7 @@ export default function RegisterPage() {
               {loading ? "REENVIANDO..." : "REENVIAR EMAIL"}
             </button>
             <Link
-              href={companionMode ? "/login?next=/event" : "/login"}
+              href="/login"
               className="block text-xs font-condensed font-700 uppercase tracking-widest underline transition-opacity hover:opacity-80"
               style={{ color: "var(--red)" }}
             >
@@ -195,13 +186,11 @@ export default function RegisterPage() {
           <div className="mb-8">
             <div className="red-line">
               <h1 className="section-title" style={{ fontSize: "1.75rem" }}>
-                {companionMode ? "ATIVAR COMPANION" : "CRIAR CONTA"}
+                CRIAR CONTA
               </h1>
             </div>
             <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-              {companionMode
-                ? "Acompanhe o card sem precisar jogar"
-                : "Junte-se ao UFC Fantasy"}
+              Junte-se ao UFC Fantasy
             </p>
           </div>
 
@@ -397,11 +386,7 @@ export default function RegisterPage() {
               className="w-full py-3.5 font-condensed font-900 text-sm uppercase tracking-widest text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-50 mt-2"
               style={{ backgroundColor: "var(--red)" }}
             >
-              {loading
-                ? "CRIANDO CONTA..."
-                : companionMode
-                  ? "CRIAR E ACOMPANHAR"
-                  : "CRIAR CONTA"}
+              {loading ? "CRIANDO CONTA..." : "CRIAR CONTA"}
             </button>
           </form>
 
@@ -409,7 +394,7 @@ export default function RegisterPage() {
             <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
               Já tem conta?{" "}
               <Link
-                href={companionMode ? "/login?next=/event" : "/login"}
+                href="/login"
                 className="font-700 uppercase text-xs tracking-widest font-condensed underline"
                 style={{ color: "var(--red)" }}
               >

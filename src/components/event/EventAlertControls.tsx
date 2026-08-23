@@ -83,10 +83,11 @@ function PreferenceRow({ checked, onChange, title, description, spoiler }: {
   );
 }
 
-export function EventAlertProvider({ eventSlug, eventName, disabled, children }: {
+export function EventAlertProvider({ eventSlug, eventName, disabled, publicMode = false, children }: {
   eventSlug: string;
   eventName: string;
   disabled: boolean;
+  publicMode?: boolean;
   children: ReactNode;
 }) {
   const [state, setState] = useState<AlertState>(EMPTY_STATE);
@@ -149,8 +150,19 @@ export function EventAlertProvider({ eventSlug, eventName, disabled, children }:
       toast.success(target.scope === "event" ? "Modo Companion ativado." : "Alertas da luta salvos.");
       try {
         const push = await requestBrowserPushForAlert();
-        if (push === "denied") toast("Alerta salvo no app. O push está bloqueado no navegador.");
-        else if (push === "unsupported" || push === "disabled") toast("Alerta salvo no app; push indisponível neste dispositivo.");
+        if (push === "denied") {
+          toast(
+            publicMode
+              ? "Preferência salva, mas as notificações estão bloqueadas no navegador."
+              : "Alerta salvo no app. O push está bloqueado no navegador.",
+          );
+        } else if (push === "unsupported" || push === "disabled") {
+          toast(
+            publicMode
+              ? "Preferência salva, mas este dispositivo não oferece push."
+              : "Alerta salvo no app; push indisponível neste dispositivo.",
+          );
+        }
       } catch (error) {
         console.error(error);
         toast("Alerta salvo no app; não foi possível ativar o push.");
@@ -161,7 +173,7 @@ export function EventAlertProvider({ eventSlug, eventName, disabled, children }:
     } finally {
       setBusy(false);
     }
-  }, [eventSlug, preferences, target]);
+  }, [eventSlug, preferences, publicMode, target]);
 
   const activeSubscription = target
     ? target.scope === "event"
@@ -237,7 +249,7 @@ export function EventAlertButton() {
   return (
     <button type="button" onClick={() => openComposer({ scope: "event", fightId: null, label: "Evento" })} disabled={loading || busy} aria-pressed={active} aria-label={active ? "Configurar Companion do evento" : "Ativar Companion para o evento"} className="min-tap inline-flex shrink-0 items-center justify-center gap-2 px-3 py-2 font-condensed text-[11px] font-900 uppercase tracking-widest transition-colors disabled:opacity-50" style={{ color: active ? "white" : "var(--text-secondary)", backgroundColor: active ? "var(--red)" : "var(--bg-card)", border: `1px solid ${active ? "var(--red)" : "var(--border)"}` }} title={active ? "Configurar Modo Companion" : "Acompanhar todas as lutas"}>
       <BellIcon active={active} />
-      <span className="hidden sm:inline">{active ? "Acompanhando" : "Modo Companion"}</span>
+      <span>{active ? "Acompanhando" : "Modo Companion"}</span>
     </button>
   );
 }

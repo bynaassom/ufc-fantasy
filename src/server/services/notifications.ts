@@ -19,7 +19,10 @@ import {
   listConfirmedPickUsersForEvent,
 } from "@/server/repositories/notifications";
 import {
+  createAnonymousNotificationDelivery,
+  deleteAnonymousPushSubscriptionByEndpoint,
   deletePushSubscriptionByEndpoint,
+  listAnonymousPushSubscriptions,
   listPushSubscriptionsForUsers,
 } from "@/server/repositories/push-subscriptions";
 
@@ -32,7 +35,8 @@ export type NotificationEvent = {
 };
 
 type PushSubscriptionRow = {
-  user_id: string;
+  user_id?: string | null;
+  anonymous_id?: string | null;
   endpoint: string;
   p256dh: string;
   auth: string;
@@ -264,6 +268,7 @@ export async function createNotificationsForUsers(
   let pushRemoved = 0;
 
   for (const subscription of subscriptions) {
+    if (!subscription.user_id) continue;
     const notification = notificationsByUserId.get(subscription.user_id);
     if (!notification) continue;
 
@@ -295,6 +300,102 @@ export async function createNotificationsForUsers(
     pushFailed,
     pushRemoved,
   };
+}
+
+export type AnonymousNotificationServiceDeps = {
+  listPushSubscriptions: typeof listAnonymousPushSubscriptions;
+  createDelivery: typeof createAnonymousNotificationDelivery;
+  deletePushSubscription: typeof deleteAnonymousPushSubscriptionByEndpoint;
+  sendPush: typeof sendBrowserPush;
+};
+
+const defaultAnonymousDeps: AnonymousNotificationServiceDeps = {
+  listPushSubscriptions: listAnonymousPushSubscriptions,
+  createDelivery: createAnonymousNotificationDelivery,
+  deletePushSubscription: deleteAnonymousPushSubscriptionByEndpoint,
+  sendPush: sendBrowserPush,
+};
+
+export async function createNotificationsForAnonymousSubscribers(
+  client: DbClient,
+  input: {
+    anonymousIds: string[];
+    type: UfcNotificationType;
+    event: NotificationEvent;
+    fightId?: string | null;
+    fightName?: string | null;
+    fightResult?: string | null;
+    targetPath?: string | null;
+    dedupeKey?: string | null;
+  },
+  deps: AnonymousNotificationServiceDeps = defaultAnonymousDeps,
+): Promise<NotificationBatchResult> {
+  const anonymousIds = Array.from(new Set(input.anonymousIds)).filter(Boolean);
+  if (!anonymousIds.length) return { ...emptyNotificationBatchResult };
+
+  const subscriptions = await deps.listPushSubscriptions(client, anonymousIds);
+  const subscriptionsByIdentity = new Map<string, typeof subscriptions>();
+  for (const subscription of subscriptions) {
+    if (!subscription.anonymous_id) continue;
+    subscriptionsByIdentity.set(subscription.anonymous_id, [
+      ...(subscriptionsByIdentity.get(subscription.anonymous_id) || []),
+      subscription,
+    ]);
+  }
+
+  const content = buildNotificationContent({
+    type: input.type,
+    eventName: input.event.name,
+    fightName: input.fightName || undefined,
+    fightResult: input.fightResult || undefined,
+  });
+  const targetPath = input.targetPath || `/companion/${input.event.slug}`;
+  const dedupeKey = input.dedupeKey || buildNotificationDedupeKey({
+    type: input.type,
+    eventId: input.event.id,
+    fightId: input.fightId,
+  });
+
+  let created = 0;
+  let pushSent = 0;
+  let pushFailed = 0;
+  let pushRemoved = 0;
+
+  for (const anonymousId of anonymousIds) {
+    const identitySubscriptions = subscriptionsByIdentity.get(anonymousId) || [];
+    if (!identitySubscriptions.length) continue;
+
+    const shouldDeliver = await deps.createDelivery(client, {
+      anonymous_id: anonymousId,
+      type: input.type,
+      event_id: input.event.id,
+      fight_id: input.fightId || null,
+      dedupe_key: dedupeKey,
+    });
+    if (!shouldDeliver) continue;
+    created += 1;
+
+    for (const subscription of identitySubscriptions) {
+      const sendResult = await deps.sendPush(subscription, {
+        title: content.title,
+        body: content.message,
+        targetPath,
+        tag: dedupeKey,
+        type: input.type,
+        eventId: input.event.id,
+        fightId: input.fightId || null,
+      });
+      if (sendResult.ok) pushSent += 1;
+      else pushFailed += 1;
+
+      if (sendResult.removeSubscription) {
+        await deps.deletePushSubscription(client, subscription.endpoint);
+        pushRemoved += 1;
+      }
+    }
+  }
+
+  return { created, pushSent, pushFailed, pushRemoved };
 }
 
 export async function dispatchDuePickNotifications(

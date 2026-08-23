@@ -1,8 +1,10 @@
 import {
+  createNotificationsForAnonymousSubscribers,
   createNotificationsForUsers,
   dispatchDuePickNotifications,
   notifyBulkCardChanges,
   type NotificationServiceDeps,
+  type AnonymousNotificationServiceDeps,
 } from "@/server/services/notifications";
 
 const testClient = {} as any;
@@ -34,6 +36,58 @@ function createDeps(overrides: Partial<NotificationServiceDeps> = {}) {
 }
 
 describe("notification service", () => {
+  it("sends deduplicated push directly to an anonymous Companion", async () => {
+    const deps = {
+      listPushSubscriptions: vi.fn(async () => [{
+        id: "push-1",
+        anonymous_id: "anonymous-1",
+        endpoint: "https://push.example.invalid/anonymous",
+        p256dh: "p256dh",
+        auth: "auth",
+        user_agent: null,
+        created_at: "2026-08-23T00:00:00.000Z",
+        updated_at: "2026-08-23T00:00:00.000Z",
+      }]),
+      createDelivery: vi.fn(async () => true),
+      deletePushSubscription: vi.fn(async () => undefined),
+      sendPush: vi.fn(async () => ({ ok: true, removeSubscription: false })),
+    } satisfies AnonymousNotificationServiceDeps;
+
+    const result = await createNotificationsForAnonymousSubscribers(
+      testClient,
+      {
+        anonymousIds: ["anonymous-1", "anonymous-1"],
+        type: "fight_result",
+        event: {
+          id: "event-1",
+          name: "UFC Fortaleza",
+          slug: "ufc-fortaleza",
+        },
+        fightId: "fight-1",
+        fightName: "Lutador A vs Lutador B",
+        fightResult: "Lutador A venceu por nocaute no R2",
+      },
+      deps,
+    );
+
+    expect(result).toMatchObject({ created: 1, pushSent: 1 });
+    expect(deps.createDelivery).toHaveBeenCalledOnce();
+    expect(deps.createDelivery).toHaveBeenCalledWith(
+      testClient,
+      expect.objectContaining({
+        anonymous_id: "anonymous-1",
+        dedupe_key: "fight_result:event-1:fight-1",
+      }),
+    );
+    expect(deps.sendPush).toHaveBeenCalledWith(
+      expect.objectContaining({ anonymous_id: "anonymous-1" }),
+      expect.objectContaining({
+        body: "Lutador A venceu por nocaute no R2 no UFC Fortaleza.",
+        targetPath: "/companion/ufc-fortaleza",
+      }),
+    );
+  });
+
   it("dispatches closed picks notifications to active users when picks lock", async () => {
     const { created, deps } = createDeps({
       getCurrentEvent: vi.fn(async () => ({

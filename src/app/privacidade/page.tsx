@@ -155,10 +155,13 @@ export default function PrivacidadePage() {
           <p className={bodyClass} style={{ color: "var(--text-secondary)" }}>
             A plataforma usa cookies ou armazenamento local necessários para
             manter sua sessão, lembrar preferências e permitir recursos como o
-            aplicativo instalável. Notificações push só são ativadas depois da
-            permissão do navegador e podem ser revogadas nas configurações do
-            dispositivo. Não usamos esses recursos para vender publicidade
-            personalizada.
+            aplicativo instalável. No Modo Companion sem conta, usamos um
+            identificador aleatório em cookie para associar ao navegador apenas
+            os eventos ou lutas escolhidos; esse fluxo não exige nome nem email,
+            e as assinaturas expiram após 180 dias se não forem renovadas.
+            Notificações push só são ativadas depois da permissão do navegador e
+            podem ser revogadas nas configurações do dispositivo. Não usamos
+            esses recursos para vender publicidade personalizada.
           </p>
         </section>
 

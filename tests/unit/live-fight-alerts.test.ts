@@ -4,11 +4,14 @@ import {
 } from "@/server/services/live-fight-alerts";
 
 const batch = { created: 1, pushSent: 1, pushFailed: 0, pushRemoved: 0 };
+const emptyBatch = { created: 0, pushSent: 0, pushFailed: 0, pushRemoved: 0 };
 
 describe("live fight alerts", () => {
   it("announces a starting fight without prematurely announcing the following fight", async () => {
     const listRecipientIds = vi.fn(async () => ["user-1"]);
+    const listAnonymousRecipientIds = vi.fn(async () => []);
     const createNotifications = vi.fn(async () => batch);
+    const createAnonymousNotifications = vi.fn(async () => emptyBatch);
     const fighter = (id: string, name: string) => ({
       id,
       name,
@@ -81,7 +84,12 @@ describe("live fight alerts", () => {
           },
         ],
       },
-      { listRecipientIds, createNotifications },
+      {
+        listRecipientIds,
+        listAnonymousRecipientIds,
+        createNotifications,
+        createAnonymousNotifications,
+      },
     );
 
     expect(result.created).toBe(1);
@@ -106,7 +114,9 @@ describe("live fight alerts", () => {
 
   it("announces the next fight between bouts", async () => {
     const listRecipientIds = vi.fn(async () => ["user-1"]);
+    const listAnonymousRecipientIds = vi.fn(async () => []);
     const createNotifications = vi.fn(async () => batch);
+    const createAnonymousNotifications = vi.fn(async () => emptyBatch);
     const fighter = (id: string, name: string) => ({
       id,
       name,
@@ -153,7 +163,12 @@ describe("live fight alerts", () => {
           fighterB: { id: "d", name: "Lutador D" },
         }],
       },
-      { listRecipientIds, createNotifications },
+      {
+        listRecipientIds,
+        listAnonymousRecipientIds,
+        createNotifications,
+        createAnonymousNotifications,
+      },
     );
 
     expect(createNotifications).toHaveBeenCalledWith(
@@ -172,9 +187,11 @@ describe("live fight alerts", () => {
     );
   });
 
-  it("sends confirmed results only to spoiler opt-ins", async () => {
+  it("sends confirmed results to authenticated and anonymous spoiler opt-ins", async () => {
     const listRecipientIds = vi.fn(async () => ["user-spoiler-opt-in"]);
+    const listAnonymousRecipientIds = vi.fn(async () => ["anonymous-spoiler-opt-in"]);
     const createNotifications = vi.fn(async () => batch);
+    const createAnonymousNotifications = vi.fn(async () => batch);
 
     const result = await dispatchFightResultAlerts(
       {} as any,
@@ -190,10 +207,15 @@ describe("live fight alerts", () => {
         fighter_a: { id: "fighter-a", name: "Lutador A" },
         fighter_b: { id: "fighter-b", name: "Lutador B" },
       }],
-      { listRecipientIds, createNotifications },
+      {
+        listRecipientIds,
+        listAnonymousRecipientIds,
+        createNotifications,
+        createAnonymousNotifications,
+      },
     );
 
-    expect(result.created).toBe(1);
+    expect(result.created).toBe(2);
     expect(listRecipientIds).toHaveBeenCalledWith(
       expect.anything(),
       "event-1",
@@ -206,6 +228,20 @@ describe("live fight alerts", () => {
         userIds: ["user-spoiler-opt-in"],
         type: "fight_result",
         fightResult: "Lutador A venceu por nocaute no R2",
+      }),
+    );
+    expect(listAnonymousRecipientIds).toHaveBeenCalledWith(
+      expect.anything(),
+      "event-1",
+      "fight-1",
+      "result",
+    );
+    expect(createAnonymousNotifications).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        anonymousIds: ["anonymous-spoiler-opt-in"],
+        type: "fight_result",
+        targetPath: "/companion/ufc-fortaleza#fight-fight-1",
       }),
     );
   });

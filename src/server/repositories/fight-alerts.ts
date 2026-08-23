@@ -11,6 +11,11 @@ export type FightAlertSubscription = {
   created_at: string;
 };
 
+export type AnonymousFightAlertSubscription = Omit<
+  FightAlertSubscription,
+  "user_id"
+> & { anonymous_id: string };
+
 export type FightAlertPreferences = {
   upNext: boolean;
   starting: boolean;
@@ -21,6 +26,8 @@ export type FightAlertKind = "up_next" | "starting" | "result";
 
 const FIELDS =
   "id, user_id, event_id, fight_id, notify_up_next, notify_starting, notify_result, created_at";
+const ANONYMOUS_FIELDS =
+  "id, anonymous_id, event_id, fight_id, notify_up_next, notify_starting, notify_result, created_at";
 
 export async function listFightAlertsForUserEvent(
   client: DbClient,
@@ -127,4 +134,103 @@ export async function listFightAlertRecipientIds(
     .eq("is_banned", false);
   if (profilesError) throw profilesError;
   return (profiles || []).map((profile: { id: string }) => profile.id);
+}
+
+export async function listAnonymousFightAlertsForEvent(
+  client: DbClient,
+  anonymousId: string,
+  eventId: string,
+) {
+  const { data, error } = await client
+    .from("anonymous_fight_alert_subscriptions")
+    .select(ANONYMOUS_FIELDS)
+    .eq("anonymous_id", anonymousId)
+    .eq("event_id", eventId)
+    .gt("expires_at", new Date().toISOString());
+  if (error) throw error;
+  return (data || []) as unknown as AnonymousFightAlertSubscription[];
+}
+
+export async function saveAnonymousFightAlert(
+  client: DbClient,
+  input: {
+    anonymousId: string;
+    eventId: string;
+    fightId: string | null;
+    preferences: FightAlertPreferences;
+  },
+) {
+  const query = client
+    .from("anonymous_fight_alert_subscriptions")
+    .select("id")
+    .eq("anonymous_id", input.anonymousId)
+    .eq("event_id", input.eventId);
+  const scopedQuery = input.fightId
+    ? query.eq("fight_id", input.fightId)
+    : query.is("fight_id", null);
+  const { data: existing, error: existingError } = await scopedQuery.maybeSingle();
+  if (existingError) throw existingError;
+
+  const payload = {
+    notify_up_next: input.preferences.upNext,
+    notify_starting: input.preferences.starting,
+    notify_result: input.preferences.results,
+    expires_at: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
+  };
+
+  if (existing) {
+    const { error } = await client
+      .from("anonymous_fight_alert_subscriptions")
+      .update(payload)
+      .eq("id", existing.id);
+    if (error) throw error;
+    return;
+  }
+
+  const { error } = await client.from("anonymous_fight_alert_subscriptions").insert({
+    anonymous_id: input.anonymousId,
+    event_id: input.eventId,
+    fight_id: input.fightId,
+    ...payload,
+  });
+  if (error && error.code !== "23505") throw error;
+}
+
+export async function deleteAnonymousFightAlert(
+  client: DbClient,
+  input: { anonymousId: string; eventId: string; fightId: string | null },
+) {
+  const query = client
+    .from("anonymous_fight_alert_subscriptions")
+    .delete()
+    .eq("anonymous_id", input.anonymousId)
+    .eq("event_id", input.eventId);
+  const { error } = input.fightId
+    ? await query.eq("fight_id", input.fightId)
+    : await query.is("fight_id", null);
+  if (error) throw error;
+}
+
+export async function listAnonymousFightAlertRecipientIds(
+  client: DbClient,
+  eventId: string,
+  fightId: string,
+  kind: FightAlertKind,
+) {
+  const preferenceColumn = {
+    up_next: "notify_up_next",
+    starting: "notify_starting",
+    result: "notify_result",
+  }[kind];
+  const { data, error } = await client
+    .from("anonymous_fight_alert_subscriptions")
+    .select("anonymous_id")
+    .eq("event_id", eventId)
+    .eq(preferenceColumn, true)
+    .gt("expires_at", new Date().toISOString())
+    .or(`fight_id.is.null,fight_id.eq.${fightId}`);
+  if (error) throw error;
+  return Array.from(
+    new Set((data || []).map((row: { anonymous_id: string }) => row.anonymous_id)),
+  );
 }

@@ -841,6 +841,14 @@ export async function getLandingPageData() {
   }
 }
 
+export async function getCurrentCompanionEvent() {
+  return getCachedCurrentPublicEvent();
+}
+
+export async function getCompanionEventPageData(slug: string) {
+  return getCachedEventBySlug(slug);
+}
+
 export async function getPublicEventResultShareData(
   eventSlug: string,
   nickname: string,
