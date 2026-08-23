@@ -16,7 +16,9 @@ export type UfcNotificationType =
   | "fight_removed"
   | "fight_added"
   | "card_updated"
-  | "perfect_pick";
+  | "perfect_pick"
+  | "fight_up_next"
+  | "fight_starting";
 
 export type PickReminderType = Extract<
   UfcNotificationType,
@@ -47,6 +49,8 @@ export function getNotificationPreferenceKey(
     challenge_declined: "challenge_declined",
     challenge_result: "challenge_result",
     badge_earned: "badge_earned",
+    fight_up_next: null,
+    fight_starting: null,
   };
   return map[type] ?? null;
 }
@@ -332,6 +336,16 @@ export function buildNotificationContent({
         message: [baseMessage, rarityCopy].filter(Boolean).join(" "),
       };
     }
+    case "fight_up_next":
+      return {
+        title: "Próxima luta",
+        message: `${displayFightName} é a próxima luta do ${eventName}.`,
+      };
+    case "fight_starting":
+      return {
+        title: "A luta está começando",
+        message: `As entradas de ${displayFightName} começaram no ${eventName}.`,
+      };
     default:
       return {
         title: "Notificacao",

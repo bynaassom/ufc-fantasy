@@ -7,6 +7,10 @@ import { CACHE_TAGS } from "@/server/cache-tags";
 import { dispatchDuePickNotifications } from "@/server/services/notifications";
 import { dispatchEventLifecycle } from "@/server/services/event-lifecycle";
 import { getAdminSupabase } from "@/server/supabase";
+import {
+  RESULT_POLLING_SAFETY_HOURS,
+  shouldPollFightResults,
+} from "@/lib/result-polling";
 
 function isAuthorized(request: NextRequest) {
   const secret = process.env.NOTIFICATIONS_CRON_SECRET;
@@ -20,21 +24,22 @@ async function syncResultsIfDue(adminSupabase: Awaited<ReturnType<typeof getAdmi
   try {
     const { data: activeEvent } = await adminSupabase
       .from("events")
-      .select("id, event_date, picks_lock_at")
+      .select("id, status, event_date, prelims_start_at")
       .in("status", ["upcoming", "live"])
       .or("ufc_stats_url.not.is.null,ufc_event_id.not.is.null")
-      .gte("event_date", new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString())
+      .gte(
+        "event_date",
+        new Date(
+          Date.now() - RESULT_POLLING_SAFETY_HOURS * 60 * 60 * 1000,
+        ).toISOString(),
+      )
       .order("event_date", { ascending: true })
       .limit(1)
       .maybeSingle();
 
     if (!activeEvent) return;
 
-    const lockAt = new Date(activeEvent.picks_lock_at).getTime();
-    const endAt = new Date(activeEvent.event_date).getTime() + 6 * 60 * 60 * 1000;
-    const nowMs = Date.now();
-
-    if (nowMs < lockAt || nowMs > endAt) return;
+    if (!shouldPollFightResults(activeEvent)) return;
 
     const syncSecret = process.env.SYNC_SECRET;
     if (!syncSecret) return;

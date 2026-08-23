@@ -12,6 +12,11 @@ import {
 import { getAutomatedEventTiming } from "@/lib/event-timing";
 import { getSafeSyncedEventStatus } from "@/lib/event-lifecycle";
 import { syncUfcOddsForEvent } from "@/server/services/ufc-odds";
+import { shouldPollFightResults } from "@/lib/result-polling";
+import {
+  activateResultPolling,
+  scheduleResultPollingStart,
+} from "@/server/services/cron-job-org";
 
 function slugify(value: string) {
   return value
@@ -177,9 +182,31 @@ export async function POST(req: NextRequest) {
       } catch { /* silent */ }
     }
 
+    let resultCron: unknown = { configured: false, reason: "no_upcoming_event" };
+    try {
+      const { data: nextEvent } = await adminSupabase
+        .from("events")
+        .select("id, status, event_date, prelims_start_at")
+        .in("status", ["upcoming", "live"])
+        .order("event_date", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (nextEvent) {
+        resultCron = shouldPollFightResults(nextEvent)
+          ? await activateResultPolling(nextEvent)
+          : await scheduleResultPollingStart(nextEvent);
+      }
+    } catch (error) {
+      resultCron = {
+        configured: false,
+        reason: error instanceof Error ? error.message : "cron_job_org_error",
+      };
+    }
+
     return NextResponse.json({
       ok: true,
       message: `${created} criado(s), ${updated} atualizado(s), ${cardSynced} cards sincronizados`,
+      result_cron: resultCron,
     });
   } catch (error) {
     return NextResponse.json({

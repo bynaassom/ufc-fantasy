@@ -94,7 +94,9 @@ const getCachedOfficialEvent = unstable_cache(
 
 function mapOfficialFights(
   officialFights: UfcLiveCardFight[],
-  localFights: FightWithFighters[],
+  localFights: Array<
+    Pick<FightWithFighters, "id" | "fighter_a" | "fighter_b">
+  >,
 ) {
   const localByMatchup = new Map(
     localFights.map((fight) => [
@@ -113,6 +115,32 @@ function mapOfficialFights(
     .sort((a, b) => b.fightOrder - a.fightOrder);
 }
 
+export function buildOfficialLiveState(
+  official: UfcLiveEvent,
+  localFights: Array<
+    Pick<FightWithFighters, "id" | "fighter_a" | "fighter_b">
+  >,
+): OfficialLiveState {
+  const fights = mapOfficialFights(official.fights, localFights);
+  const currentIndex = fights.findIndex((fight) => ACTIVE_PHASES.has(fight.phase));
+  const currentFight = currentIndex >= 0 ? fights[currentIndex] : null;
+  const nextFight = currentFight
+    ? fights.slice(currentIndex + 1).find((fight) => fight.phase === "upcoming") ||
+      null
+    : fights.find((fight) => fight.phase === "upcoming") || null;
+
+  return {
+    eventId: official.eventId,
+    status: official.status,
+    fetchedAt: new Date().toISOString(),
+    completedCount: fights.filter((fight) => fight.phase === "completed").length,
+    totalCount: fights.length,
+    currentFight,
+    nextFight,
+    fights,
+  };
+}
+
 export async function getOfficialLiveState(
   event: EventWithFights,
 ): Promise<OfficialLiveState | null> {
@@ -124,29 +152,10 @@ export async function getOfficialLiveState(
     if (!eventId) return null;
 
     const official = await getCachedOfficialEvent(eventId);
-    const fights = mapOfficialFights(
-      official.fights,
+    return buildOfficialLiveState(
+      official,
       event.fights as FightWithFighters[],
     );
-    const currentIndex = fights.findIndex((fight) =>
-      ACTIVE_PHASES.has(fight.phase),
-    );
-    const currentFight = currentIndex >= 0 ? fights[currentIndex] : null;
-    const nextFight = currentFight
-      ? fights.slice(currentIndex + 1).find((fight) => fight.phase === "upcoming") ||
-        null
-      : fights.find((fight) => fight.phase === "upcoming") || null;
-
-    return {
-      eventId: official.eventId,
-      status: official.status,
-      fetchedAt: new Date().toISOString(),
-      completedCount: fights.filter((fight) => fight.phase === "completed").length,
-      totalCount: fights.length,
-      currentFight,
-      nextFight,
-      fights,
-    };
   } catch (error) {
     console.error("Failed to load official UFC live state", error);
     return null;

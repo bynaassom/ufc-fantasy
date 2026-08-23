@@ -6,6 +6,7 @@ import { FightWithFighters, FightMethod, Pick } from "@/types";
 import { getFallbackHeadshot, getMethodLabel } from "@/lib/utils";
 import FightStatsCompare from "./FightStatsCompare";
 import { WEIGHT_CLASS_PT } from "@/lib/ufc-api";
+import { FightAlertButton } from "./EventAlertControls";
 
 function nameToSlug(name: string): string {
   return name
@@ -157,14 +158,17 @@ export default function FightCard({
           )}
           {weightLabel}
         </span>
-        {fight.total_rounds === 5 && (
-          <span
-            className="font-condensed font-700 text-xs uppercase tracking-widest"
-            style={{ color: "var(--text-muted)" }}
-          >
-            5 ROUNDS
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {fight.total_rounds === 5 && (
+            <span
+              className="font-condensed font-700 text-xs uppercase tracking-widest"
+              style={{ color: "var(--text-muted)" }}
+            >
+              5 ROUNDS
+            </span>
+          )}
+          <FightAlertButton fightId={fight.id} completed={completed} />
+        </div>
       </div>
 
       {/* Fighters */}

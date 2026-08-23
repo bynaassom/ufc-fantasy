@@ -27,7 +27,9 @@ export type NotificationType =
   | "fight_removed"
   | "fight_added"
   | "card_updated"
-  | "perfect_pick";
+  | "perfect_pick"
+  | "fight_up_next"
+  | "fight_starting";
 
 export interface Profile {
   id: string;

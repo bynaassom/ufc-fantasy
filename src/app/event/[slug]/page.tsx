@@ -4,6 +4,10 @@ import Navbar from "@/components/layout/Navbar";
 import EventPicksClient from "@/components/event/EventPicksClient";
 import LiveFeed from "@/components/event/LiveFeed";
 import {
+  EventAlertButton,
+  EventAlertProvider,
+} from "@/components/event/EventAlertControls";
+import {
   formatEventDate,
   isPicksLocked,
   isPicksOpen,
@@ -35,6 +39,10 @@ export default async function EventPage(props: EventPageProps) {
     >
       <Navbar profile={profile} />
       <LiveFeed eventSlug={params.slug} />
+      <EventAlertProvider
+        eventSlug={params.slug}
+        disabled={event.status === "completed"}
+      >
       <main className="max-w-2xl mx-auto px-4 py-8">
         <Link href="/home" className="inline-flex items-center gap-1 mb-4" style={{ color: "var(--text-muted)" }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -80,12 +88,15 @@ export default async function EventPage(props: EventPageProps) {
             )}
           </div>
 
-          <h1
-            className="text-3xl md:text-4xl font-black tracking-tight"
-            style={{ color: "var(--text)" }}
-          >
-            {event.name}
-          </h1>
+          <div className="flex items-start justify-between gap-4">
+            <h1
+              className="min-w-0 text-3xl md:text-4xl font-black tracking-tight"
+              style={{ color: "var(--text)" }}
+            >
+              {event.name}
+            </h1>
+            <EventAlertButton />
+          </div>
 
           <div className="flex flex-wrap items-center gap-4 mt-3">
             <span
@@ -184,6 +195,7 @@ export default async function EventPage(props: EventPageProps) {
           picksOpen={open}
         />
       </main>
+      </EventAlertProvider>
     </div>
   );
 }

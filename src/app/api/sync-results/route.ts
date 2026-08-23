@@ -4,7 +4,11 @@ import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { revalidatePath, revalidateTag } from "next/cache";
-import { getPublicEventCutoffIso } from "@/lib/event-sequence";
+import {
+  RESULT_POLLING_SAFETY_HOURS,
+  getResultPollingWindow,
+  shouldPollFightResults,
+} from "@/lib/result-polling";
 import {
   fetchUfcStatsHtml,
   parseUfcStatsEventResults,
@@ -19,6 +23,7 @@ import {
 import {
   extractUfcLiveEventId,
   fetchUfcLiveEvent,
+  type UfcLiveEvent,
 } from "@/lib/ufc-live-api";
 import { resolveEventUrlCandidates } from "@/lib/ufc-card-sync";
 import { isAllowedScrapeUrl } from "@/lib/security";
@@ -31,11 +36,16 @@ import { logAdminAction } from "@/lib/admin-audit";
 import { assertSameOriginForMutation } from "@/server/api";
 import { CACHE_TAGS } from "@/server/cache-tags";
 import { completeEventIfAllResultsConfirmed } from "@/server/services/event-lifecycle";
+import { dispatchLiveFightAlerts } from "@/server/services/live-fight-alerts";
+import { disableResultPolling } from "@/server/services/cron-job-org";
 
 type ResultSyncEvent = {
-  slug?: string | null;
-  name?: string | null;
+  id: string;
+  slug: string;
+  name: string;
   event_date?: string | null;
+  prelims_start_at?: string | null;
+  status?: string | null;
   ufc_event_id?: string | null;
   ufc_stats_url?: string | null;
 };
@@ -50,9 +60,12 @@ const RESULT_SOURCE_HEADERS = {
 };
 
 const EVENT_RESULT_SOURCE_SELECT = `
+  id,
   slug,
   name,
   event_date,
+  prelims_start_at,
+  status,
   ufc_event_id,
   ufc_stats_url
 `;
@@ -101,9 +114,10 @@ async function scrapeUfcStatsSource(url: string): Promise<ResultSourceSet> {
 
 async function scrapeOfficialUfcSource(
   event: ResultSyncEvent,
-): Promise<ResultSourceSet | null> {
+): Promise<{ source: ResultSourceSet | null; officialEvent: UfcLiveEvent | null }> {
   const candidates = await resolveEventUrlCandidates(event);
   const attempted: ResultSourceSet[] = [];
+  let officialEvent: UfcLiveEvent | null = null;
 
   for (const url of candidates) {
     if (!isAllowedScrapeUrl(url)) continue;
@@ -125,6 +139,7 @@ async function scrapeOfficialUfcSource(
       if (liveEventId) {
         try {
           const official = await fetchUfcLiveEvent(liveEventId);
+          officialEvent = official.event;
           const source: ResultSourceSet = {
             source: "ufc",
             label: "UFC API oficial",
@@ -134,7 +149,7 @@ async function scrapeOfficialUfcSource(
               ? null
               : `evento ${official.event.status}; sem resultados publicados`,
           };
-          if (source.results.length) return source;
+          if (source.results.length) return { source, officialEvent };
           attempted.push(source);
           continue;
         } catch (error) {
@@ -156,7 +171,7 @@ async function scrapeOfficialUfcSource(
         results: htmlResults,
         error: htmlResults.length ? null : "sem resultados publicados",
       };
-      if (source.results.length) return source;
+      if (source.results.length) return { source, officialEvent };
       attempted.push(source);
     } catch (error) {
       attempted.push({
@@ -169,20 +184,22 @@ async function scrapeOfficialUfcSource(
     }
   }
 
-  return attempted[0] || null;
+  return { source: attempted[0] || null, officialEvent };
 }
 
 async function collectResultSources(event: ResultSyncEvent) {
   const sources: ResultSourceSet[] = [];
+  let officialEvent: UfcLiveEvent | null = null;
 
   if (event.ufc_stats_url) {
     sources.push(await scrapeUfcStatsSource(event.ufc_stats_url));
   }
 
-  const officialUfcSource = await scrapeOfficialUfcSource(event);
-  if (officialUfcSource) sources.push(officialUfcSource);
+  const official = await scrapeOfficialUfcSource(event);
+  if (official.source) sources.push(official.source);
+  officialEvent = official.officialEvent;
 
-  return sources;
+  return { sources, officialEvent };
 }
 
 function sourceDiagnostics(sourceSets: ResultSourceSet[]) {
@@ -348,7 +365,8 @@ export async function POST(req: NextRequest) {
         `
         id,
         event_date,
-        picks_lock_at,
+        prelims_start_at,
+        status,
         ufc_event_id,
         ufc_stats_url
       `,
@@ -357,7 +375,12 @@ export async function POST(req: NextRequest) {
       .or(
         "ufc_stats_url.not.is.null,ufc_event_id.not.is.null",
       )
-      .gte("event_date", getPublicEventCutoffIso(now))
+      .gte(
+        "event_date",
+        new Date(
+          now.getTime() - RESULT_POLLING_SAFETY_HOURS * 60 * 60 * 1000,
+        ).toISOString(),
+      )
       .order("event_date", { ascending: true })
       .limit(1)
       .single();
@@ -367,24 +390,25 @@ export async function POST(req: NextRequest) {
         step: "no_active_event",
         is_external: true,
       });
-      return NextResponse.json({ ok: true, message: "Nenhum evento ativo" });
+      return NextResponse.json({
+        ok: true,
+        message: "Nenhum evento ativo",
+        should_continue: false,
+      });
     }
 
-    const lockAt = new Date(activeEvent.picks_lock_at);
-    const endAt = new Date(
-      new Date(activeEvent.event_date).getTime() + 6 * 60 * 60 * 1000,
-    );
-    if (now < lockAt || now > endAt) {
+    if (!shouldPollFightResults(activeEvent, now)) {
       await logAttempt({
         step: "outside_window",
         is_external: true,
         event_id: activeEvent.id,
-        picks_lock_at: activeEvent.picks_lock_at,
+        polling_window: getResultPollingWindow(activeEvent),
         event_date: activeEvent.event_date,
       });
       return NextResponse.json({
         ok: true,
         message: "Fora da janela do evento",
+        should_continue: false,
       });
     }
 
@@ -427,6 +451,20 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  if (isExternalCall && !shouldPollFightResults(event)) {
+    await logAttempt({
+      step: "outside_window",
+      is_external: true,
+      event_id,
+      polling_window: getResultPollingWindow(event),
+    });
+    return NextResponse.json({
+      ok: true,
+      message: "Fora da janela do evento",
+      should_continue: false,
+    });
+  }
+
   const { data: fights } = await adminSupabase
     .from("fights")
     .select(
@@ -451,8 +489,51 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const resultSources = await collectResultSources(event);
+  if (fights.every((fight) => fight.result_confirmed)) {
+    const lifecycle = await completeEventIfAllResultsConfirmed(adminSupabase, event_id);
+    const resultCron = await disableResultPolling().catch((error) => ({
+      configured: false as const,
+      reason: error instanceof Error ? error.message : "cron_job_org_error",
+    }));
+    revalidateTag(CACHE_TAGS.events, "max");
+    revalidatePath("/home");
+    revalidatePath("/admin");
+    revalidatePath("/ranking");
+    return NextResponse.json({
+      ok: true,
+      message: "Todos os resultados já foram computados",
+      event_completed: lifecycle.completed || event.status === "completed",
+      should_continue: false,
+      result_cron: resultCron,
+    });
+  }
+
+  const { sources: resultSources, officialEvent } = await collectResultSources(
+    event as ResultSyncEvent,
+  );
   const diagnostics = sourceDiagnostics(resultSources);
+  let liveAlerts = null;
+  if (isExternalCall && officialEvent) {
+    try {
+      liveAlerts = await dispatchLiveFightAlerts(
+        adminSupabase,
+        {
+          id: event.id,
+          name: event.name,
+          slug: event.slug,
+          fights: fights as any,
+        },
+        officialEvent,
+      );
+    } catch (error) {
+      await logAttempt({
+        step: "fight_alerts_failed",
+        event_id,
+        is_external: true,
+        error: error instanceof Error ? error.message : "falha nos alertas ao vivo",
+      });
+    }
+  }
   const scrapedCount = resultSources.reduce(
     (count, source) => count + source.results.length,
     0,
@@ -465,6 +546,8 @@ export async function POST(req: NextRequest) {
       event_slug: event?.slug || null,
       is_external: !!isExternalCall,
       sources: diagnostics,
+      live_alerts: liveAlerts,
+      should_continue: true,
     });
     await checkSyncFailures(adminSupabase, "no_scraped_results", event_id);
     return NextResponse.json({
@@ -472,6 +555,8 @@ export async function POST(req: NextRequest) {
       message:
         "Nenhum resultado disponível nas fontes configuradas ainda — tente em breve",
       sources: diagnostics,
+      live_alerts: liveAlerts,
+      should_continue: true,
     });
   }
 
@@ -496,6 +581,8 @@ export async function POST(req: NextRequest) {
         : `${scrapedCount} resultado(s) encontrados, mas nenhum consenso casa com lutas pendentes`,
       sources: diagnostics,
       conflicts: consensus.conflicts,
+      live_alerts: liveAlerts,
+      should_continue: true,
       source_names: resultSources.flatMap((source) =>
         source.results.map((result) => ({
           source: source.source,
@@ -521,6 +608,8 @@ export async function POST(req: NextRequest) {
       sources: diagnostics,
       conflicts: consensus.conflicts,
       results_count: scrapedCount,
+      live_alerts: liveAlerts,
+      should_continue: true,
     });
   }
 
@@ -569,6 +658,12 @@ export async function POST(req: NextRequest) {
   });
 
   const lifecycle = await completeEventIfAllResultsConfirmed(adminSupabase, event_id);
+  const resultCron = lifecycle.completed
+    ? await disableResultPolling().catch((error) => ({
+        configured: false as const,
+        reason: error instanceof Error ? error.message : "cron_job_org_error",
+      }))
+    : null;
 
   revalidatePath("/ranking");
   revalidatePath("/home");
@@ -605,5 +700,8 @@ export async function POST(req: NextRequest) {
     conflicts: consensus.conflicts,
     event_completed: lifecycle.completed,
     next_event: lifecycle.nextEvent,
+    live_alerts: liveAlerts,
+    should_continue: !lifecycle.completed,
+    result_cron: resultCron,
   });
 }

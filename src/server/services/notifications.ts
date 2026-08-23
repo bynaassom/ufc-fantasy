@@ -23,7 +23,7 @@ import {
   listPushSubscriptionsForUsers,
 } from "@/server/repositories/push-subscriptions";
 
-type NotificationEvent = {
+export type NotificationEvent = {
   id: string;
   name: string;
   slug: string;
