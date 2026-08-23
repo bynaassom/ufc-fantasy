@@ -1,13 +1,18 @@
-import Image from "next/image";
 import Link from "next/link";
 import type { HomeFighter, HomeMainEvent } from "@/types";
+import FighterHeadshotMedia from "./FighterHeadshotMedia";
 
 function FighterVisual({ fighter, corner }: { fighter: HomeFighter; corner: "A" | "B" }) {
   return (
     <div className={`relative min-w-0 overflow-hidden ${corner === "A" ? "[clip-path:polygon(0_0,100%_0,88%_100%,0_100%)]" : "[clip-path:polygon(0_0,100%_0,100%_100%,12%_100%)]"}`}>
       <div className={`absolute inset-0 opacity-25 ${corner === "A" ? "bg-gradient-to-tr from-[var(--corner-red)]" : "bg-gradient-to-tl from-[var(--corner-blue)]"}`} />
       <div className="absolute inset-x-0 bottom-0 h-4/5 opacity-60" style={{ background: "radial-gradient(ellipse at 50% 20%, var(--text-secondary) 0 12%, transparent 13%), linear-gradient(100deg, transparent 28%, var(--text-secondary) 29% 71%, transparent 72%)" }} />
-      {fighter.imageUrl && <Image src={fighter.imageUrl} alt={fighter.name} fill sizes="(max-width: 640px) 38vw, 260px" className="object-contain object-bottom" onError={(event) => { event.currentTarget.style.display = "none"; }} />}
+      {fighter.imageUrl && (
+        <FighterHeadshotMedia
+          imageUrl={fighter.imageUrl}
+          fighterName={fighter.name}
+        />
+      )}
       <div className="absolute inset-x-3 bottom-3 z-10 sm:inset-x-5 sm:bottom-4">
         <span className="font-condensed text-[10px] font-900 uppercase tracking-[0.2em] text-white/65">Corner {corner}</span>
         <h3 className="mt-1 max-w-[94%] truncate font-condensed text-[clamp(1.05rem,4vw,2rem)] font-900 uppercase leading-none text-white">{fighter.name}</h3>
