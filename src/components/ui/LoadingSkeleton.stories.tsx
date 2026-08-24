@@ -2,13 +2,13 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { PageSkeleton } from "./LoadingSkeleton";
 
 const meta = {
-  title: "Feedback/Loading Skeleton",
+  title: "Feedback/Broadcast Loading",
   component: PageSkeleton,
   parameters: {
     docs: {
       description: {
         component:
-          "Estados de carregamento estruturais do UFC Fantasy. Cada preset preserva a hierarquia da tela final para reduzir mudanças de layout.",
+          "Estados de carregamento editoriais do UFC Fantasy. O movimento fica concentrado no palco principal e as estruturas secundárias permanecem estáticas.",
       },
     },
   },
@@ -45,5 +45,7 @@ export const Ranking: Story = { args: { variant: "ranking" } };
 export const Perfil: Story = { args: { variant: "profile" } };
 export const Recap: Story = { args: { variant: "recap" } };
 export const Desafio: Story = { args: { variant: "challenge" } };
+export const Ligas: Story = { args: { variant: "league", lines: 5 } };
+export const Lista: Story = { args: { variant: "list", lines: 5 } };
 export const Admin: Story = { args: { variant: "admin" } };
 export const Landing: Story = { args: { variant: "landing" } };
