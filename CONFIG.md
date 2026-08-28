@@ -71,7 +71,7 @@ Configure os jobs como `POST` e envie `Content-Type: application/json` com body 
 
 | Job | Endpoint | Header | Frequência sugerida |
 | --- | --- | --- | --- |
-| Eventos | `/api/cron/sync-events` | `Authorization: Bearer <SYNC_SECRET>` | Diário |
+| Eventos e lutas | `/api/cron/sync-events` | `Authorization: Bearer <SYNC_SECRET>` | Diário |
 | Início dos resultados | `/api/cron/start-result-polling` | `Authorization: Bearer <SYNC_SECRET>` | Criado automaticamente no horário das preliminares |
 | Resultados | `/api/sync-results` | `Authorization: Bearer <SYNC_SECRET>` | A cada 2 min, somente durante o evento |
 | Notificações/ciclo | `/api/cron/notifications` | `Authorization: Bearer <NOTIFICATIONS_CRON_SECRET>` | A cada 5 min |
@@ -80,6 +80,7 @@ Configure os jobs como `POST` e envie `Content-Type: application/json` com body 
 `/api/sync-events` continua existindo para uso admin/manual; para cron externo, prefira `/api/cron/sync-events`.
 Os jobs são executados pelo cron-job.org; o plano Hobby da Vercel não é usado para agendamento.
 Quando `CRON_JOB_ORG_API_KEY` está configurada, o sync diário de eventos cria ou atualiza um disparador para o horário das preliminares. Esse disparador ativa o job de resultados a cada 2 minutos; após o último resultado computado, o próprio app desativa o job. O job também expira após uma janela de segurança de 12 horas.
+O mesmo sync diário reconcilia o card oficial de todos os eventos retornados pela UFC: inclui lutas novas, atualiza ordem e metadados e remove duplicatas não confirmadas. A verificação horária continua responsável pelos checkpoints de 72h e 18h, inclusive pela remoção conservadora de lutas canceladas quando UFC e UFCStats concordam.
 O job de notificações também limpa status antigos: após uma janela de segurança de 8 horas a partir do main card, eventos ainda marcados como `upcoming` ou `live` passam para `completed`.
 
 ## Odds

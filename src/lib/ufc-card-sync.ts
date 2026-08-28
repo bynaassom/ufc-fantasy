@@ -65,6 +65,7 @@ export type ScrapedCardFight = {
 
 type ExistingFightLike = {
   id: string;
+  created_at?: string | null;
   weight_class?: string | null;
   card_type?: string | null;
   fight_order?: number | null;
@@ -96,6 +97,7 @@ type SearchNewsResult = {
 
 export type ScrapedCardDiff = {
   added: ScrapedCardFight[];
+  duplicates: ExistingFightLike[];
   removed: ExistingFightLike[];
   updated: Array<{
     db_id: string;
@@ -832,9 +834,17 @@ export function diffScrapedCardAgainstExistingFights(
   let unchangedCount = 0;
 
   for (const scrapedFight of scrapedFights) {
-    const existingFight = dbFights.find(
-      (dbFight) => !matchedDbIds.has(dbFight.id) && fightPairMatches(dbFight, scrapedFight),
-    );
+    const existingFight = dbFights
+      .filter(
+        (dbFight) => !matchedDbIds.has(dbFight.id) && fightPairMatches(dbFight, scrapedFight),
+      )
+      .sort((left, right) => {
+        if (Boolean(left.result_confirmed) !== Boolean(right.result_confirmed)) {
+          return left.result_confirmed ? -1 : 1;
+        }
+
+        return (left.created_at || "").localeCompare(right.created_at || "");
+      })[0];
 
     if (!existingFight) {
       added.push(scrapedFight);
@@ -857,6 +867,12 @@ export function diffScrapedCardAgainstExistingFights(
     });
   }
 
+  const duplicates = dbFights.filter((dbFight) => {
+    if (dbFight.result_confirmed) return false;
+    if (matchedDbIds.has(dbFight.id)) return false;
+    return scrapedFights.some((scrapedFight) => fightPairMatches(dbFight, scrapedFight));
+  });
+
   const removed = dbFights.filter((dbFight) => {
     if (dbFight.result_confirmed) return false;
     if (matchedDbIds.has(dbFight.id)) return false;
@@ -865,6 +881,7 @@ export function diffScrapedCardAgainstExistingFights(
 
   return {
     added,
+    duplicates,
     removed,
     updated,
     unchanged_count: unchangedCount,
@@ -971,7 +988,7 @@ export async function syncScrapedCardForEvent(
   const { data: currentFights, error: currentFightsError } = await adminSupabase
     .from("fights")
     .select(
-      `id, weight_class, card_type, fight_order, is_title_fight, total_rounds, ufc_matchup_url,
+      `id, created_at, weight_class, card_type, fight_order, is_title_fight, total_rounds, result_confirmed, ufc_matchup_url,
       fighter_a:fighters!fighter_a_id(id, name),
       fighter_b:fighters!fighter_b_id(id, name)`,
     )
@@ -984,6 +1001,7 @@ export async function syncScrapedCardForEvent(
   const dbFights = (currentFights || []) as ExistingFightLike[];
   const diff = diffScrapedCardAgainstExistingFights(dbFights, scrapedFights);
   const added: string[] = [];
+  const duplicatesRemoved: string[] = [];
   const updated: string[] = [];
 
   for (const scrapedFight of diff.added) {
@@ -1029,12 +1047,37 @@ export async function syncScrapedCardForEvent(
     );
   }
 
+  for (const duplicate of diff.duplicates) {
+    const label = `${getFightParticipantName(duplicate.fighter_a)} vs ${getFightParticipantName(duplicate.fighter_b)}`;
+    const { error: picksError } = await adminSupabase
+      .from("picks")
+      .delete()
+      .eq("fight_id", duplicate.id);
+
+    if (picksError) {
+      throw new Error(picksError.message);
+    }
+
+    const { error: deleteError } = await adminSupabase
+      .from("fights")
+      .delete()
+      .eq("id", duplicate.id);
+
+    if (deleteError) {
+      throw new Error(deleteError.message);
+    }
+
+    duplicatesRemoved.push(label);
+  }
+
   return {
     scraped_count: scrapedFights.length,
     added_count: diff.added.length,
+    duplicates_removed_count: diff.duplicates.length,
     updated_count: diff.updated.length,
     unchanged_count: diff.unchanged_count,
     added,
+    duplicates_removed: duplicatesRemoved,
     updated,
   };
 }

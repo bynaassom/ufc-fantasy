@@ -119,6 +119,7 @@ describe("ufc-card-sync", () => {
     );
 
     expect(diff.added).toHaveLength(0);
+    expect(diff.duplicates).toHaveLength(0);
     expect(diff.removed).toHaveLength(0);
     expect(diff.updated).toHaveLength(1);
     expect(diff.updated[0]?.db_id).toBe("fight-1");
@@ -129,6 +130,45 @@ describe("ufc-card-sync", () => {
         to: "https://www.ufc.com.br/event/ufc-fight-night-april-18-2026#12772",
       },
     });
+  });
+
+  it("identifies duplicate unconfirmed fights and preserves the oldest record", () => {
+    const scrapedFight: ScrapedCardFight = {
+      fmid: "12772",
+      card_type: "preliminary",
+      fight_order: 1,
+      weight_class: "Featherweight",
+      is_title_fight: false,
+      total_rounds: 3,
+      ufc_matchup_url: "https://www.ufc.com.br/event/ufc-fight-night#12772",
+      fighter_a: { name: "Dennis Buzukja", country: "", headshot_url: "" },
+      fighter_b: { name: "Marcio Barbosa", country: "", headshot_url: "" },
+    };
+
+    const diff = diffScrapedCardAgainstExistingFights(
+      [
+        {
+          id: "fight-newer",
+          created_at: "2026-08-20T00:00:00.000Z",
+          result_confirmed: false,
+          fighter_a: { name: "Dennis Buzukja" },
+          fighter_b: { name: "Marcio Barbosa" },
+        },
+        {
+          id: "fight-original",
+          created_at: "2026-08-10T00:00:00.000Z",
+          result_confirmed: false,
+          fighter_a: { name: "Marcio Barbosa" },
+          fighter_b: { name: "Dennis Buzukja" },
+        },
+      ],
+      [scrapedFight],
+    );
+
+    expect(diff.added).toHaveLength(0);
+    expect(diff.removed).toHaveLength(0);
+    expect(diff.duplicates.map((fight) => fight.id)).toEqual(["fight-newer"]);
+    expect(diff.updated[0]?.db_id).toBe("fight-original");
   });
 
   it("parses official news results and excludes transferred fights from article fallbacks", () => {

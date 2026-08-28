@@ -202,7 +202,7 @@ The production lifecycle is driven by authenticated `POST` jobs:
 
 | Job | Endpoint | Suggested schedule | Responsibility |
 | --- | --- | --- | --- |
-| Event sync | `/api/cron/sync-events` | Daily | Discover events, derive pick locks, and synchronize cards |
+| Event and fight sync | `/api/cron/sync-events` | Daily | Discover events, derive pick locks, add new fights, and remove unconfirmed duplicates |
 | Result sync | `/api/sync-results` | Every 2 minutes during events | Collect results, notify fight followers, reach consensus, and score picks transactionally |
 | Notifications and lifecycle | `/api/cron/notifications` | Every 5 minutes | Send notifications and advance event states |
 | Card verification | `/api/cron/card-verification` | Hourly | Compare cards at key checkpoints and record alerts |

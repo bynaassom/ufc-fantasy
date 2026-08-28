@@ -83,6 +83,7 @@ export async function POST(req: NextRequest) {
     let created = 0;
     let updated = 0;
     let cardSynced = 0;
+    const cardSync: Array<Record<string, unknown>> = [];
 
     for (const event of merged) {
       const sourceId = event.eventUrl || event.id;
@@ -121,6 +122,26 @@ export async function POST(req: NextRequest) {
           await adminSupabase.from("events").update(update).eq("id", existing.id);
           updated++;
         }
+
+        try {
+          const slug = existing.slug || getEventSlug(event);
+          const url =
+            event.eventUrl ||
+            (/\/event\//i.test(existing.ufc_event_id || "")
+              ? existing.ufc_event_id
+              : `https://www.ufc.com.br/event/${slug}`);
+          const result = await syncScrapedCardForEvent(adminSupabase, existing.id, url);
+          cardSync.push({ event_id: existing.id, event_name: event.name, ok: true, ...result });
+          cardSynced++;
+        } catch (error) {
+          cardSync.push({
+            event_id: existing.id,
+            event_name: event.name,
+            ok: false,
+            error: error instanceof Error ? error.message : "card_sync_error",
+          });
+        }
+
         try {
           await syncUfcOddsForEvent(adminSupabase, {
             id: existing.id,
@@ -173,13 +194,26 @@ export async function POST(req: NextRequest) {
 
       try {
         const url = event.eventUrl || `https://www.ufc.com.br/event/${slug}`;
-        await syncScrapedCardForEvent(adminSupabase, createdEvent.id, url);
+        const result = await syncScrapedCardForEvent(adminSupabase, createdEvent.id, url);
+        cardSync.push({ event_id: createdEvent.id, event_name: event.name, ok: true, ...result });
+        cardSynced++;
+      } catch (error) {
+        cardSync.push({
+          event_id: createdEvent.id,
+          event_name: event.name,
+          ok: false,
+          error: error instanceof Error ? error.message : "card_sync_error",
+        });
+      }
+
+      try {
         await syncUfcOddsForEvent(adminSupabase, {
           id: createdEvent.id,
           name: event.name,
         });
-        cardSynced++;
-      } catch { /* silent */ }
+      } catch {
+        // Odds ainda podem não estar publicadas; não interrompe o sync do card.
+      }
     }
 
     let resultCron: unknown = { configured: false, reason: "no_upcoming_event" };
@@ -206,6 +240,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       message: `${created} criado(s), ${updated} atualizado(s), ${cardSynced} cards sincronizados`,
+      card_sync: cardSync,
       result_cron: resultCron,
     });
   } catch (error) {

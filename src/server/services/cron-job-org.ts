@@ -128,8 +128,8 @@ function protectedPostJob(
     enabled: true,
     url,
     requestMethod: 1,
-    requestTimeout: 60,
-    saveResponses: false,
+    requestTimeout: 30,
+    saveResponses: true,
     schedule,
     extendedData: {
       headers: {
