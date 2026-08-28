@@ -4,6 +4,7 @@ import Link from "next/link";
 import { formatEventDate } from "@/lib/utils";
 import { getHistoryPageData } from "@/server/services/app";
 import type { Event as FantasyEvent } from "@/types";
+import EventBonusLabel from "@/components/event/EventBonusLabel";
 
 export const revalidate = 3600;
 
@@ -94,6 +95,7 @@ export default async function HistoricoPage(
                     >
                       {event.name}
                     </p>
+                    {event.is_bonus && <div className="mt-2"><EventBonusLabel /></div>}
                     <p
                       className="font-condensed font-600 text-xs uppercase tracking-widest mt-0.5"
                       style={{ color: "var(--text-muted)" }}

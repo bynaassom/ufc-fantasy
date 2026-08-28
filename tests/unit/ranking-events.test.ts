@@ -1,4 +1,7 @@
-import { resolveRankingEventSelection } from "@/lib/ranking-events";
+import {
+  getLatestRankingMovementEvent,
+  resolveRankingEventSelection,
+} from "@/lib/ranking-events";
 
 describe("ranking events", () => {
   const currentEvent = {
@@ -6,12 +9,14 @@ describe("ranking events", () => {
     name: "UFC Atual",
     slug: "ufc-atual",
     event_date: "2026-05-09T22:00:00.000Z",
+    is_bonus: false,
   };
   const completedEvents = Array.from({ length: 9 }, (_, index) => ({
     id: `event-${index + 1}`,
     name: `UFC ${index + 1}`,
     slug: `ufc-${index + 1}`,
     event_date: `2026-04-${String(30 - index).padStart(2, "0")}T22:00:00.000Z`,
+    is_bonus: false,
   }));
 
   it("selects the current event by default and exposes the last seven completed events", () => {
@@ -55,5 +60,14 @@ describe("ranking events", () => {
     });
 
     expect(selection.selectedEvent?.id).toBe("current-id");
+  });
+
+  it("uses the latest ranked event for cumulative ranking movement", () => {
+    const events = [
+      { ...completedEvents[0], is_bonus: true },
+      completedEvents[1],
+    ];
+
+    expect(getLatestRankingMovementEvent(events)?.id).toBe("event-2");
   });
 });

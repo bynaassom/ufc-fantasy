@@ -60,6 +60,7 @@ CREATE TABLE events (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   name TEXT NOT NULL,
   slug TEXT NOT NULL UNIQUE,
+  is_bonus BOOLEAN NOT NULL DEFAULT false,
   event_date TIMESTAMPTZ NOT NULL,
   location TEXT,
   banner_image_url TEXT,
@@ -527,9 +528,11 @@ BEGIN
   -- Atualiza total global nos profiles
   UPDATE profiles SET
     total_points = (
-      SELECT COALESCE(SUM(total_points), 0)
-      FROM event_scores
-      WHERE user_id = profiles.id
+      SELECT COALESCE(SUM(score.total_points), 0)
+      FROM event_scores AS score
+      JOIN events AS ranked_event ON ranked_event.id = score.event_id
+      WHERE score.user_id = profiles.id
+        AND ranked_event.is_bonus = false
     )
   WHERE id IN (SELECT DISTINCT user_id FROM picks WHERE fight_id = p_fight_id);
 

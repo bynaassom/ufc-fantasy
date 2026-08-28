@@ -28,4 +28,14 @@ describe("adminEventSchema", () => {
       timing_mode: "automatic",
     });
   });
+
+  it("accepts the bonus event ranking mode", () => {
+    const parsed = adminEventSchema.parse({
+      name: "Road To UFC 5.3",
+      event_date: "2026-08-29T01:00",
+      is_bonus: true,
+    });
+
+    expect(parsed.is_bonus).toBe(true);
+  });
 });

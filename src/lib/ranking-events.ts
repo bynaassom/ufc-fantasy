@@ -3,7 +3,14 @@ export type RankingSelectableEvent = {
   name: string;
   slug: string;
   event_date: string;
+  is_bonus: boolean;
 };
+
+export function getLatestRankingMovementEvent(
+  completedEvents: RankingSelectableEvent[],
+) {
+  return completedEvents.find((event) => !event.is_bonus) || null;
+}
 
 export function resolveRankingEventSelection({
   currentEvent,

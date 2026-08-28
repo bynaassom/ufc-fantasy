@@ -48,7 +48,7 @@ export default function EventRankingSelector({
       >
         {events.map((event) => (
           <option key={event.id} value={event.slug}>
-            {event.name}
+            {event.name}{event.is_bonus ? " · BÔNUS" : ""}
           </option>
         ))}
       </select>

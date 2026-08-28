@@ -13,6 +13,7 @@ import type {
   PublicProfileSummary,
 } from "@/types";
 import {
+  getLatestRankingMovementEvent,
   resolveRankingEventSelection,
   type RankingSelectableEvent,
 } from "@/lib/ranking-events";
@@ -30,10 +31,12 @@ import {
 } from "@/server/repositories/challenges";
 import {
   createEvent,
+  deleteEvent,
   findEventById,
   findEventBySlugForPickValidation,
   findEventBySlugWithFights,
   getCurrentPublicEvent,
+  listActiveBonusEvents,
   listAdminEvents,
   listCompletedEvents,
   listRecentCompletedEvents,
@@ -215,6 +218,18 @@ const getCachedUpcomingEvents = unstable_cache(
   },
 );
 
+const getCachedActiveBonusEvents = unstable_cache(
+  async (limit: number) => {
+    const supabase = getServiceRoleSupabase();
+    return (await listActiveBonusEvents(supabase, limit)) as Event[];
+  },
+  ["active-bonus-events"],
+  {
+    revalidate: EVENTS_CACHE_SECONDS,
+    tags: [CACHE_TAGS.events],
+  },
+);
+
 const getCachedRecentCompletedEvents = unstable_cache(
   async (limit: number) => {
     const supabase = getServiceRoleSupabase();
@@ -318,7 +333,14 @@ const getCachedRecentCompletedRankingEvents = unstable_cache(
   async (limit: number) => {
     const supabase = getServiceRoleSupabase();
     const events = await listCompletedEvents(supabase);
-    return events.slice(0, limit) as RankingSelectableEvent[];
+    const recentEvents = events.slice(0, limit) as RankingSelectableEvent[];
+    const latestRankedEvent = (events as RankingSelectableEvent[]).find(
+      (event) => !event.is_bonus,
+    );
+
+    return latestRankedEvent && !recentEvents.some((event) => event.id === latestRankedEvent.id)
+      ? [...recentEvents, latestRankedEvent]
+      : recentEvents;
   },
   ["recent-completed-ranking-events"],
   {
@@ -987,30 +1009,33 @@ async function buildHomeMainEvent(event: Event | null, fights: any[]) {
 
 export async function getEventsIndexPageData() {
   const { profile } = await requirePageUserProfile();
-  const [cachedCurrentEvent, rawUpcomingEvents] = await Promise.all([
+  const [cachedCurrentEvent, rawUpcomingEvents, activeBonusEvents] = await Promise.all([
     getCachedCurrentPublicEvent(),
     getCachedUpcomingEvents(50),
+    getCachedActiveBonusEvents(3),
   ]);
   const eventSequence = resolvePublicEventSequence([
     cachedCurrentEvent,
+    ...activeBonusEvents,
     ...rawUpcomingEvents,
   ]);
-  const currentEvent = eventSequence[0] || null;
+  const currentEvent = eventSequence.find((event) => !event.is_bonus) || null;
 
   return {
     profile,
     currentEvent,
     upcomingEvents: eventSequence.filter(
-      (event) => event.status === "upcoming" && event.id !== currentEvent?.id,
+      (event) => event.id !== currentEvent?.id,
     ),
   };
 }
 
 export async function getHomePageData() {
   const { profile, user } = await requirePageUserProfile();
-  const [cachedCurrentEvent, rawUpcomingEvents, completedEvents] = await Promise.all([
+  const [cachedCurrentEvent, rawUpcomingEvents, activeBonusEvents, completedEvents] = await Promise.all([
     getCachedCurrentPublicEvent(),
     getCachedUpcomingEvents(10),
+    getCachedActiveBonusEvents(3),
     getCachedRecentCompletedEvents(6),
   ]);
 
@@ -1018,9 +1043,13 @@ export async function getHomePageData() {
     cachedCurrentEvent,
     ...rawUpcomingEvents,
   ]);
-  const currentEvent = eventSequence[0] || null;
+  const currentEvent = eventSequence.find((event) => !event.is_bonus) || null;
+  const bonusEvents = resolvePublicEventSequence(activeBonusEvents);
   const upcomingEvents = eventSequence.filter(
-    (event) => event.status === "upcoming" && event.id !== currentEvent?.id,
+    (event) =>
+      !event.is_bonus &&
+      event.status === "upcoming" &&
+      event.id !== currentEvent?.id,
   );
 
   const adminSupabase = await getAdminSupabase();
@@ -1111,6 +1140,7 @@ export async function getHomePageData() {
     profile,
     userId: user.id,
     currentEvent,
+    bonusEvents,
     upcomingEvents: upcomingEvents.slice(0, 6),
     previousEvents: previousEvents.map((event) => ({
       event,
@@ -1226,6 +1256,7 @@ export async function getRankingPageData(
             name: currentEvent.name,
             slug: currentEvent.slug,
             event_date: currentEvent.event_date,
+            is_bonus: currentEvent.is_bonus,
           }
         : null,
       completedEvents: completedRankingEvents,
@@ -1282,7 +1313,7 @@ export async function getRankingPageData(
     }));
   }
 
-  const movementEvent = completedRankingEvents[0] || null;
+  const movementEvent = getLatestRankingMovementEvent(completedRankingEvents);
   if (movementEvent && tab !== "evento" && displayRanking.length > 0) {
     const movementData = await getCachedEventRankMovement(movementEvent.id);
     const eventScores = new Map(
@@ -2317,6 +2348,7 @@ export async function createAdminEvent(payload: {
   banner_image_url?: string;
   ufc_event_id?: string;
   ufc_stats_url?: string;
+  is_bonus?: boolean;
   status?: "upcoming" | "live" | "completed";
 }) {
   const adminSupabase = await getAdminSupabase();
@@ -2347,6 +2379,13 @@ export async function updateAdminEventById(
     });
   }
 
+  return event;
+}
+
+export async function deleteAdminEventById(eventId: string) {
+  const adminSupabase = await getAdminSupabase();
+  const event = await findEventById(adminSupabase, eventId);
+  await deleteEvent(adminSupabase, eventId);
   return event;
 }
 

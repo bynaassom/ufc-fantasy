@@ -635,7 +635,7 @@ function EventSelector({
           <optgroup key={group.label} label={group.label}>
             {group.events.map((ev: any) => (
               <option key={ev.id} value={ev.id}>
-                {ev.name}
+                {ev.name}{ev.is_bonus ? " · BÔNUS" : ""}
               </option>
             ))}
           </optgroup>
@@ -658,6 +658,7 @@ function EventoManual({ onEventsChanged }: { onEventsChanged: () => void }) {
     banner_image_url: "",
     ufc_event_id: "",
     ufc_stats_url: "",
+    is_bonus: false,
   });
 
   async function handleSubmit(e: React.FormEvent) {
@@ -680,6 +681,7 @@ function EventoManual({ onEventsChanged }: { onEventsChanged: () => void }) {
         banner_image_url: "",
         ufc_event_id: "",
         ufc_stats_url: "",
+        is_bonus: false,
       });
     } catch (error: any) {
       toast.error(error.message);
@@ -780,6 +782,30 @@ function EventoManual({ onEventsChanged }: { onEventsChanged: () => void }) {
           )}
         </div>
       ))}
+      <label
+        className="flex min-h-11 cursor-pointer items-start gap-3 border px-4 py-3"
+        style={{
+          backgroundColor: form.is_bonus ? "rgba(232,0,26,0.06)" : "var(--bg-card)",
+          borderColor: form.is_bonus ? "rgba(232,0,26,0.35)" : "var(--border)",
+        }}
+      >
+        <input
+          type="checkbox"
+          checked={form.is_bonus}
+          onChange={(event) =>
+            setForm((current) => ({ ...current, is_bonus: event.target.checked }))
+          }
+          className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--red)]"
+        />
+        <span>
+          <span className="block font-condensed text-xs font-900 uppercase tracking-widest text-[var(--text)]">
+            Evento bônus
+          </span>
+          <span className="mt-1 block text-xs leading-relaxed text-[var(--text-muted)]">
+            Os picks e o ranking deste evento continuam ativos, mas os pontos não entram nos rankings acumulados.
+          </span>
+        </span>
+      </label>
       <div
         className="border-l-2 px-4 py-3"
         style={{ borderColor: "var(--red)", background: "var(--bg-card)" }}
@@ -827,6 +853,7 @@ function EventoEditar({
       total_rounds: number;
     } | null>(null);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [diff, setDiff] = useState<any>(null);
   const [diffLoading, setDiffLoading] = useState(false);
   const [removeIds, setRemoveIds] = useState<string[]>([]);
@@ -889,6 +916,30 @@ function EventoEditar({
     toast.success("Luta atualizada!");
     setEditFight(null);
     loadFights(selectedEventId);
+  }
+
+  async function handleDeleteEvent() {
+    if (!editForm || !selectedEventId) return;
+    const confirmed = confirm(
+      `Excluir “${editForm.name}”? Todas as lutas, picks e pontuações deste evento serão removidos. Esta ação não pode ser desfeita.`,
+    );
+    if (!confirmed) return;
+
+    setDeleting(true);
+    try {
+      await adminSend(`/api/admin/events/${selectedEventId}`, {
+        method: "DELETE",
+      });
+      const nextEvent = sortedEvents.find((event: any) => event.id !== selectedEventId);
+      setEditForm(null);
+      setSelectedEventId(nextEvent?.id || "");
+      toast.success("Evento removido!");
+      onEventsChanged();
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setDeleting(false);
+    }
   }
 
   async function handleDeleteFight(fightId: string) {
@@ -990,7 +1041,7 @@ function EventoEditar({
             </label>
             {type === "select" ? (
               <select
-                value={editForm[k]}
+                value={String(editForm[k])}
                 onChange={(e) => updater(e.target.value)}
                 style={sel}
                 onFocus={focus}
@@ -1005,7 +1056,7 @@ function EventoEditar({
             ) : (
               <input
                 type={type}
-                value={editForm[k]}
+                value={String(editForm[k])}
                 disabled={key === "picks_lock_at" && editForm.timing_mode === "automatic"}
                 onChange={(e) => updater(e.target.value)}
                 style={{
@@ -1021,6 +1072,36 @@ function EventoEditar({
             )}
           </div>
         )})}
+        <label
+          className="flex min-h-11 cursor-pointer items-start gap-3 border px-4 py-3"
+          style={{
+            backgroundColor: editForm.is_bonus
+              ? "rgba(232,0,26,0.06)"
+              : "var(--bg-card)",
+            borderColor: editForm.is_bonus
+              ? "rgba(232,0,26,0.35)"
+              : "var(--border)",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={editForm.is_bonus}
+            onChange={(event) =>
+              setEditForm((current) =>
+                current ? { ...current, is_bonus: event.target.checked } : null,
+              )
+            }
+            className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--red)]"
+          />
+          <span>
+            <span className="block font-condensed text-xs font-900 uppercase tracking-widest text-[var(--text)]">
+              Evento bônus
+            </span>
+            <span className="mt-1 block text-xs leading-relaxed text-[var(--text-muted)]">
+              Mantém picks, resultado e ranking do evento, mas desconsidera seus pontos nos rankings geral, de temporada e de grupos.
+            </span>
+          </span>
+        </label>
         <div
           className="border-l-2 px-4 py-3"
           style={{ borderColor: "var(--red)", background: "var(--bg-card)" }}
@@ -1177,6 +1258,31 @@ function EventoEditar({
           {saving ? "SALVANDO..." : "SALVAR EVENTO"}
         </button>
       </form>
+
+      <section
+        className="border px-4 py-4"
+        style={{ borderColor: "rgba(232,0,26,0.35)", backgroundColor: "var(--bg-card)" }}
+        aria-labelledby="event-danger-zone"
+      >
+        <h3
+          id="event-danger-zone"
+          className="font-condensed text-sm font-900 uppercase tracking-widest text-[var(--red)]"
+        >
+          Zona de perigo
+        </h3>
+        <p className="mt-1 text-xs leading-relaxed text-[var(--text-muted)]">
+          Use apenas para cadastros inválidos. A exclusão também remove lutas, picks e pontuações vinculadas.
+        </p>
+        <button
+          type="button"
+          onClick={handleDeleteEvent}
+          disabled={deleting || saving}
+          className="mt-4 min-h-11 border px-4 font-condensed text-xs font-900 uppercase tracking-widest transition-colors disabled:opacity-40"
+          style={{ borderColor: "var(--red)", color: "var(--red)" }}
+        >
+          {deleting ? "EXCLUINDO..." : "EXCLUIR EVENTO"}
+        </button>
+      </section>
 
       <div className="space-y-3">
         <div className="red-line flex items-center justify-between">

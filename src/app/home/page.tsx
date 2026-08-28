@@ -8,6 +8,7 @@ import MainEventComparison from "@/components/home/MainEventComparison";
 import HorizontalEventRail from "@/components/home/HorizontalEventRail";
 import UpcomingEventCard from "@/components/home/UpcomingEventCard";
 import PreviousEventCard from "@/components/home/PreviousEventCard";
+import BonusEventPrompt from "@/components/home/BonusEventPrompt";
 import { getHomePageData } from "@/server/services/app";
 
 export const revalidate = 60;
@@ -24,7 +25,10 @@ export default async function HomePage() {
       <main className="mx-auto w-full max-w-[1180px] px-4 pb-20 pt-3 md:px-6 md:pb-12 md:pt-5">
         <HomeSummary profile={data.profile} />
         <div className="mt-5 space-y-11 md:mt-7 md:space-y-16">
-          {data.currentEvent ? <CurrentEventHero event={data.currentEvent} progress={data.currentEventPickProgress} /> : <section className="border border-[var(--border)] bg-[var(--bg-card)] px-5 py-12 text-center"><h2 className="font-condensed text-xl font-900 uppercase text-[var(--text)]">Nenhum evento ativo</h2><p className="mt-2 text-sm text-[var(--text-secondary)]">Aguarde a divulgação do próximo evento.</p></section>}
+          <div className="space-y-4">
+            {data.currentEvent ? <CurrentEventHero event={data.currentEvent} progress={data.currentEventPickProgress} /> : <section className="border border-[var(--border)] bg-[var(--bg-card)] px-5 py-12 text-center"><h2 className="font-condensed text-xl font-900 uppercase text-[var(--text)]">Nenhum evento principal ativo</h2><p className="mt-2 text-sm text-[var(--text-secondary)]">Aguarde a divulgação do próximo card principal.</p></section>}
+            <BonusEventPrompt events={data.bonusEvents} />
+          </div>
           <MainEventComparison mainEvent={data.mainEvent} />
           <HomeChallenges challenges={data.activeChallenges} suggestedRivals={data.suggestedRivals} currentEvent={data.currentEvent ? { id: data.currentEvent.id, name: data.currentEvent.name } : null} />
           {data.upcomingEvents.length > 0 && <section className="home-reveal" aria-label="Próximos eventos"><RailHeading title="Próximos eventos" href="/event?view=all" /><HorizontalEventRail label="Próximos eventos">{data.upcomingEvents.map((event) => <UpcomingEventCard key={event.id} event={event} />)}</HorizontalEventRail></section>}

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 import EventPicksClient from "@/components/event/EventPicksClient";
 import LiveFeed from "@/components/event/LiveFeed";
+import EventBonusLabel from "@/components/event/EventBonusLabel";
 import {
   EventAlertButton,
   EventAlertProvider,
@@ -63,6 +64,7 @@ export default async function EventPage(props: EventPageProps) {
                 AO VIVO
               </span>
             )}
+            {event.is_bonus && <EventBonusLabel />}
             {!open && (
               <span
                 className="text-xs font-bold px-2 py-1"

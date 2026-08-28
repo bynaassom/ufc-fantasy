@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getCurrentPublicEvent: vi.fn(),
+  listActiveBonusEvents: vi.fn(),
   listRecentCompletedEvents: vi.fn(),
   listUpcomingEvents: vi.fn(),
   listChallengesForUser: vi.fn(),
@@ -61,10 +62,12 @@ vi.mock("@/server/repositories/stats", () => ({
 
 vi.mock("@/server/repositories/events", () => ({
   createEvent: vi.fn(),
+  deleteEvent: vi.fn(),
   findEventById: vi.fn(),
   findEventBySlugForPickValidation: vi.fn(),
   findEventBySlugWithFights: vi.fn(),
   getCurrentPublicEvent: mocks.getCurrentPublicEvent,
+  listActiveBonusEvents: mocks.listActiveBonusEvents,
   listCompletedEvents: vi.fn(),
   listRecentEvents: vi.fn(),
   listRecentCompletedEvents: mocks.listRecentCompletedEvents,
@@ -77,6 +80,7 @@ function makeEvent(overrides: Partial<Event>): Event {
     id: "event-id",
     name: "UFC Test",
     slug: "ufc-test",
+    is_bonus: false,
     event_date: "2026-06-20T23:00:00.000Z",
     location: "Las Vegas, NV",
     banner_image_url: undefined,
@@ -115,6 +119,7 @@ describe("getHomePageData", () => {
       } satisfies Partial<Profile>,
     });
     mocks.listRecentCompletedEvents.mockResolvedValue([]);
+    mocks.listActiveBonusEvents.mockResolvedValue([]);
     mocks.listUpcomingEvents.mockResolvedValue([]);
     mocks.listChallengesForUser.mockResolvedValue([]);
     mocks.findPublicProfilesByIds.mockResolvedValue([]);
@@ -195,6 +200,35 @@ describe("getHomePageData", () => {
 
     expect(result.currentEvent?.id).toBe("next-event");
     expect(result.upcomingEvents.map((event) => event.id)).toEqual(["later-event"]);
+  });
+
+  it("keeps the main weekend event in the hero and exposes bonus picks separately", async () => {
+    const bonusEvent = makeEvent({
+      id: "road-to-ufc-5-3",
+      name: "Road To UFC 5.3",
+      slug: "road-to-ufc-5-3",
+      is_bonus: true,
+      event_date: "2026-06-06T12:00:00.000Z",
+    });
+    const mainEvent = makeEvent({
+      id: "nurmagomedov-vs-song",
+      name: "UFC Fight Night: Nurmagomedov vs Song",
+      slug: "ufc-fight-night-nurmagomedov-vs-song",
+      event_date: "2026-06-07T00:00:00.000Z",
+    });
+
+    mocks.getCurrentPublicEvent.mockResolvedValue(mainEvent);
+    mocks.listUpcomingEvents.mockResolvedValue([bonusEvent, mainEvent]);
+    mocks.listActiveBonusEvents.mockResolvedValue([bonusEvent]);
+
+    const { getHomePageData } = await import("@/server/services/app");
+    const result = await getHomePageData();
+
+    expect(result.currentEvent?.id).toBe("nurmagomedov-vs-song");
+    expect(result.bonusEvents.map((event) => event.id)).toEqual([
+      "road-to-ufc-5-3",
+    ]);
+    expect(result.upcomingEvents).toEqual([]);
   });
 
   it("loads upcoming events independently from the completed event list", async () => {

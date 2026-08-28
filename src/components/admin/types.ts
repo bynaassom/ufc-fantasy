@@ -49,6 +49,7 @@ export interface EventEditForm {
   banner_object_position: string;
   ufc_event_id: string;
   ufc_stats_url: string;
+  is_bonus: boolean;
   status: "upcoming" | "live" | "completed";
 }
 

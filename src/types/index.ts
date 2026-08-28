@@ -61,6 +61,7 @@ export interface Event {
   id: string;
   name: string;
   slug: string;
+  is_bonus: boolean;
   event_date: string;
   prelims_start_at?: string | null;
   timing_mode?: "automatic" | "manual";

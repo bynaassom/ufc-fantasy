@@ -1,4 +1,5 @@
 import EventRankingSelector from "@/components/ranking/EventRankingSelector";
+import EventBonusLabel from "@/components/event/EventBonusLabel";
 import AnimatedRankingTable from "@/components/ranking/AnimatedRankingTable";
 import Pagination from "@/components/ui/Pagination";
 import Navbar from "@/components/layout/Navbar";
@@ -149,8 +150,11 @@ export default async function RankingPage(
               >
                 {selectedEvent.name}
               </p>
+              {selectedEvent.is_bonus && <div className="mt-2"><EventBonusLabel /></div>}
               <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-                Resultado do ranking por evento.
+                {selectedEvent.is_bonus
+                  ? "Ranking exclusivo do evento; estes pontos não entram nos rankings acumulados."
+                  : "Resultado do ranking por evento."}
               </p>
             </div>
             <EventRankingSelector

@@ -71,6 +71,7 @@ export function toEventEditForm(data: any): EventEditForm {
     banner_object_position: data?.banner_object_position || "center",
     ufc_event_id: data?.ufc_event_id || "",
     ufc_stats_url: data?.ufc_stats_url || "",
+    is_bonus: data?.is_bonus === true,
     status: data?.status || "upcoming",
   };
 }

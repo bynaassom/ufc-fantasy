@@ -5,6 +5,7 @@ import FightCard from "@/components/event/FightCard";
 import { formatEventDate } from "@/lib/utils";
 import type { FightWithFighters, Pick } from "@/types";
 import { getHistoryEventPageData } from "@/server/services/app";
+import EventBonusLabel from "@/components/event/EventBonusLabel";
 
 interface HistoricoEventoPageProps {
   params: Promise<{ slug: string }>;
@@ -67,6 +68,7 @@ export default async function HistoricoEventoPage(props: HistoricoEventoPageProp
           >
             {event.name}
           </h1>
+          {event.is_bonus && <div className="mt-2"><EventBonusLabel /></div>}
           <p
             className="font-condensed font-600 text-xs uppercase tracking-widest mt-1"
             style={{ color: "var(--text-muted)" }}

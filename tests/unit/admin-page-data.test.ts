@@ -28,10 +28,12 @@ vi.mock("@/server/services/page-auth", () => ({
 
 vi.mock("@/server/repositories/events", () => ({
   createEvent: vi.fn(),
+  deleteEvent: vi.fn(),
   findEventById: vi.fn(),
   findEventBySlugForPickValidation: vi.fn(),
   findEventBySlugWithFights: vi.fn(),
   getCurrentPublicEvent: vi.fn(),
+  listActiveBonusEvents: vi.fn(),
   listAdminEvents: mocks.listAdminEvents,
   listCompletedEvents: vi.fn(),
   listRecentCompletedEvents: vi.fn(),

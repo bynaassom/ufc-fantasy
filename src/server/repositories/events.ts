@@ -5,6 +5,7 @@ const EVENT_PUBLIC_FIELDS = `
   id,
   name,
   slug,
+  is_bonus,
   event_date,
   location,
   banner_image_url,
@@ -52,6 +53,7 @@ export async function getCurrentPublicEvent(client: DbClient) {
   const { data, error } = await client
     .from("events")
     .select(EVENT_PUBLIC_FIELDS)
+    .eq("is_bonus", false)
     .in("status", ["upcoming", "live"])
     .gte("event_date", getPublicEventCutoffIso())
     .order("event_date", { ascending: true })
@@ -60,6 +62,20 @@ export async function getCurrentPublicEvent(client: DbClient) {
 
   if (error) throw error;
   return data;
+}
+
+export async function listActiveBonusEvents(client: DbClient, limit = 3) {
+  const { data, error } = await client
+    .from("events")
+    .select(EVENT_PUBLIC_FIELDS)
+    .eq("is_bonus", true)
+    .in("status", ["upcoming", "live"])
+    .gte("event_date", getPublicEventCutoffIso())
+    .order("event_date", { ascending: true })
+    .limit(limit);
+
+  if (error) throw error;
+  return data || [];
 }
 
 export async function listRecentEvents(client: DbClient, limit = 20) {
@@ -145,7 +161,7 @@ export async function findEventBySlugForPickValidation(client: any, slug: string
 export async function listCompletedEvents(client: any) {
   const { data, error } = await client
     .from("events")
-    .select("id, name, slug, event_date, location, banner_image_url, banner_object_position")
+    .select("id, name, slug, is_bonus, event_date, location, banner_image_url, banner_object_position")
     .eq("status", "completed")
     .order("event_date", { ascending: false });
 
@@ -156,7 +172,7 @@ export async function listCompletedEvents(client: any) {
 export async function getCurrentEventForRanking(client: any) {
   const { data, error } = await client
     .from("events")
-    .select("id, name")
+    .select("id, name, is_bonus")
     .in("status", ["upcoming", "live"])
     .gte("event_date", getPublicEventCutoffIso())
     .order("event_date", { ascending: true })
@@ -203,4 +219,9 @@ export async function updateEvent(
 
   if (error) throw error;
   return data;
+}
+
+export async function deleteEvent(client: DbClient, eventId: string) {
+  const { error } = await client.from("events").delete().eq("id", eventId);
+  if (error) throw error;
 }

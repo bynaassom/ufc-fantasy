@@ -2,6 +2,7 @@ import Link from "next/link";
 import { formatEventDate, getHomePicksStatusLabel, isPicksLocked, isPicksOpen } from "@/lib/utils";
 import type { Event } from "@/types";
 import EventBannerMedia from "./EventBannerMedia";
+import EventBonusLabel from "@/components/event/EventBonusLabel";
 
 type Props = {
   event: Event;
@@ -26,6 +27,7 @@ export default function CurrentEventHero({ event, progress }: Props) {
           <EventBannerMedia event={event} alt={event.name} priority sizes="(max-width: 767px) calc(100vw - 32px), 1180px" className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]" showOverlay />
           <div className="absolute inset-x-0 bottom-0 p-5 md:p-8">
             {event.status === "live" && <span className="mb-3 inline-flex items-center gap-2 bg-[var(--red)] px-2 py-1 font-condensed text-[10px] font-900 uppercase tracking-[0.18em] text-white"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" /> Ao vivo</span>}
+            {event.is_bonus && <div className="mb-3"><EventBonusLabel overlay /></div>}
             <h3 className="line-clamp-2 max-w-[90%] font-condensed text-[clamp(1.75rem,8vw,4.75rem)] font-900 uppercase leading-[0.86] tracking-tight text-white">{event.name}</h3>
             <p className="mt-3 line-clamp-1 font-condensed text-xs font-700 uppercase tracking-[0.16em] text-white/70">{event.location || "UFC Fantasy"}</p>
           </div>
