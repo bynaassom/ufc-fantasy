@@ -12,11 +12,7 @@ import {
 import { getAutomatedEventTiming } from "@/lib/event-timing";
 import { getSafeSyncedEventStatus } from "@/lib/event-lifecycle";
 import { syncUfcOddsForEvent } from "@/server/services/ufc-odds";
-import { shouldPollFightResults } from "@/lib/result-polling";
-import {
-  activateResultPolling,
-  scheduleResultPollingStart,
-} from "@/server/services/cron-job-org";
+import { tryRecordAutomationHealth } from "@/server/services/automation-health";
 
 function slugify(value: string) {
   return value
@@ -49,6 +45,8 @@ export async function POST(req: NextRequest) {
   }
 
   const adminSupabase = await createAdminClient();
+  const startedAt = new Date().toISOString();
+  await tryRecordAutomationHealth(adminSupabase, "events", "running", startedAt);
 
   try {
     const [upstreamEvents, pageEvents] = await Promise.all([
@@ -216,34 +214,29 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    let resultCron: unknown = { configured: false, reason: "no_upcoming_event" };
-    try {
-      const { data: nextEvent } = await adminSupabase
-        .from("events")
-        .select("id, status, event_date, prelims_start_at")
-        .in("status", ["upcoming", "live"])
-        .order("event_date", { ascending: true })
-        .limit(1)
-        .maybeSingle();
-      if (nextEvent) {
-        resultCron = shouldPollFightResults(nextEvent)
-          ? await activateResultPolling(nextEvent)
-          : await scheduleResultPollingStart(nextEvent);
-      }
-    } catch (error) {
-      resultCron = {
-        configured: false,
-        reason: error instanceof Error ? error.message : "cron_job_org_error",
-      };
-    }
+    const details = {
+      created,
+      updated,
+      cards_synced: cardSynced,
+      card_failures: cardSync.filter((item) => item.ok === false).length,
+    };
+    await tryRecordAutomationHealth(
+      adminSupabase,
+      "events",
+      details.card_failures ? "warning" : "success",
+      startedAt,
+      { details },
+    );
 
     return NextResponse.json({
       ok: true,
       message: `${created} criado(s), ${updated} atualizado(s), ${cardSynced} cards sincronizados`,
       card_sync: cardSync,
-      result_cron: resultCron,
     });
   } catch (error) {
+    await tryRecordAutomationHealth(adminSupabase, "events", "error", startedAt, {
+      error: error instanceof Error ? error.message : "Erro no cron de sync-events",
+    });
     return NextResponse.json({
       ok: false,
       error: error instanceof Error ? error.message : "Erro no cron de sync-events",

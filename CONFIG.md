@@ -13,7 +13,6 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 SYNC_SECRET=
 NOTIFICATIONS_CRON_SECRET=
-CRON_JOB_ORG_API_KEY=
 
 NEXT_PUBLIC_VAPID_PUBLIC_KEY=
 VAPID_PRIVATE_KEY=
@@ -28,7 +27,6 @@ VAPID_SUBJECT=mailto:seu-email@exemplo.com
 | `NEXT_PUBLIC_APP_URL` | URL base do app |
 | `SYNC_SECRET` | Protege sync de eventos, cards e resultados |
 | `NOTIFICATIONS_CRON_SECRET` | Protege cron de notificações/ciclo |
-| `CRON_JOB_ORG_API_KEY` | Cria, agenda e desativa automaticamente os jobs de resultados |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | Chave pública Web Push |
 | `VAPID_PRIVATE_KEY` | Chave privada Web Push server-only |
 | `VAPID_SUBJECT` | E-mail/contato VAPID |
@@ -72,14 +70,14 @@ Configure os jobs como `POST` e envie `Content-Type: application/json` com body 
 | Job | Endpoint | Header | Frequência sugerida |
 | --- | --- | --- | --- |
 | Eventos e lutas | `/api/cron/sync-events` | `Authorization: Bearer <SYNC_SECRET>` | Diário |
-| Início dos resultados | `/api/cron/start-result-polling` | `Authorization: Bearer <SYNC_SECRET>` | Criado automaticamente no horário das preliminares |
-| Resultados | `/api/sync-results` | `Authorization: Bearer <SYNC_SECRET>` | A cada 2 min, somente durante o evento |
+| Supervisor de resultados | `/api/cron/results` | `Authorization: Bearer <SYNC_SECRET>` | A cada 2 min, permanentemente ativo |
 | Notificações/ciclo | `/api/cron/notifications` | `Authorization: Bearer <NOTIFICATIONS_CRON_SECRET>` | A cada 5 min |
 | Verificação do card | `/api/cron/card-verification` | `Authorization: Bearer <SYNC_SECRET>` | A cada 1h |
 
 `/api/sync-events` continua existindo para uso admin/manual; para cron externo, prefira `/api/cron/sync-events`.
 Os jobs são executados pelo cron-job.org; o plano Hobby da Vercel não é usado para agendamento.
-Quando `CRON_JOB_ORG_API_KEY` está configurada, o sync diário de eventos cria ou atualiza um disparador para o horário das preliminares. Esse disparador ativa o job de resultados a cada 2 minutos; após o último resultado computado, o próprio app desativa o job. O job também expira após uma janela de segurança de 12 horas.
+O supervisor de resultados permanece ativo. Fora da janela de um evento ele encerra após uma consulta curta; durante a janela, processa todos os eventos elegíveis em paralelo e usa leases para evitar concorrência com o fallback do job de notificações. Depois que todas as lutas são confirmadas, o evento é concluído, mas o supervisor continua pronto para o próximo card.
+Cada job registra heartbeat, duração, último sucesso e falhas consecutivas. O monitor de integrações do admin sinaliza jobs atrasados ou com erro.
 O mesmo sync diário reconcilia o card oficial de todos os eventos retornados pela UFC: inclui lutas novas, atualiza ordem e metadados e remove duplicatas não confirmadas. A verificação horária continua responsável pelos checkpoints de 72h e 18h, inclusive pela remoção conservadora de lutas canceladas quando UFC e UFCStats concordam.
 O job de notificações também limpa status antigos: após uma janela de segurança de 8 horas a partir do main card, eventos ainda marcados como `upcoming` ou `live` passam para `completed`.
 

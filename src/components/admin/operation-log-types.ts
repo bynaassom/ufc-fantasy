@@ -38,7 +38,23 @@ export type OperationLog = {
   error: string | null;
 };
 
+export type AutomationHealth = {
+  key: "events" | "cards" | "results" | "notifications";
+  label: string;
+  status: "healthy" | "warning" | "error" | "unknown";
+  runStatus: "running" | "success" | "warning" | "error" | null;
+  expectedIntervalMinutes: number;
+  lastStartedAt: string | null;
+  lastSucceededAt: string | null;
+  lastFailedAt: string | null;
+  lastDurationMs: number | null;
+  consecutiveFailures: number;
+  lastError: string | null;
+  details: Record<string, unknown>;
+};
+
 export type OperationLogsResponse = {
   logs: OperationLog[];
+  automations: AutomationHealth[];
   generatedAt: string;
 };

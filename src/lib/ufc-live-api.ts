@@ -334,11 +334,15 @@ export function buildUfcAutomaticTimingUpdate(
   };
 }
 
-export async function fetchUfcLiveEvent(eventId: string | number) {
+export async function fetchUfcLiveEvent(
+  eventId: string | number,
+  options: { signal?: AbortSignal } = {},
+) {
   const url = buildUfcLiveEventUrl(eventId);
   const response = await fetch(url, {
     cache: "no-store",
     headers: { Accept: "application/json" },
+    signal: options.signal,
   });
   if (!response.ok) throw new Error(`UFC API HTTP ${response.status}`);
 
@@ -347,14 +351,18 @@ export async function fetchUfcLiveEvent(eventId: string | number) {
   return { url, event };
 }
 
-export async function fetchUfcLiveEventFromPage(pageUrl: string) {
+export async function fetchUfcLiveEventFromPage(
+  pageUrl: string,
+  options: { signal?: AbortSignal } = {},
+) {
   const pageResponse = await fetch(pageUrl, {
     cache: "no-store",
     headers: { Accept: "text/html,application/xhtml+xml" },
+    signal: options.signal,
   });
   if (!pageResponse.ok) throw new Error(`UFC.com HTTP ${pageResponse.status}`);
 
   const eventId = extractUfcLiveEventId(await pageResponse.text());
   if (!eventId) throw new Error("ID da API oficial não encontrado no UFC.com");
-  return fetchUfcLiveEvent(eventId);
+  return fetchUfcLiveEvent(eventId, options);
 }

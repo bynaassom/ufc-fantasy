@@ -4,6 +4,7 @@ import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "rea
 import toast from "react-hot-toast";
 
 import type {
+  AutomationHealth,
   OperationLog,
   OperationLogCategory,
   OperationLogsResponse,
@@ -28,6 +29,16 @@ const STATUS_META: Record<
   error: { label: "Erro", color: "var(--red)", background: "rgba(232,0,26,0.10)" },
   running: { label: "Executando", color: "var(--blue)", background: "rgba(59,130,246,0.10)" },
   info: { label: "Informativo", color: "var(--text-secondary)", background: "var(--bg-elevated)" },
+};
+
+const AUTOMATION_STATUS_META: Record<
+  AutomationHealth["status"],
+  { label: string; color: string }
+> = {
+  healthy: { label: "Saudável", color: "var(--green)" },
+  warning: { label: "Atenção", color: "var(--yellow)" },
+  error: { label: "Falhando", color: "var(--red)" },
+  unknown: { label: "Sem sinal", color: "var(--text-muted)" },
 };
 
 function RefreshIcon({ spinning = false }: { spinning?: boolean }) {
@@ -98,6 +109,76 @@ function StatCard({ label, value, tone }: { label: string; value: number; tone?:
         {label}
       </p>
     </div>
+  );
+}
+
+function formatInterval(minutes: number) {
+  if (minutes < 60) return `a cada ${minutes} min`;
+  if (minutes === 60) return "a cada hora";
+  if (minutes % (24 * 60) === 0) return "diário";
+  return `a cada ${Math.round(minutes / 60)} h`;
+}
+
+function AutomationHealthPanel({
+  automations,
+  referenceTime,
+}: {
+  automations: AutomationHealth[];
+  referenceTime: string;
+}) {
+  const unhealthy = automations.filter((automation) => automation.status !== "healthy").length;
+
+  return (
+    <section
+      aria-labelledby="automation-health-title"
+      style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}
+    >
+      <div className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <h3
+          id="automation-health-title"
+          className="font-condensed font-900 text-sm uppercase tracking-widest"
+          style={{ color: "var(--text)" }}
+        >
+          Saúde das automações
+        </h3>
+        <p role="status" aria-atomic="true" className="text-xs" style={{ color: unhealthy ? "var(--yellow)" : "var(--green)" }}>
+          {unhealthy ? `${unhealthy} automação(ões) requerem atenção` : "Todos os sinais dentro do esperado"}
+        </p>
+      </div>
+      <div className="grid md:grid-cols-2 xl:grid-cols-4" style={{ borderTop: "1px solid var(--border-light)" }}>
+        {automations.map((automation) => {
+          const meta = AUTOMATION_STATUS_META[automation.status];
+          const lastSignal = automation.lastStartedAt
+            ? formatRelativeTime(automation.lastStartedAt, referenceTime)
+            : "nenhuma execução registrada";
+          return (
+            <article
+              key={automation.key}
+              className="min-w-0 px-4 py-3 sm:px-5"
+              style={{ borderBottom: "1px solid var(--border-light)" }}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <h4 className="font-condensed font-800 text-sm uppercase tracking-wide" style={{ color: "var(--text)" }}>
+                  {automation.label}
+                </h4>
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-condensed font-800 uppercase tracking-widest" style={{ color: meta.color }}>
+                  <span className="h-1.5 w-1.5 rounded-full" aria-hidden="true" style={{ backgroundColor: meta.color }} />
+                  {meta.label}
+                </span>
+              </div>
+              <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
+                {lastSignal} · {formatInterval(automation.expectedIntervalMinutes)}
+              </p>
+              {automation.lastError && (
+                <p className="mt-1 line-clamp-2 text-xs" title={automation.lastError} style={{ color: "var(--red)" }}>
+                  {automation.lastError}
+                </p>
+              )}
+            </article>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -225,6 +306,7 @@ function LogEntry({ log, referenceTime }: { log: OperationLog; referenceTime: st
 
 export default function LogsTab() {
   const [logs, setLogs] = useState<OperationLog[]>([]);
+  const [automations, setAutomations] = useState<AutomationHealth[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
@@ -241,6 +323,7 @@ export default function LogsTab() {
     try {
       const data = await adminGet<OperationLogsResponse>("/api/admin/operation-logs?limit=300");
       setLogs(data.logs || []);
+      setAutomations(data.automations || []);
       setGeneratedAt(data.generatedAt);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Não foi possível carregar os logs.");
@@ -338,6 +421,10 @@ export default function LogsTab() {
           </button>
         </div>
       </div>
+
+      {!!automations.length && generatedAt && (
+        <AutomationHealthPanel automations={automations} referenceTime={generatedAt} />
+      )}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Execuções · 24h" value={counts.executions} />

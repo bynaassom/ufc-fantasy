@@ -203,13 +203,14 @@ The production lifecycle is driven by authenticated `POST` jobs:
 | Job | Endpoint | Suggested schedule | Responsibility |
 | --- | --- | --- | --- |
 | Event and fight sync | `/api/cron/sync-events` | Daily | Discover events, derive pick locks, add new fights, and remove unconfirmed duplicates |
-| Result sync | `/api/sync-results` | Every 2 minutes during events | Collect results, notify fight followers, reach consensus, and score picks transactionally |
+| Result supervisor | `/api/cron/results` | Every 2 minutes, always enabled | Find every active event, collect results, notify fight followers, reach consensus, and score picks transactionally |
 | Notifications and lifecycle | `/api/cron/notifications` | Every 5 minutes | Send notifications and advance event states |
 | Card verification | `/api/cron/card-verification` | Hourly | Compare cards at key checkpoints and record alerts |
 
 Fight odds are synchronized from UFC.com using each official `FightId`; no third-party odds API key is required.
 
 Cron endpoints require their corresponding bearer secret. Never expose `SUPABASE_SERVICE_ROLE_KEY`, private VAPID keys, or cron secrets in client-side code or source control.
+Each job records a persistent health heartbeat. The result supervisor stays enabled between events and exits quickly when no card is inside the polling window; the notifications job runs the same supervisor as a five-minute fallback.
 
 ## Testing and quality checks
 

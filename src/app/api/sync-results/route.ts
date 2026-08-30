@@ -40,7 +40,6 @@ import {
   dispatchFightResultAlerts,
   dispatchLiveFightAlerts,
 } from "@/server/services/live-fight-alerts";
-import { disableResultPolling } from "@/server/services/cron-job-org";
 
 type ResultSyncEvent = {
   id: string;
@@ -61,6 +60,7 @@ const RESULT_SOURCE_HEADERS = {
   "Cache-Control": "no-cache",
   Pragma: "no-cache",
 };
+const RESULT_SOURCE_TIMEOUT_MS = 9_000;
 
 const EVENT_RESULT_SOURCE_SELECT = `
   id,
@@ -74,14 +74,18 @@ const EVENT_RESULT_SOURCE_SELECT = `
 `;
 
 async function scrapeUfcStats(url: string): Promise<UfcStatsResult[]> {
-  const html = await fetchUfcStatsHtml(url);
+  const signal = AbortSignal.timeout(RESULT_SOURCE_TIMEOUT_MS);
+  const html = await fetchUfcStatsHtml(url, (input, init) =>
+    fetch(input, { ...init, signal }),
+  );
   return parseUfcStatsEventResults(html);
 }
 
-async function fetchResultHtml(url: string) {
+async function fetchResultHtml(url: string, signal: AbortSignal) {
   const response = await fetch(url, {
     headers: RESULT_SOURCE_HEADERS,
     cache: "no-store",
+    signal,
   });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return response.text();
@@ -121,12 +125,13 @@ async function scrapeOfficialUfcSource(
   const candidates = await resolveEventUrlCandidates(event);
   const attempted: ResultSourceSet[] = [];
   let officialEvent: UfcLiveEvent | null = null;
+  const signal = AbortSignal.timeout(RESULT_SOURCE_TIMEOUT_MS);
 
   for (const url of candidates) {
     if (!isAllowedScrapeUrl(url)) continue;
 
     try {
-      const html = await fetchResultHtml(url);
+      const html = await fetchResultHtml(url, signal);
       if (looksLikeBotChallenge(html)) {
         attempted.push({
           source: "ufc",
@@ -141,7 +146,7 @@ async function scrapeOfficialUfcSource(
       const liveEventId = extractUfcLiveEventId(html);
       if (liveEventId) {
         try {
-          const official = await fetchUfcLiveEvent(liveEventId);
+          const official = await fetchUfcLiveEvent(liveEventId, { signal });
           officialEvent = official.event;
           const source: ResultSourceSet = {
             source: "ufc",
@@ -191,18 +196,17 @@ async function scrapeOfficialUfcSource(
 }
 
 async function collectResultSources(event: ResultSyncEvent) {
+  const [stats, official] = await Promise.all([
+    event.ufc_stats_url
+      ? scrapeUfcStatsSource(event.ufc_stats_url)
+      : Promise.resolve(null),
+    scrapeOfficialUfcSource(event),
+  ]);
   const sources: ResultSourceSet[] = [];
-  let officialEvent: UfcLiveEvent | null = null;
-
-  if (event.ufc_stats_url) {
-    sources.push(await scrapeUfcStatsSource(event.ufc_stats_url));
-  }
-
-  const official = await scrapeOfficialUfcSource(event);
+  if (stats) sources.push(stats);
   if (official.source) sources.push(official.source);
-  officialEvent = official.officialEvent;
 
-  return { sources, officialEvent };
+  return { sources, officialEvent: official.officialEvent };
 }
 
 function sourceDiagnostics(sourceSets: ResultSourceSet[]) {
@@ -494,10 +498,6 @@ export async function POST(req: NextRequest) {
 
   if (fights.every((fight) => fight.result_confirmed)) {
     const lifecycle = await completeEventIfAllResultsConfirmed(adminSupabase, event_id);
-    const resultCron = await disableResultPolling().catch((error) => ({
-      configured: false as const,
-      reason: error instanceof Error ? error.message : "cron_job_org_error",
-    }));
     revalidateTag(CACHE_TAGS.events, "max");
     revalidatePath("/home");
     revalidatePath("/admin");
@@ -507,7 +507,6 @@ export async function POST(req: NextRequest) {
       message: "Todos os resultados já foram computados",
       event_completed: lifecycle.completed || event.status === "completed",
       should_continue: false,
-      result_cron: resultCron,
     });
   }
 
@@ -681,12 +680,6 @@ export async function POST(req: NextRequest) {
   });
 
   const lifecycle = await completeEventIfAllResultsConfirmed(adminSupabase, event_id);
-  const resultCron = lifecycle.completed
-    ? await disableResultPolling().catch((error) => ({
-        configured: false as const,
-        reason: error instanceof Error ? error.message : "cron_job_org_error",
-      }))
-    : null;
 
   revalidatePath("/ranking");
   revalidatePath("/home");
@@ -726,6 +719,5 @@ export async function POST(req: NextRequest) {
     live_alerts: liveAlerts,
     result_alerts: resultAlerts,
     should_continue: !lifecycle.completed,
-    result_cron: resultCron,
   });
 }

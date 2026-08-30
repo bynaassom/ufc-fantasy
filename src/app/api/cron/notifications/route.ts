@@ -7,10 +7,11 @@ import { CACHE_TAGS } from "@/server/cache-tags";
 import { dispatchDuePickNotifications } from "@/server/services/notifications";
 import { dispatchEventLifecycle } from "@/server/services/event-lifecycle";
 import { getAdminSupabase } from "@/server/supabase";
+import { tryRecordAutomationHealth } from "@/server/services/automation-health";
 import {
-  RESULT_POLLING_SAFETY_HOURS,
-  shouldPollFightResults,
-} from "@/lib/result-polling";
+  isResultFallbackDue,
+  runResultSupervisor,
+} from "@/server/services/result-supervisor";
 
 function isAuthorized(request: NextRequest) {
   const secret = process.env.NOTIFICATIONS_CRON_SECRET;
@@ -20,44 +21,46 @@ function isAuthorized(request: NextRequest) {
   return authorization === `Bearer ${secret}`;
 }
 
-async function syncResultsIfDue(adminSupabase: Awaited<ReturnType<typeof getAdminSupabase>>) {
+async function syncResultsFallback(
+  adminSupabase: Awaited<ReturnType<typeof getAdminSupabase>>,
+  request: NextRequest,
+) {
+  const syncSecret = process.env.SYNC_SECRET;
+  if (!syncSecret) {
+    return { ok: false, error: "SYNC_SECRET ausente" };
+  }
+
   try {
-    const { data: activeEvent } = await adminSupabase
-      .from("events")
-      .select("id, status, event_date, prelims_start_at")
-      .in("status", ["upcoming", "live"])
-      .or("ufc_stats_url.not.is.null,ufc_event_id.not.is.null")
-      .gte(
-        "event_date",
-        new Date(
-          Date.now() - RESULT_POLLING_SAFETY_HOURS * 60 * 60 * 1000,
-        ).toISOString(),
-      )
-      .order("event_date", { ascending: true })
-      .limit(1)
+    const { data: resultHealth } = await adminSupabase
+      .from("automation_health")
+      .select("status, last_started_at")
+      .eq("automation_key", "results")
       .maybeSingle();
+    if (!isResultFallbackDue(resultHealth)) {
+      return { ok: true, skipped: "primary_supervisor_healthy" };
+    }
 
-    if (!activeEvent) return;
-
-    if (!shouldPollFightResults(activeEvent)) return;
-
-    const syncSecret = process.env.SYNC_SECRET;
-    if (!syncSecret) return;
-
-    const baseUrl = process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-
-    await fetch(`${baseUrl}/api/sync-results`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${syncSecret}`,
+    return {
+      ok: true,
+      ...(await runResultSupervisor(adminSupabase, {
+        origin: request.nextUrl.origin,
+        syncSecret,
+      })),
+    };
+  } catch (error) {
+    const message = error instanceof Error
+      ? error.message
+      : "falha no fallback de resultados";
+    await adminSupabase.from("activity_logs").insert({
+      user_id: null,
+      action: "admin_sync_alert",
+      details: {
+        type: "result_supervisor_fallback_failed",
+        trigger: "cron",
+        error: message,
       },
-      body: JSON.stringify({ event_id: activeEvent.id }),
     });
-  } catch {
-    // Fallback silencioso — não quebra o cron principal
+    return { ok: false, error: message };
   }
 }
 
@@ -67,21 +70,37 @@ async function dispatch(request: NextRequest) {
   }
 
   const adminSupabase = await getAdminSupabase();
-  const lifecycle = await dispatchEventLifecycle(adminSupabase);
-  if (
-    lifecycle.expired.length ||
-    lifecycle.promoted.length ||
-    lifecycle.completed.length
-  ) {
-    revalidateTag(CACHE_TAGS.events, "max");
-    revalidatePath("/home");
-    revalidatePath("/admin");
-    revalidatePath("/ranking");
+  const startedAt = new Date().toISOString();
+  await tryRecordAutomationHealth(adminSupabase, "notifications", "running", startedAt);
+  try {
+    const lifecycle = await dispatchEventLifecycle(adminSupabase);
+    if (
+      lifecycle.expired.length ||
+      lifecycle.promoted.length ||
+      lifecycle.completed.length
+    ) {
+      revalidateTag(CACHE_TAGS.events, "max");
+      revalidatePath("/home");
+      revalidatePath("/admin");
+      revalidatePath("/ranking");
+    }
+    const notifications = await dispatchDuePickNotifications(adminSupabase);
+    // Redundância: se o job de dois minutos falhar, este mantém os resultados vivos.
+    const resultFallback = await syncResultsFallback(adminSupabase, request);
+    await tryRecordAutomationHealth(
+      adminSupabase,
+      "notifications",
+      resultFallback.ok ? "success" : "warning",
+      startedAt,
+      { details: { lifecycle, notifications, result_fallback: resultFallback } },
+    );
+    return apiSuccess({ lifecycle, notifications, result_fallback: resultFallback });
+  } catch (error) {
+    await tryRecordAutomationHealth(adminSupabase, "notifications", "error", startedAt, {
+      error: error instanceof Error ? error.message : "falha no cron de notificações",
+    });
+    throw error;
   }
-  const notifications = await dispatchDuePickNotifications(adminSupabase);
-  // Fallback: tenta sync de resultados como redundância
-  await syncResultsIfDue(adminSupabase);
-  return apiSuccess({ lifecycle, notifications });
 }
 
 export async function GET(request: NextRequest) {

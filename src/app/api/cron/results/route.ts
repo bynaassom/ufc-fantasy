@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest } from "next/server";
 import { apiErrorFromUnknown, apiFailure, apiSuccess } from "@/server/api";
 import { tryRecordAutomationHealth } from "@/server/services/automation-health";
-import { dispatchDueCardVerifications } from "@/server/services/card-verification";
+import { runResultSupervisor } from "@/server/services/result-supervisor";
 import { getAdminSupabase } from "@/server/supabase";
 
 function isAuthorized(request: NextRequest) {
@@ -16,18 +16,36 @@ async function dispatch(request: NextRequest) {
     return apiFailure(401, "UNAUTHORIZED", "Cron não autorizado.");
   }
 
-  const adminSupabase = await getAdminSupabase();
+  const syncSecret = process.env.SYNC_SECRET!;
   const startedAt = new Date().toISOString();
-  await tryRecordAutomationHealth(adminSupabase, "cards", "running", startedAt);
+  const adminSupabase = await getAdminSupabase();
+  await tryRecordAutomationHealth(adminSupabase, "results", "running", startedAt);
+
   try {
-    const result = await dispatchDueCardVerifications(adminSupabase);
-    await tryRecordAutomationHealth(adminSupabase, "cards", "success", startedAt, {
-      details: result as unknown as Record<string, unknown>,
+    const result = await runResultSupervisor(adminSupabase, {
+      origin: request.nextUrl.origin,
+      syncSecret,
     });
+    const status = result.failed ? "error" : "success";
+    const firstError = result.events.find((event) => event.status === "failed")?.error;
+    await tryRecordAutomationHealth(adminSupabase, "results", status, startedAt, {
+      error: firstError || null,
+      details: result,
+    });
+
+    if (result.failed) {
+      return apiFailure(
+        502,
+        "RESULT_SYNC_FAILED",
+        `${result.failed} evento(s) falharam na sincronização de resultados.`,
+        result,
+      );
+    }
+
     return apiSuccess(result);
   } catch (error) {
-    await tryRecordAutomationHealth(adminSupabase, "cards", "error", startedAt, {
-      error: error instanceof Error ? error.message : "falha na verificação de cards",
+    await tryRecordAutomationHealth(adminSupabase, "results", "error", startedAt, {
+      error: error instanceof Error ? error.message : "falha no supervisor de resultados",
     });
     throw error;
   }
