@@ -21,6 +21,7 @@ interface FightCardProps {
   fight: FightWithFighters;
   existingPick?: Pick;
   locked: boolean;
+  showAlertControl?: boolean;
   unavailablePicksLabel?: string;
   onPickChange?: (
     fightId: string,
@@ -40,6 +41,7 @@ export default function FightCard({
   fight,
   existingPick,
   locked,
+  showAlertControl = true,
   unavailablePicksLabel = "PICKS ENCERRADOS",
   onPickChange,
 }: FightCardProps) {
@@ -167,11 +169,13 @@ export default function FightCard({
               5 ROUNDS
             </span>
           )}
-          <FightAlertButton
-            fightId={fight.id}
-            fightName={`${fight.fighter_a.name} vs ${fight.fighter_b.name}`}
-            completed={completed}
-          />
+          {showAlertControl && (
+            <FightAlertButton
+              fightId={fight.id}
+              fightName={`${fight.fighter_a.name} vs ${fight.fighter_b.name}`}
+              completed={completed}
+            />
+          )}
         </div>
       </div>
 

@@ -1,5 +1,10 @@
 import { isAllowedScrapeUrl } from "@/lib/security";
 import { fetchUpcomingUFCEventsFromPage } from "@/lib/ufc-api";
+import {
+  extractUfcLiveEventId,
+  fetchUfcLiveEvent,
+  type UfcLiveCardFight,
+} from "@/lib/ufc-live-api";
 import { namesMatch } from "@/lib/ufc-results-sync";
 import {
   extractEventCardHeadshots,
@@ -610,6 +615,67 @@ function mergeSupplementalScrapedCardFights(
   return merged;
 }
 
+export function mergeOfficialUfcCardFights(
+  scrapedFights: ScrapedCardFight[],
+  officialFights: UfcLiveCardFight[],
+  eventUrl: string,
+) {
+  const baseUrl = new URL(eventUrl);
+  baseUrl.hash = "";
+  baseUrl.search = "";
+
+  return officialFights.map((officialFight) => {
+    const scrapedFight = scrapedFights.find((candidate) => {
+      if (officialFight.fightId && officialFight.fightId === candidate.fmid) {
+        return true;
+      }
+
+      return (
+        (namesMatch(officialFight.fighterA.name, candidate.fighter_a.name) &&
+          namesMatch(officialFight.fighterB.name, candidate.fighter_b.name)) ||
+        (namesMatch(officialFight.fighterA.name, candidate.fighter_b.name) &&
+          namesMatch(officialFight.fighterB.name, candidate.fighter_a.name))
+      );
+    });
+
+    const scrapedFighters = scrapedFight
+      ? [scrapedFight.fighter_a, scrapedFight.fighter_b]
+      : [];
+    const fighterA = scrapedFighters.find((fighter) =>
+      namesMatch(fighter.name, officialFight.fighterA.name),
+    );
+    const fighterB = scrapedFighters.find((fighter) =>
+      namesMatch(fighter.name, officialFight.fighterB.name),
+    );
+    const fallbackFmid = `api-${officialFight.cardType}-${officialFight.fightOrder}-${getFightPairKey(
+      officialFight.fighterA.name,
+      officialFight.fighterB.name,
+    )}`;
+
+    return {
+      fmid: officialFight.fightId || scrapedFight?.fmid || fallbackFmid,
+      card_type: officialFight.cardType,
+      fight_order: officialFight.fightOrder,
+      weight_class: officialFight.weightClass || scrapedFight?.weight_class || "Catchweight",
+      is_title_fight: officialFight.isTitleFight,
+      total_rounds: officialFight.totalRounds,
+      ufc_matchup_url: `${baseUrl.toString().replace(/\/$/, "")}#${
+        officialFight.fightId || scrapedFight?.fmid || fallbackFmid
+      }`,
+      fighter_a: fighterA || {
+        name: officialFight.fighterA.name,
+        country: "",
+        headshot_url: "",
+      },
+      fighter_b: fighterB || {
+        name: officialFight.fighterB.name,
+        country: "",
+        headshot_url: "",
+      },
+    };
+  });
+}
+
 async function fetchEventNewsResults(eventName: string) {
   const query = stripTags(eventName).replace(/[|:]/g, " ").replace(/\s+/g, " ").trim();
   if (!query) return [];
@@ -910,8 +976,19 @@ export async function scrapeUfcEventCard(url: string): Promise<ScrapedCardFight[
   const html = await response.text();
   const primaryFights = parseUfcEventCardHtml(html, url);
   const eventName = parseEventTitleFromHtml(html);
-  const articleFights = eventName ? await scrapeUfcCardListArticle(eventName) : [];
-  return mergeSupplementalScrapedCardFights(primaryFights, articleFights);
+  const liveEventId = extractUfcLiveEventId(html);
+  const [articleFights, official] = await Promise.all([
+    eventName ? scrapeUfcCardListArticle(eventName) : Promise.resolve([]),
+    liveEventId ? fetchUfcLiveEvent(liveEventId).catch(() => null) : Promise.resolve(null),
+  ]);
+  const scrapedFights = mergeSupplementalScrapedCardFights(
+    primaryFights,
+    articleFights,
+  );
+
+  return official?.event.fights.length
+    ? mergeOfficialUfcCardFights(scrapedFights, official.event.fights, url)
+    : scrapedFights;
 }
 
 export async function ensureFighter(adminSupabase: any, fighter: ScrapedCardFight["fighter_a"]) {

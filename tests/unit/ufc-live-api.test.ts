@@ -164,4 +164,32 @@ describe("ufc-live-api", () => {
 
     expect(parsed).toMatchObject({ status: "upcoming", results: [] });
   });
+
+  it("reads five rounds from RuleSet for a non-title fight", () => {
+    const parsed = parseUfcLiveEventPayload({
+      LiveEventDetail: {
+        EventId: 1324,
+        FightCard: [
+          {
+            ...fight,
+            Accolades: [],
+            WeightClass: {
+              Description: "Women's Lightweight",
+              CatchWeight: null,
+            },
+            RuleSet: {
+              PossibleRounds: 5,
+              Description: "5 Rnd (5-5-5-5-5)",
+            },
+          },
+        ],
+      },
+    });
+
+    expect(parsed?.fights[0]).toMatchObject({
+      isTitleFight: false,
+      weightClass: "Lightweight",
+      totalRounds: 5,
+    });
+  });
 });

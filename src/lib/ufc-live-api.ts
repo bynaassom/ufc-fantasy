@@ -1,5 +1,6 @@
 import { mapMethod, type UfcStatsResult } from "@/lib/ufc-results-sync";
 import { getAutomatedEventTiming } from "@/lib/event-timing";
+import { normalizeWeightClass } from "@/lib/ufc-weight";
 
 const UFC_LIVE_API_BASE =
   "https://d29dxerjsp82wz.cloudfront.net/api/v3/event/live";
@@ -136,6 +137,11 @@ function isLosingOutcome(outcome?: string | null) {
   return /^(?:l|loss|lose|loser)$/i.test((outcome || "").trim());
 }
 
+function parseTotalRounds(value: unknown, fallback: 3 | 5) {
+  const totalRounds = Number(value);
+  return totalRounds === 3 || totalRounds === 5 ? totalRounds : fallback;
+}
+
 function parseResults(fights: RawFight[]) {
   const results: UfcStatsResult[] = [];
 
@@ -226,9 +232,9 @@ function parseCardFight(fight: RawFight): UfcLiveCardFight | null {
       /belt|title/i.test(accolade.Name || ""),
   );
   const catchWeight = fight.WeightClass?.CatchWeight;
-  const weightClass = catchWeight
-    ? `Catchweight (${catchWeight} lb)`
-    : fight.WeightClass?.Description || "";
+  const weightClass = normalizeWeightClass(
+    catchWeight ? "Catchweight" : fight.WeightClass?.Description || "",
+  );
   const liveState = deriveFightLiveState(fight);
 
   return {
@@ -240,7 +246,10 @@ function parseCardFight(fight: RawFight): UfcLiveCardFight | null {
     cardSegmentStartTime: toIso(fight.CardSegmentStartTime),
     weightClass,
     isTitleFight,
-    totalRounds: Number(fight.RuleSet?.PossibleRounds) || (isTitleFight ? 5 : 3),
+    totalRounds: parseTotalRounds(
+      fight.RuleSet?.PossibleRounds,
+      isTitleFight ? 5 : 3,
+    ),
     ...liveState,
     fighterA: {
       id: String(fighterA?.FighterId || ""),

@@ -153,6 +153,7 @@ export default async function HistoricoEventoPage(props: HistoricoEventoPageProp
                   fight={fight}
                   existingPick={picksMap[fight.id]}
                   locked={true}
+                  showAlertControl={false}
                 />
               ))}
             </div>
@@ -182,6 +183,7 @@ export default async function HistoricoEventoPage(props: HistoricoEventoPageProp
                   fight={fight}
                   existingPick={picksMap[fight.id]}
                   locked={true}
+                  showAlertControl={false}
                 />
               ))}
             </div>

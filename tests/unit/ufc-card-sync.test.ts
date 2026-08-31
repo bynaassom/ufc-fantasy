@@ -1,6 +1,7 @@
 import {
   extractExcludedFightPairKeysFromNewsResults,
   diffScrapedCardAgainstExistingFights,
+  mergeOfficialUfcCardFights,
   parseUfcCardListArticleHtml,
   parseUfcEventCardHtml,
   parseUfcSearchNewsResults,
@@ -8,6 +9,55 @@ import {
 } from "@/lib/ufc-card-sync";
 
 describe("ufc-card-sync", () => {
+  it("uses the UFC API as the primary source for card metadata", () => {
+    const scrapedFight: ScrapedCardFight = {
+      fmid: "12772",
+      card_type: "preliminary",
+      fight_order: 1,
+      weight_class: "Lightweight",
+      is_title_fight: false,
+      total_rounds: 3,
+      ufc_matchup_url: "https://www.ufc.com.br/event/test#12772",
+      fighter_a: { name: "Fighter Two", country: "Canadá", headshot_url: "two.png" },
+      fighter_b: { name: "Fighter One", country: "Brasil", headshot_url: "one.png" },
+    };
+
+    expect(
+      mergeOfficialUfcCardFights(
+        [scrapedFight],
+        [
+          {
+            fightId: "12772",
+            fightOrder: 4,
+            status: "Upcoming",
+            cardType: "main",
+            cardSegment: "Main",
+            cardSegmentStartTime: null,
+            weightClass: "Lightweight",
+            isTitleFight: false,
+            totalRounds: 5,
+            phase: "upcoming",
+            currentRound: null,
+            roundTime: null,
+            latestActionAt: null,
+            fighterA: { id: "1", name: "Fighter One" },
+            fighterB: { id: "2", name: "Fighter Two" },
+          },
+        ],
+        "https://www.ufc.com.br/event/test",
+      ),
+    ).toEqual([
+      {
+        ...scrapedFight,
+        card_type: "main",
+        fight_order: 4,
+        total_rounds: 5,
+        fighter_a: scrapedFight.fighter_b,
+        fighter_b: scrapedFight.fighter_a,
+      },
+    ]);
+  });
+
   it("parses fight-card blocks and ignores ticker duplicates", () => {
     const html = `
       <div id="main-card"></div>
