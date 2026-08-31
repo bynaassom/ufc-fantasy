@@ -211,6 +211,7 @@ Fight odds are synchronized from UFC.com using each official `FightId`; no third
 
 Cron endpoints require their corresponding bearer secret. Never expose `SUPABASE_SERVICE_ROLE_KEY`, private VAPID keys, or cron secrets in client-side code or source control.
 Each job records a persistent health heartbeat. The result supervisor stays enabled between events and exits quickly when no card is inside the polling window; the notifications job runs the same supervisor as a five-minute fallback.
+Routine result-polling logs are collapsed into fifteen-minute signals. The daily event job also removes non-user operational logs and card-verification runs after 60 days, while security records and explicit sync alerts are retained.
 
 ## Testing and quality checks
 

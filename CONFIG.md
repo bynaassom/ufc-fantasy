@@ -77,6 +77,8 @@ Configure os jobs como `POST` e envie `Content-Type: application/json` com body 
 `/api/sync-events` continua existindo para uso admin/manual; para cron externo, prefira `/api/cron/sync-events`.
 Os jobs são executados pelo cron-job.org; o plano Hobby da Vercel não é usado para agendamento.
 O supervisor de resultados permanece ativo. Fora da janela de um evento ele encerra após uma consulta curta; durante a janela, processa todos os eventos elegíveis em paralelo e usa leases para evitar concorrência com o fallback do job de notificações. Depois que todas as lutas são confirmadas, o evento é concluído, mas o supervisor continua pronto para o próximo card.
+
+Para controlar o uso do banco, sinais rotineiros da sincronização de resultados são registrados no máximo uma vez a cada 15 minutos por evento e etapa. O job diário de eventos remove logs operacionais automáticos e verificações de card com mais de 60 dias; logs de usuário, registros suspeitos e alertas explícitos são preservados. O monitor administrativo atualiza a cada 60 segundos e pausa quando a aba fica em segundo plano.
 Cada job registra heartbeat, duração, último sucesso e falhas consecutivas. O monitor de integrações do admin sinaliza jobs atrasados ou com erro.
 O mesmo sync diário reconcilia o card oficial de todos os eventos retornados pela UFC: inclui lutas novas, atualiza ordem e metadados e remove duplicatas não confirmadas. A verificação horária continua responsável pelos checkpoints de 72h e 18h, inclusive pela remoção conservadora de lutas canceladas quando UFC e UFCStats concordam.
 O job de notificações também limpa status antigos: após uma janela de segurança de 8 horas a partir do main card, eventos ainda marcados como `upcoming` ou `live` passam para `completed`.

@@ -13,6 +13,7 @@ import { getAutomatedEventTiming } from "@/lib/event-timing";
 import { getSafeSyncedEventStatus } from "@/lib/event-lifecycle";
 import { syncUfcOddsForEvent } from "@/server/services/ufc-odds";
 import { tryRecordAutomationHealth } from "@/server/services/automation-health";
+import { tryPruneExpiredOperationalLogs } from "@/server/services/activity-log-retention";
 
 function slugify(value: string) {
   return value
@@ -214,11 +215,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const retention = await tryPruneExpiredOperationalLogs(adminSupabase);
     const details = {
       created,
       updated,
       cards_synced: cardSynced,
       card_failures: cardSync.filter((item) => item.ok === false).length,
+      log_retention: retention,
     };
     await tryRecordAutomationHealth(
       adminSupabase,
@@ -232,6 +235,7 @@ export async function POST(req: NextRequest) {
       ok: true,
       message: `${created} criado(s), ${updated} atualizado(s), ${cardSynced} cards sincronizados`,
       card_sync: cardSync,
+      log_retention: retention,
     });
   } catch (error) {
     await tryRecordAutomationHealth(adminSupabase, "events", "error", startedAt, {

@@ -338,8 +338,23 @@ export default function LogsTab() {
 
   useEffect(() => {
     if (!autoRefresh) return;
-    const interval = window.setInterval(() => loadLogs({ silent: true }), 30_000);
-    return () => window.clearInterval(interval);
+    let interval: number | null = null;
+    const scheduleRefresh = () => {
+      if (interval !== null) window.clearInterval(interval);
+      interval = null;
+      if (document.visibilityState !== "visible") return;
+      loadLogs({ silent: true });
+      interval = window.setInterval(
+        () => loadLogs({ silent: true }),
+        60_000,
+      );
+    };
+    scheduleRefresh();
+    document.addEventListener("visibilitychange", scheduleRefresh);
+    return () => {
+      document.removeEventListener("visibilitychange", scheduleRefresh);
+      if (interval !== null) window.clearInterval(interval);
+    };
   }, [autoRefresh, loadLogs]);
 
   useEffect(() => {
@@ -393,7 +408,9 @@ export default function LogsTab() {
           </p>
           <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }} aria-live="polite">
             {generatedAt ? `Atualizado ${formatRelativeTime(generatedAt, generatedAt)}` : "Aguardando primeira atualização"}
-            {autoRefresh ? " · atualização automática a cada 30 s" : " · atualização automática pausada"}
+            {autoRefresh
+              ? " · atualização a cada 60 s, pausada em segundo plano"
+              : " · atualização automática pausada"}
           </p>
         </div>
 

@@ -40,6 +40,10 @@ import {
   dispatchFightResultAlerts,
   dispatchLiveFightAlerts,
 } from "@/server/services/live-fight-alerts";
+import {
+  getResultSyncLogPolicy,
+  RESULT_SYNC_ALERT_INTERVAL_SECONDS,
+} from "@/server/services/result-sync-logging";
 
 type ResultSyncEvent = {
   id: string;
@@ -223,13 +227,22 @@ function sourceDiagnostics(sourceSets: ResultSourceSet[]) {
 async function logSyncAttempt(
   adminSupabase: any,
   details: Record<string, unknown>,
+  minIntervalSeconds = 0,
 ) {
   try {
-    await adminSupabase.from("activity_logs").insert({
-      user_id: null,
-      action: "admin_sync_results",
-      details,
-    });
+    if (minIntervalSeconds > 0) {
+      await adminSupabase.rpc("record_rate_limited_activity_log", {
+        p_action: "admin_sync_results",
+        p_details: details,
+        p_min_interval_seconds: minIntervalSeconds,
+      });
+    } else {
+      await adminSupabase.from("activity_logs").insert({
+        user_id: null,
+        action: "admin_sync_results",
+        details,
+      });
+    }
   } catch {
     // não quebra o fluxo
   }
@@ -238,14 +251,19 @@ async function logSyncAttempt(
 type Update = ConsensusUpdate;
 
 // ─── Monitoramento ───────────────────────────────────────────
-async function countConsecutiveSyncFailures(adminSupabase: any): Promise<number> {
+async function countConsecutiveSyncFailures(
+  adminSupabase: any,
+  eventId?: string,
+): Promise<number> {
   try {
-    const { data: logs } = await adminSupabase
+    let query = adminSupabase
       .from("activity_logs")
       .select("details")
       .eq("action", "admin_sync_results")
       .order("created_at", { ascending: false })
       .limit(5);
+    if (eventId) query = query.eq("details->>event_id", eventId);
+    const { data: logs } = await query;
 
     if (!logs?.length) return 0;
 
@@ -268,17 +286,17 @@ async function countConsecutiveSyncFailures(adminSupabase: any): Promise<number>
 
 async function checkSyncFailures(adminSupabase: any, currentStep: string, eventId?: string) {
   try {
-    const failures = await countConsecutiveSyncFailures(adminSupabase);
+    const failures = await countConsecutiveSyncFailures(adminSupabase, eventId);
     if (failures >= 3) {
-      await adminSupabase.from("activity_logs").insert({
-        user_id: null,
-        action: "admin_sync_alert",
-        details: {
+      await adminSupabase.rpc("record_rate_limited_activity_log", {
+        p_action: "admin_sync_alert",
+        p_details: {
           type: "consecutive_failures",
           count: failures,
           step: currentStep,
           event_id: eventId || null,
         },
+        p_min_interval_seconds: RESULT_SYNC_ALERT_INTERVAL_SECONDS,
       });
     }
   } catch { /* silent */ }
@@ -298,16 +316,23 @@ export async function POST(req: NextRequest) {
   const requestId = randomUUID();
   let adminUserId: string | null = null;
 
-  const logAttempt = (details: Record<string, unknown>) =>
-    logSyncAttempt(adminSupabase, {
-      request_id: requestId,
-      duration_ms: Date.now() - startedAt,
-      ...details,
-    });
-
   const authHeader = req.headers.get("authorization");
   const syncSecret = process.env.SYNC_SECRET;
   const isExternalCall = syncSecret && authHeader === `Bearer ${syncSecret}`;
+  const logAttempt = (details: Record<string, unknown>) => {
+    const step = String(details.step || "");
+    const policy = getResultSyncLogPolicy(step, !!isExternalCall);
+    if (!policy.record) return Promise.resolve();
+    return logSyncAttempt(
+      adminSupabase,
+      {
+        request_id: requestId,
+        duration_ms: Date.now() - startedAt,
+        ...details,
+      },
+      policy.minIntervalSeconds,
+    );
+  };
 
   await logAttempt({
     step: "received",
