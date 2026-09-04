@@ -42,7 +42,7 @@ export function generateStatsSlugCandidates(slug: string, fighterName?: string |
 
 function decodeHtmlEntities(value: string) {
   return value.replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'").replace(/&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+    .replace(/&#0*39;/g, "'").replace(/&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
 }
 
 function htmlToText(html: string) {

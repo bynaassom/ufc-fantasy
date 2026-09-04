@@ -11,6 +11,7 @@ type FighterRecord = {
   headshot_url?: string | null;
   country?: string | null;
   ufc_fighter_id?: string | null;
+  slug?: string | null;
 };
 
 async function requireAdmin() {
@@ -56,7 +57,7 @@ export async function POST(req: NextRequest) {
 
   const { data: fighters, error: fightersError } = await auth.adminSupabase
     .from("fighters")
-    .select("id, name, headshot_url, country, ufc_fighter_id")
+    .select("id, name, headshot_url, country, ufc_fighter_id, slug")
     .in("id", [primaryId, duplicateId]);
 
   if (fightersError || !fighters || fighters.length !== 2) {
@@ -74,12 +75,14 @@ export async function POST(req: NextRequest) {
     fightsAsB,
     winnerFights,
     pickedWinnerRows,
+    favoriteFighterRows,
     sameFightConflicts,
   ] = await Promise.all([
     auth.adminSupabase.from("fights").select("id", { count: "exact", head: true }).eq("fighter_a_id", duplicateId),
     auth.adminSupabase.from("fights").select("id", { count: "exact", head: true }).eq("fighter_b_id", duplicateId),
     auth.adminSupabase.from("fights").select("id", { count: "exact", head: true }).eq("winner_id", duplicateId),
     auth.adminSupabase.from("picks").select("id", { count: "exact", head: true }).eq("picked_winner_id", duplicateId),
+    auth.adminSupabase.from("profiles").select("id", { count: "exact", head: true }).eq("favorite_fighter_id", duplicateId),
     auth.adminSupabase
       .from("fights")
       .select("id, fighter_a:fighters!fighter_a_id(name), fighter_b:fighters!fighter_b_id(name)")
@@ -107,12 +110,14 @@ export async function POST(req: NextRequest) {
       fights_as_b: fightsAsB.count || 0,
       winner_refs: winnerFights.count || 0,
       picked_winner_refs: pickedWinnerRows.count || 0,
+      favorite_fighter_refs: favoriteFighterRows.count || 0,
     },
     conflicts,
     merged_profile: {
       headshot_url: primary.headshot_url || duplicate.headshot_url || null,
       country: primary.country || duplicate.country || null,
       ufc_fighter_id: primary.ufc_fighter_id || duplicate.ufc_fighter_id || null,
+      slug: primary.slug || duplicate.slug || null,
     },
   };
 
@@ -138,38 +143,17 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const mergedProfile = summary.merged_profile;
+  const { error: mergeError } = await auth.adminSupabase.rpc("merge_fighter_records", {
+    p_primary_id: primaryId,
+    p_duplicate_id: duplicateId,
+  });
 
-  const { error: updatePrimaryError } = await auth.adminSupabase
-    .from("fighters")
-    .update(mergedProfile)
-    .eq("id", primaryId);
-
-  if (updatePrimaryError) {
-    return NextResponse.json({ error: updatePrimaryError.message }, { status: 500 });
-  }
-
-  const operations = [
-    auth.adminSupabase.from("fights").update({ fighter_a_id: primaryId }).eq("fighter_a_id", duplicateId),
-    auth.adminSupabase.from("fights").update({ fighter_b_id: primaryId }).eq("fighter_b_id", duplicateId),
-    auth.adminSupabase.from("fights").update({ winner_id: primaryId }).eq("winner_id", duplicateId),
-    auth.adminSupabase.from("picks").update({ picked_winner_id: primaryId }).eq("picked_winner_id", duplicateId),
-  ];
-
-  for (const operation of operations) {
-    const { error } = await operation;
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-  }
-
-  const { error: deleteError } = await auth.adminSupabase
-    .from("fighters")
-    .delete()
-    .eq("id", duplicateId);
-
-  if (deleteError) {
-    return NextResponse.json({ error: deleteError.message }, { status: 500 });
+  if (mergeError) {
+    const isConflict = /merge bloqueado|conflito/i.test(mergeError.message);
+    return NextResponse.json(
+      { error: mergeError.message, summary },
+      { status: isConflict ? 409 : 500 },
+    );
   }
 
   await logAdminAction(auth.adminSupabase, {

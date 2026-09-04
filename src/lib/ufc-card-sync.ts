@@ -64,8 +64,8 @@ export type ScrapedCardFight = {
   is_title_fight: boolean;
   total_rounds: number;
   ufc_matchup_url: string;
-  fighter_a: { name: string; country: string; headshot_url: string };
-  fighter_b: { name: string; country: string; headshot_url: string };
+  fighter_a: { name: string; country: string; headshot_url: string; slug?: string };
+  fighter_b: { name: string; country: string; headshot_url: string; slug?: string };
 };
 
 type ExistingFightLike = {
@@ -118,7 +118,7 @@ function decodeHtml(value: string) {
     .replace(/&nbsp;/gi, " ")
     .replace(/&amp;/gi, "&")
     .replace(/&quot;/gi, '"')
-    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&#0*39;|&apos;/gi, "'")
     .replace(/&lt;/gi, "<")
     .replace(/&gt;/gi, ">");
 }
@@ -165,6 +165,17 @@ function absolutizeUfcEventUrl(pathOrUrl: string) {
 function getAthleteSlugFromHref(href?: string | null) {
   if (!href) return "";
   return href.match(/\/athlete\/([a-z0-9-]+)/i)?.[1]?.toLowerCase() || "";
+}
+
+function getValidatedAthleteSlug(athlete: ParsedAthlete) {
+  if (!athlete.slug) return "";
+
+  const nameTokens = normalizePersonName(athlete.name).split(/\s+/).filter(Boolean);
+  const slugTokens = normalizePersonName(athlete.slug.replace(/-/g, " "))
+    .split(/\s+/)
+    .filter((token) => token && !/^\d+$/.test(token));
+
+  return nameTokens.some((token) => slugTokens.includes(token)) ? athlete.slug : "";
 }
 
 function getEventSlugFromUrl(pathOrUrl?: string | null) {
@@ -372,10 +383,11 @@ function extractAthletesFromCorners(block: string): ParsedAthlete[] {
 
   for (const match of Array.from(
     block.matchAll(
-      /c-listing-fight__corner-name--(?:red|blue)[\s\S]*?<a[^>]*(?:href="([^"]*)")?[^>]*>([\s\S]*?)<\/a>/gi,
+      /c-listing-fight__corner-name--(?:red|blue)[\s\S]*?<a\b([^>]*)>([\s\S]*?)<\/a>/gi,
     ),
   )) {
-    const slug = getAthleteSlugFromHref(match[1]);
+    const href = match[1].match(/href=["']([^"']+)["']/i)?.[1];
+    const slug = getAthleteSlugFromHref(href);
     const name = stripTags(match[2]) || (slug ? slugToName(slug) : "");
     if (!name) continue;
     if (!athletes.some((athlete) => athlete.name === name)) {
@@ -390,6 +402,7 @@ function extractAthletesFromCorners(block: string): ParsedAthlete[] {
 }
 
 function extractAthletesFromDetails(block: string): ParsedAthlete[] {
+  const slugs = extractAthleteSlugs(block);
   const names = Array.from(
     block.matchAll(/details-content__name--(?:red|blue)[^>]*>([\s\S]*?)<\/div>/gi),
   )
@@ -400,8 +413,8 @@ function extractAthletesFromDetails(block: string): ParsedAthlete[] {
     return [];
   }
 
-  return names.slice(0, 2).map((name) => ({
-    slug: "",
+  return names.slice(0, 2).map((name, index) => ({
+    slug: slugs[index] || "",
     name,
   }));
 }
@@ -599,11 +612,13 @@ export function parseUfcCardListArticleHtml(
           name: athletes[0].name,
           country: "",
           headshot_url: "",
+          slug: getValidatedAthleteSlug(athletes[0]) || undefined,
         },
         fighter_b: {
           name: athletes[1].name,
           country: "",
           headshot_url: "",
+          slug: getValidatedAthleteSlug(athletes[1]) || undefined,
         },
       });
     });
@@ -828,11 +843,13 @@ export function parseUfcEventCardHtml(html: string, url: string): ScrapedCardFig
         name: athletes[0].name,
         country: countries[0] || "",
         headshot_url: headshots[0] || "",
+        slug: getValidatedAthleteSlug(athletes[0]) || undefined,
       },
       fighter_b: {
         name: athletes[1].name,
         country: countries[1] || "",
         headshot_url: headshots[1] || "",
+        slug: getValidatedAthleteSlug(athletes[1]) || undefined,
       },
     });
   }
@@ -1016,6 +1033,9 @@ export async function scrapeUfcEventCard(url: string): Promise<ScrapedCardFight[
 
 export async function ensureFighter(adminSupabase: any, fighter: ScrapedCardFight["fighter_a"]) {
   let candidate = { ...fighter };
+  if (candidate.slug && !getValidatedAthleteSlug({ name: candidate.name, slug: candidate.slug })) {
+    candidate.slug = undefined;
+  }
   if (!isUsableHeadshotUrl(candidate.headshot_url) || !candidate.country) {
     const resolved = await resolveUfcFighterMedia(candidate.name);
     if (resolved) {
@@ -1025,22 +1045,47 @@ export async function ensureFighter(adminSupabase: any, fighter: ScrapedCardFigh
           ? candidate.headshot_url
           : resolved.headshot_url,
         country: candidate.country || resolved.country,
+        slug:
+          candidate.slug ||
+          getValidatedAthleteSlug({ name: candidate.name, slug: resolved.slug }) ||
+          undefined,
       };
     }
   }
 
-  const { data: existing, error: existingError } = await adminSupabase
-    .from("fighters")
-    .select("id, headshot_url, country")
-    .eq("name", candidate.name)
-    .maybeSingle();
+  let existing = null;
 
-  if (existingError) {
-    throw new Error(existingError.message);
+  if (candidate.slug) {
+    const { data, error } = await adminSupabase
+      .from("fighters")
+      .select("id, name, headshot_url, country, slug")
+      .eq("slug", candidate.slug)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+    existing = data;
+  }
+
+  if (!existing) {
+    const { data, error } = await adminSupabase
+      .from("fighters")
+      .select("id, name, headshot_url, country, slug")
+      .eq("name", candidate.name)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+    existing = data;
   }
 
   if (existing) {
     const update: Record<string, unknown> = {};
+    if (candidate.slug && !existing.slug) {
+      update.slug = candidate.slug;
+    }
     if (
       isUsableHeadshotUrl(candidate.headshot_url) &&
       existing.headshot_url !== candidate.headshot_url
@@ -1070,6 +1115,7 @@ export async function ensureFighter(adminSupabase: any, fighter: ScrapedCardFigh
       name: candidate.name,
       headshot_url: isUsableHeadshotUrl(candidate.headshot_url) ? candidate.headshot_url : "",
       country: candidate.country || "",
+      slug: candidate.slug || null,
     })
     .select("id")
     .single();

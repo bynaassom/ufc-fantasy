@@ -116,8 +116,8 @@ describe("ufc-card-sync", () => {
       fight_order: 1,
       total_rounds: 5,
       weight_class: "Welterweight",
-      fighter_a: { name: "Gilbert Burns", country: "Brasil" },
-      fighter_b: { name: "Mike Malott", country: "Canadá" },
+      fighter_a: { name: "Gilbert Burns", country: "Brasil", slug: "gilbert-burns" },
+      fighter_b: { name: "Mike Malott", country: "Canadá", slug: "mike-malott" },
     });
     expect(fights[1]).toMatchObject({
       fmid: "12772",
@@ -125,9 +125,49 @@ describe("ufc-card-sync", () => {
       fight_order: 1,
       total_rounds: 3,
       weight_class: "Featherweight",
-      fighter_a: { name: "Dennis Buzukja", country: "Estados Unidos" },
-      fighter_b: { name: "Márcio Barbosa", country: "Brasil" },
+      fighter_a: { name: "Dennis Buzukja", country: "Estados Unidos", slug: "dennis-buzukja" },
+      fighter_b: { name: "Márcio Barbosa", country: "Brasil", slug: "marcio-barbosa" },
     });
+  });
+
+  it("decodes zero-padded apostrophe entities in fighter names", () => {
+    const html = `
+      <div id="main-card"></div>
+      <div class="c-listing-fight" data-fmid="99999">
+        <div class="c-listing-fight__corner-name c-listing-fight__corner-name--red">
+          <a href="/athlete/casey-oneill"><span>Casey</span><span>O&#039;Neill</span></a>
+        </div>
+        <div class="c-listing-fight__corner-name c-listing-fight__corner-name--blue">
+          <a href="/athlete/test-opponent"><span>Test</span><span>Opponent</span></a>
+        </div>
+      </div>
+    `;
+
+    const fights = parseUfcEventCardHtml(html, "https://www.ufc.com/event/test");
+
+    expect(fights[0]?.fighter_a).toMatchObject({
+      name: "Casey O'Neill",
+      slug: "casey-oneill",
+    });
+  });
+
+  it("ignores a UFC athlete link that belongs to a different fighter", () => {
+    const html = `
+      <div id="main-card"></div>
+      <div class="c-listing-fight" data-fmid="99998">
+        <div class="c-listing-fight__corner-name c-listing-fight__corner-name--red">
+          <a href="/athlete/melissa-amaya"><span>Melissa</span><span>Amaya</span></a>
+        </div>
+        <div class="c-listing-fight__corner-name c-listing-fight__corner-name--blue">
+          <a href="/athlete/norma-dyumont-viana-1"><span>Valesca</span><span>Machado</span></a>
+        </div>
+      </div>
+    `;
+
+    const fights = parseUfcEventCardHtml(html, "https://www.ufc.com/event/test");
+
+    expect(fights[0]?.fighter_a.slug).toBe("melissa-amaya");
+    expect(fights[0]?.fighter_b.slug).toBeUndefined();
   });
 
   it("matches reversed fighters and accented names when diffing cards", () => {
@@ -422,5 +462,40 @@ describe("ufc-card-sync", () => {
       country: "França",
       headshot_url: correctHeadshot,
     });
+  });
+
+  it("uses the official UFC slug to reuse an existing fighter", async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({
+      data: {
+        id: "casey-id",
+        name: "Casey O&#039;Neill",
+        headshot_url: "https://ufc.com/images/casey.png",
+        country: "Austrália",
+        slug: "casey-oneill",
+      },
+      error: null,
+    });
+    const lookupEq = vi.fn().mockReturnValue({ maybeSingle });
+    const update = vi.fn().mockReturnValue({
+      eq: vi.fn().mockResolvedValue({ error: null }),
+    });
+    const adminSupabase = {
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({ eq: lookupEq }),
+        update,
+      }),
+    };
+
+    await expect(
+      ensureFighter(adminSupabase, {
+        name: "Casey O'Neill",
+        country: "Austrália",
+        headshot_url: "https://ufc.com/images/casey.png",
+        slug: "casey-oneill",
+      }),
+    ).resolves.toBe("casey-id");
+
+    expect(lookupEq).toHaveBeenCalledWith("slug", "casey-oneill");
+    expect(update).not.toHaveBeenCalled();
   });
 });
