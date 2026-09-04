@@ -439,11 +439,34 @@ function extractFightAthletes(block: string): ParsedAthlete[] {
 }
 
 function extractCountryNames(block: string) {
+  const extractCornerCountry = (corner: "red" | "blue") => {
+    const marker = `c-listing-fight__country--${corner}`;
+    const start = block.indexOf(marker);
+    if (start < 0) return null;
+
+    const endMarker = corner === "red"
+      ? "c-listing-fight__country--blue"
+      : "c-listing-fight__results--mobile";
+    const next = block.indexOf(endMarker, start + marker.length);
+    const section = block.slice(start, next >= 0 ? next : block.length);
+    const text = section.match(/c-listing-fight__country-text"[^>]*>([\s\S]*?)<\/div>/i);
+    const countryText = stripTags(text?.[1] || "");
+    if (countryText) return countryText;
+
+    const flagCode = section.match(/\/flags\/([A-Z]{2})\.PNG/i)?.[1]?.toUpperCase();
+    return flagCode ? FLAG_COUNTRY[flagCode] || "" : "";
+  };
+
+  const redCountry = extractCornerCountry("red");
+  const blueCountry = extractCornerCountry("blue");
+  if (redCountry !== null || blueCountry !== null) {
+    return [redCountry || "", blueCountry || ""];
+  }
+
   const countryTexts = Array.from(
-    block.matchAll(/c-listing-fight__country-text">([\s\S]*?)<\/div>/gi),
+    block.matchAll(/c-listing-fight__country-text"[^>]*>([\s\S]*?)<\/div>/gi),
   )
-    .map((match) => stripTags(match[1]))
-    .filter(Boolean);
+    .map((match) => stripTags(match[1]));
 
   if (countryTexts.length >= 2) {
     return countryTexts.slice(0, 2);
@@ -1018,10 +1041,13 @@ export async function ensureFighter(adminSupabase: any, fighter: ScrapedCardFigh
 
   if (existing) {
     const update: Record<string, unknown> = {};
-    if (!isUsableHeadshotUrl(existing.headshot_url) && isUsableHeadshotUrl(candidate.headshot_url)) {
+    if (
+      isUsableHeadshotUrl(candidate.headshot_url) &&
+      existing.headshot_url !== candidate.headshot_url
+    ) {
       update.headshot_url = candidate.headshot_url;
     }
-    if (!existing.country && candidate.country) {
+    if (candidate.country && existing.country !== candidate.country) {
       update.country = candidate.country;
     }
 

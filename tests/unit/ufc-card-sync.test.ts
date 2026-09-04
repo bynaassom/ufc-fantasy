@@ -1,6 +1,7 @@
 import {
   extractExcludedFightPairKeysFromNewsResults,
   diffScrapedCardAgainstExistingFights,
+  ensureFighter,
   mergeOfficialUfcCardFights,
   parseUfcCardListArticleHtml,
   parseUfcEventCardHtml,
@@ -315,6 +316,111 @@ describe("ufc-card-sync", () => {
       weight_class: "Bantamweight",
       fighter_a: { name: "Jamie Siraj", country: "Canadá" },
       fighter_b: { name: "John Yannis", country: "Estados Unidos" },
+    });
+  });
+
+  it("keeps countries and headshots attached to their original corners when red data is empty", () => {
+    const html = `
+      <div id="prelims-card"></div>
+      <div class="c-listing-fight" data-fmid="13077">
+        <div class="c-listing-fight__content-row">
+          <div class="c-listing-fight__corner--red">
+            <div class="c-listing-fight__corner-image--red"></div>
+          </div>
+          <div class="c-listing-fight__details">
+            <div class="c-listing-fight__class-text">Peso-palha feminino Luta</div>
+            <div class="c-listing-fight__corner-name c-listing-fight__corner-name--red">
+              <a href="/athlete/delphine-benouaich">
+                <span class="c-listing-fight__corner-given-name">Delphine</span>
+                <span class="c-listing-fight__corner-family-name">Benouaich</span>
+              </a>
+            </div>
+            <div class="c-listing-fight__corner-name c-listing-fight__corner-name--blue">
+              <a href="/athlete/sofia-montenegro">
+                <span class="c-listing-fight__corner-given-name">Sofia</span>
+                <span class="c-listing-fight__corner-family-name">Montenegro</span>
+              </a>
+            </div>
+          </div>
+          <div class="c-listing-fight__corner--blue">
+            <div class="c-listing-fight__corner-image--blue">
+              <img
+                src="https://ufc.com/images/styles/event_fight_card_upper_body_of_standing_athlete/s3/2026-09/MONTENEGRO_SOFIA_R_09-05.png?itok=test"
+                alt="Sofia Montenegro"
+              />
+            </div>
+          </div>
+        </div>
+        <div class="c-listing-fight__details-content"></div>
+        <div class="c-listing-fight__odds-row">
+          <div class="c-listing-fight__country c-listing-fight__country--red">
+            <div class="c-listing-fight__country-text"></div>
+          </div>
+          <div class="c-listing-fight__country c-listing-fight__country--blue">
+            <img alt="Argentina Flag" src="https://ufc.com/images/flags/AR.PNG" />
+            <div class="c-listing-fight__country-text">Argentina</div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const fights = parseUfcEventCardHtml(
+      html,
+      "https://www.ufc.com.br/event/ufc-fight-night-september-05-2026",
+    );
+
+    expect(fights).toHaveLength(1);
+    expect(fights[0]).toMatchObject({
+      fighter_a: {
+        name: "Delphine Benouaich",
+        country: "",
+        headshot_url: "",
+      },
+      fighter_b: {
+        name: "Sofia Montenegro",
+        country: "Argentina",
+        headshot_url:
+          "https://ufc.com/images/styles/event_fight_card_upper_body_of_standing_athlete/s3/2026-09/MONTENEGRO_SOFIA_R_09-05.png?itok=test",
+      },
+    });
+  });
+
+  it("repairs stale fighter media and country with authoritative card data", async () => {
+    const update = vi.fn().mockReturnValue({
+      eq: vi.fn().mockResolvedValue({ error: null }),
+    });
+    const adminSupabase = {
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: {
+                id: "delphine-id",
+                headshot_url:
+                  "https://ufc.com/images/styles/event_fight_card_upper_body_of_standing_athlete/s3/MONTENEGRO_SOFIA_R.png",
+                country: "Argentina",
+              },
+              error: null,
+            }),
+          }),
+        }),
+        update,
+      }),
+    };
+    const correctHeadshot =
+      "https://ufc.com/images/styles/event_fight_card_upper_body_of_standing_athlete/s3/2026-09/BENOUAICH_DELPHINE_L_09-05.png?itok=test";
+
+    await expect(
+      ensureFighter(adminSupabase, {
+        name: "Delphine Benouaich",
+        country: "França",
+        headshot_url: correctHeadshot,
+      }),
+    ).resolves.toBe("delphine-id");
+
+    expect(update).toHaveBeenCalledWith({
+      country: "França",
+      headshot_url: correctHeadshot,
     });
   });
 });

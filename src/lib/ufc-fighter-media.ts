@@ -103,14 +103,19 @@ function extractHeadshotUrl(html: string, base: string) {
   return ranked[0] || "";
 }
 
-export function extractEventCardHeadshots(htmlBlock: string, base: string) {
+function extractHeadshotCandidates(htmlBlock: string, base: string) {
   const candidates: string[] = [];
-  const imageTagRegex =
-    /<img[^>]+(?:event_fight_card_upper_body|athlete_bio_full_body|athlete_splash)[^>]+(?:src|data-src|srcset)="([^"]+)"/gi;
+  const imageTagRegex = /<(?:img|source)\b[^>]*>/gi;
 
   let imageTagMatch;
   while ((imageTagMatch = imageTagRegex.exec(htmlBlock)) !== null) {
-    const raw = imageTagMatch[1]?.split(",")[0]?.trim().split(" ")[0]?.trim();
+    const tag = imageTagMatch[0];
+    if (!/(?:event_fight_card_upper_body|athlete_bio_full_body|athlete_splash)/i.test(tag)) {
+      continue;
+    }
+
+    const rawAttribute = tag.match(/(?:src|data-src|srcset)\s*=\s*["']([^"']+)["']/i)?.[1];
+    const raw = rawAttribute?.split(",")[0]?.trim().split(" ")[0]?.trim();
     const normalized = absolutizeUfcUrl(decodeEscapedUrl(raw || ""), base);
     if (isUsableHeadshotUrl(normalized)) {
       candidates.push(normalized);
@@ -132,6 +137,42 @@ export function extractEventCardHeadshots(htmlBlock: string, base: string) {
   }
 
   return unique(candidates);
+}
+
+function extractCornerSection(htmlBlock: string, corner: "red" | "blue") {
+  const marker = `c-listing-fight__corner-image--${corner}`;
+  const start = htmlBlock.indexOf(marker);
+  if (start < 0) return null;
+
+  const endMarkers = corner === "red"
+    ? ["c-listing-fight__details", "c-listing-fight__corner-image--blue"]
+    : ["c-listing-fight__details-content", "c-listing-fight__odds-row"];
+  const ends = endMarkers
+    .map((endMarker) => htmlBlock.indexOf(endMarker, start + marker.length))
+    .filter((position) => position >= 0);
+  const end = ends.length > 0 ? Math.min(...ends) : htmlBlock.length;
+
+  return htmlBlock.slice(start, end);
+}
+
+export function extractEventCardHeadshots(
+  htmlBlock: string,
+  base: string,
+): [string, string] {
+  const redSection = extractCornerSection(htmlBlock, "red");
+  const blueSection = extractCornerSection(htmlBlock, "blue");
+
+  if (redSection !== null || blueSection !== null) {
+    return [
+      redSection ? extractHeadshotCandidates(redSection, base)[0] || "" : "",
+      blueSection ? extractHeadshotCandidates(blueSection, base)[0] || "" : "",
+    ];
+  }
+
+  const legacyCandidates = extractHeadshotCandidates(htmlBlock, base);
+  return legacyCandidates.length >= 2
+    ? [legacyCandidates[0], legacyCandidates[1]]
+    : ["", ""];
 }
 
 async function scrapeAthletePage(
