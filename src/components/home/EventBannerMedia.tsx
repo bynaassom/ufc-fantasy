@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
+import { shouldOptimizeRemoteImage } from "@/lib/image-optimization";
 import type { Event } from "@/types";
 import EventPosterFallback from "./EventPosterFallback";
 
@@ -12,6 +13,7 @@ type Props = {
   priority?: boolean;
   className?: string;
   showOverlay?: boolean;
+  showFallbackCopy?: boolean;
 };
 
 /** Keeps broken/blocked remote banners inside the same reserved poster box. */
@@ -22,6 +24,7 @@ export default function EventBannerMedia({
   priority = false,
   className = "",
   showOverlay = false,
+  showFallbackCopy = true,
 }: Props) {
   const imageUrl = event.banner_image_url || null;
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
@@ -36,12 +39,13 @@ export default function EventBannerMedia({
           fill
           priority={priority}
           sizes={sizes}
+          unoptimized={!shouldOptimizeRemoteImage(imageUrl!)}
           className={className}
           style={{ objectPosition: event.banner_object_position || "center" }}
           onError={() => setFailedUrl(imageUrl)}
         />
       ) : (
-        <EventPosterFallback event={event} />
+        <EventPosterFallback event={event} showCopy={showFallbackCopy} />
       )}
       {showOverlay && hasImage && (
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-transparent" />

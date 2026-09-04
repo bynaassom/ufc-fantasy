@@ -1065,6 +1065,7 @@ export async function getHomePageData() {
       ? listEventFights(adminSupabase, currentEvent.id)
       : Promise.resolve([]),
   ]);
+  const mainEventPromise = buildHomeMainEvent(currentEvent, currentEventFights);
 
   const activeChallengeRows = rawChallenges
     .filter(
@@ -1146,7 +1147,7 @@ export async function getHomePageData() {
       event,
       performance: performanceByEvent.get(event.id) || buildPreviousEventPerformances([event.id], [], [])[0],
     })),
-    mainEvent: await buildHomeMainEvent(currentEvent, currentEventFights),
+    mainEvent: await mainEventPromise,
     currentEventPickProgress: {
       picked: currentEventPicks.length,
       total: currentEventFightCount,

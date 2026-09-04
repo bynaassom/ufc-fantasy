@@ -1,9 +1,7 @@
-const CACHE = "ufc-fantasy-v5";
+const CACHE = "ufc-fantasy-v6";
 const STATIC_ASSETS = [
   "/offline.html",
   "/manifest.webmanifest",
-  "/app-icon.svg",
-  "/app-icon-maskable.svg",
   "/app-icon-192.png",
   "/app-icon-512.png",
   "/app-icon-maskable-512.png",

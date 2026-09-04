@@ -15,11 +15,37 @@ const PROTECTED_ROUTES = new Set([
   "/admin",
   "/profile",
   "/desafios",
+  "/event",
+  "/ligas",
+  "/historico",
+  "/bate-papo",
 ]);
 
-const PROTECTED_PREFIXES = ["/admin/", "/event/", "/jogador/"];
+const PROTECTED_PREFIXES = [
+  "/admin/",
+  "/desafios/",
+  "/event/",
+  "/historico/",
+  "/jogador/",
+  "/ligas/",
+  "/recap/",
+];
 
 const AUTH_ROUTES = new Set(["/login", "/register"]);
+
+const SESSION_INDEPENDENT_PUBLIC_ROUTES = new Set([
+  "/companion",
+  "/privacidade",
+  "/termos",
+  "/auth/callback",
+  "/manifest.webmanifest",
+  "/offline.html",
+  "/robots.txt",
+  "/sitemap.xml",
+  "/sw.js",
+]);
+
+const SESSION_INDEPENDENT_PUBLIC_PREFIXES = ["/companion/", "/share/"];
 
 function matchProtectedRoute(pathname: string): boolean {
   if (PROTECTED_ROUTES.has(pathname)) return true;
@@ -28,6 +54,23 @@ function matchProtectedRoute(pathname: string): boolean {
 
 function matchAuthRoute(pathname: string): boolean {
   return AUTH_ROUTES.has(pathname);
+}
+
+function matchSessionIndependentPublicRoute(pathname: string): boolean {
+  if (SESSION_INDEPENDENT_PUBLIC_ROUTES.has(pathname)) return true;
+  return SESSION_INDEPENDENT_PUBLIC_PREFIXES.some((prefix) =>
+    pathname.startsWith(prefix),
+  );
+}
+
+function hasSupabaseSessionCookie(request: NextRequest): boolean {
+  return request.cookies.getAll().some(({ name, value }) => {
+    if (!value) return false;
+    return (
+      name === "supabase-auth-token" ||
+      (name.startsWith("sb-") && name.includes("-auth-token"))
+    );
+  });
 }
 
 export async function proxy(request: NextRequest) {
@@ -51,13 +94,36 @@ export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
   applySecurityHeaders(supabaseResponse.headers);
 
+  const protectedRoute = matchProtectedRoute(pathname);
+  const hasSessionCookie = hasSupabaseSessionCookie(request);
+
+  // Rotas comprovadamente independentes de sessão não esperam validação
+  // remota, mesmo quando o navegador também possui uma sessão ativa.
+  if (matchSessionIndependentPublicRoute(pathname)) {
+    return supabaseResponse;
+  }
+
+  // A ausência do cookie é uma verificação otimista e barata. A validação
+  // segura continua acontecendo nas páginas/serviços antes de ler dados.
+  if (!hasSessionCookie) {
+    if (protectedRoute) {
+      const loginUrl = new URL("/login", request.url);
+      loginUrl.searchParams.set("next", normalizeSafeRedirectPath(pathname));
+      const response = NextResponse.redirect(loginUrl);
+      applySecurityHeaders(response.headers);
+      return response;
+    }
+
+    return supabaseResponse;
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   // Rotas públicas continuam disponíveis durante indisponibilidade ou ausência
   // de configuração. Rotas protegidas nunca são liberadas sem autenticação.
   if (!supabaseUrl || !supabaseAnonKey) {
-    if (matchProtectedRoute(pathname)) {
+    if (protectedRoute) {
       const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("next", normalizeSafeRedirectPath(pathname));
       const response = NextResponse.redirect(loginUrl);
@@ -109,7 +175,7 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
-  if (matchProtectedRoute(pathname) && !user) {
+  if (protectedRoute && !user) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("next", normalizeSafeRedirectPath(pathname));
     const response = NextResponse.redirect(loginUrl);
@@ -150,6 +216,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|offline.html|robots.txt|sitemap.xml|sw.js|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

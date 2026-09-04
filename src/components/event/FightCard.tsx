@@ -3,9 +3,10 @@
 import Image from "next/image";
 import { useState } from "react";
 import { FightWithFighters, FightMethod, Pick } from "@/types";
+import { shouldOptimizeRemoteImage } from "@/lib/image-optimization";
 import { getFallbackHeadshot, getMethodLabel } from "@/lib/utils";
 import FightStatsCompare from "./FightStatsCompare";
-import { WEIGHT_CLASS_PT } from "@/lib/ufc-api";
+import { WEIGHT_CLASS_PT } from "@/lib/ufc-weight";
 import { FightAlertButton } from "./EventAlertControls";
 
 function nameToSlug(name: string): string {
@@ -123,10 +124,15 @@ export default function FightCard({
     completed && !hitWinner && pickedWinnerId
       ? "grayscale(1) brightness(0.55)"
       : "none";
+  const fightLabel = fight.is_title_fight
+    ? "Disputa de cinturão"
+    : fight.card_type === "main" && fight.fight_order === 1
+      ? "Main event"
+      : `Luta ${String(fight.fight_order).padStart(2, "0")}`;
 
   return (
     <div
-      id={`fight-${fight.id}`}
+      className="fight-pick-card overflow-hidden"
       style={{
         backgroundColor: "var(--bg-card)",
         border: completed
@@ -134,36 +140,41 @@ export default function FightCard({
             ? "1px solid #22c55e"
             : "1px solid var(--border)"
           : `1px solid ${complete ? "var(--red)" : "var(--border)"}`,
+        borderTopWidth: fight.is_title_fight || fightLabel === "Main event" ? 3 : 1,
+        borderTopColor: fight.is_title_fight
+          ? "var(--championship)"
+          : fightLabel === "Main event"
+            ? "var(--red)"
+            : complete
+              ? "var(--red)"
+              : "var(--border)",
         filter: cardFilter,
         transition: "border-color 0.2s, filter 0.3s",
       }}
     >
       {/* Weight class header */}
       <div
-        className="flex items-center justify-between px-4 py-2"
+        className="fight-card-meta relative flex min-h-[54px] items-center justify-between gap-3 overflow-hidden px-4 py-2.5"
         style={{
           borderBottom: "1px solid var(--border)",
           backgroundColor: "var(--bg-elevated)",
         }}
       >
-        <span
-          className="font-condensed font-700 text-xs uppercase tracking-widest"
-          style={{ color: "var(--text-secondary)" }}
-        >
-          {fight.is_title_fight && (
-            <span
-              className="mr-2 px-1.5 py-0.5 text-white font-900"
-              style={{ backgroundColor: "var(--red)", fontSize: "10px" }}
-            >
-              TÍTULO
-            </span>
-          )}
-          {weightLabel}
-        </span>
-        <div className="flex items-center gap-2">
+        <div className="relative z-[1] min-w-0">
+          <span
+            className="block font-condensed text-[11px] font-900 uppercase tracking-[0.18em]"
+            style={{ color: fight.is_title_fight ? "var(--championship)" : "var(--red-text)" }}
+          >
+            {fightLabel}
+          </span>
+          <span className="mt-0.5 block truncate font-condensed text-sm font-900 uppercase tracking-[0.04em] text-[var(--text)]">
+            {weightLabel}
+          </span>
+        </div>
+        <div className="relative z-[1] flex items-center gap-2">
           {fight.total_rounds === 5 && (
             <span
-              className="font-condensed font-700 text-xs uppercase tracking-widest"
+              className="font-condensed text-[11px] font-800 uppercase tracking-[0.14em]"
               style={{ color: "var(--text-muted)" }}
             >
               5 ROUNDS
@@ -180,7 +191,7 @@ export default function FightCard({
       </div>
 
       {/* Fighters */}
-      <div className="grid grid-cols-2 relative">
+      <div className="fight-card-matchup relative grid grid-cols-2 bg-[var(--hero-ink)]">
         {[fight.fighter_a, fight.fighter_b].map((fighter, idx) => {
           const isMyPick = pickedWinnerId === fighter.id;
           const isWinner = completed && fight.winner_id === fighter.id;
@@ -192,21 +203,22 @@ export default function FightCard({
           const isDefeated =
             !completed && !!selectedWinnerId && selectedWinnerId !== fighter.id;
           const isHovered = hoveredFighterId === fighter.id && !locked && !completed;
+          const hasHeadshot = Boolean(fighter.headshot_url);
 
           // Corner: vermelho (esquerda) / azul (direita)
           const cornerColor = idx === 0 ? "var(--red)" : "var(--blue)";
           const traceOpacity = isSelected ? 1 : isHovered ? 0.7 : 0;
-          const gradientOpacity = isSelected ? 0.9 : isHovered ? 0.35 : 0;
+          const gradientOpacity = isSelected ? 0.72 : isHovered ? 0.38 : 0.18;
           const easedTransition = "0.4s cubic-bezier(0.4, 0, 0.2, 1)";
 
           // Cor do nome
-          let nameColor = "var(--text)";
+          let nameColor = "white";
           if (completed) {
             if (isWinner && isMyPick)
               nameColor = "#22c55e"; // acertou — verde
-            else if (isWinner && !isMyPick) nameColor = "var(--text)"; // vencedor mas não apostei
+            else if (isWinner && !isMyPick) nameColor = "white"; // vencedor mas não apostei
           } else if (isSelected) {
-            nameColor = cornerColor;
+            nameColor = idx === 0 ? "#ff5c6d" : "#71a8ff";
           }
 
           // Borda da foto — sem vermelho, apenas resultados
@@ -232,16 +244,16 @@ export default function FightCard({
               }
               onMouseEnter={() => setHoveredFighterId(fighter.id)}
               onMouseLeave={() => setHoveredFighterId(null)}
-              className="fighter-select-btn flex flex-col items-center py-6 px-4 relative overflow-hidden"
+              className="fighter-select-btn relative flex min-h-[258px] flex-col items-center justify-end overflow-hidden px-0 pt-3 sm:min-h-[310px]"
               style={{
                 backgroundColor: completed && isWinner && isMyPick
-                  ? "rgba(34,197,94,0.04)"
-                  : "transparent",
+                  ? "rgba(34,197,94,0.08)"
+                  : "var(--hero-ink)",
                 filter:
                   isDefeated || (completed && isLoser)
                     ? "grayscale(1) brightness(0.4)"
                     : "none",
-                borderRight: idx === 0 ? "1px solid var(--border)" : "none",
+                borderRight: idx === 0 ? "1px solid rgba(255,255,255,0.12)" : "none",
                 cursor: locked ? "default" : "pointer",
                 transition: "filter 0.3s",
               }}
@@ -250,11 +262,12 @@ export default function FightCard({
               <div
                 className="absolute inset-0 pointer-events-none z-0"
                 style={{
-                  background: `linear-gradient(${idx === 0 ? "135deg" : "225deg"}, ${cornerColor} 0%, transparent 65%)`,
+                  background: `radial-gradient(circle at ${idx === 0 ? "18%" : "82%"} 24%, ${cornerColor} 0%, transparent 48%), linear-gradient(${idx === 0 ? "118deg" : "242deg"}, ${cornerColor} 0%, transparent 58%)`,
                   opacity: gradientOpacity,
                   transition: `opacity ${easedTransition}`,
                 }}
               />
+              <div className="fight-corner-grid absolute inset-0 z-0 pointer-events-none" />
               {/* Traçado de seleção — 3 lados, abertura pro centro */}
               {/* Topo */}
               <div
@@ -289,12 +302,13 @@ export default function FightCard({
               />
               {/* Headshot */}
               <div
-                className="relative mb-4 overflow-hidden"
+                className={`fight-card-portrait relative z-[1] overflow-hidden transition-transform duration-300 ${
+                  hasHeadshot
+                    ? "h-[150px] w-full max-w-[190px] sm:h-[198px] sm:max-w-[250px]"
+                    : "mb-4 h-24 w-24 rounded-full sm:h-28 sm:w-28"
+                }`}
                 style={{
-                  width: "clamp(80px, 18vw, 130px)",
-                  height: "clamp(80px, 18vw, 130px)",
-                  borderRadius: "50%",
-                  border: photoBorder,
+                  border: hasHeadshot ? "none" : photoBorder,
                   boxShadow: photoGlow,
                   transition: "all 0.2s",
                 }}
@@ -311,7 +325,13 @@ export default function FightCard({
                   }
                   alt={fighter.name}
                   fill
-                  className="object-cover object-top transition-opacity duration-300"
+                  sizes="(max-width: 640px) 48vw, 380px"
+                  unoptimized={
+                    !shouldOptimizeRemoteImage(
+                      fighter.headshot_url || getFallbackHeadshot(fighter.name),
+                    )
+                  }
+                  className={`${hasHeadshot ? "object-contain object-bottom" : "object-cover object-center"} transition-opacity duration-300`}
                   onLoad={() =>
                     setLoadedHeadshots((current) => ({
                       ...current,
@@ -322,54 +342,56 @@ export default function FightCard({
                 />
               </div>
 
-              {/* Name */}
-              <p
-                className="font-condensed font-600 uppercase text-center leading-tight"
-                style={{
-                  color: nameColor,
-                  fontSize: "clamp(0.75rem, 2vw, 1rem)",
-                  letterSpacing: "0.03em",
-                }}
-              >
-                {fighter.name}
-              </p>
-              {fighter.country && (
+              <div className="relative z-[2] w-full border-t border-white/10 bg-black/70 px-2 pb-4 pt-3">
                 <p
-                  className="font-condensed font-400 uppercase text-xs mt-0.5"
-                  style={{ color: "var(--text-muted)" }}
+                  className="mb-1 font-condensed text-[11px] font-900 uppercase tracking-[0.18em]"
+                  style={{ color: idx === 0 ? "#ff586a" : "#71a8ff" }}
                 >
-                  {fighter.country}
+                  {idx === 0 ? "Red corner" : "Blue corner"}
                 </p>
-              )}
+                {/* Name */}
+                <p
+                  className="text-balance font-condensed text-[clamp(1rem,3.4vw,1.45rem)] font-900 uppercase leading-[0.9] tracking-[-0.01em]"
+                  style={{ color: nameColor }}
+                >
+                  {fighter.name}
+                </p>
+                {fighter.country && (
+                  <p className="mt-1 font-condensed text-[11px] font-600 uppercase tracking-[0.08em] text-white/55">
+                    {fighter.country}
+                  </p>
+                )}
 
-              {/* Odds */}
-              {(() => {
-                const odds = idx === 0 ? fight.odds_a : fight.odds_b;
-                if (!odds) return null;
-                const isFav = odds.startsWith("-");
-                return (
-                  <span
-                    className="font-condensed font-700 text-xs mt-1.5 px-2 py-0.5"
-                    style={{
-                      backgroundColor: isFav
-                        ? "rgba(232,0,26,0.12)"
-                        : "rgba(255,255,255,0.06)",
-                      color: isFav ? "var(--red)" : "var(--text-secondary)",
-                      border: `1px solid ${isFav ? "rgba(232,0,26,0.3)" : "var(--border)"}`,
-                    }}
-                  >
-                    {odds}
-                  </span>
-                );
-              })()}
+                {/* Odds */}
+                {(() => {
+                  const odds = idx === 0 ? fight.odds_a : fight.odds_b;
+                  if (!odds) return null;
+                  const isFav = odds.startsWith("-");
+                  return (
+                    <span
+                      className="mt-2 inline-flex min-h-6 items-center border px-2 font-condensed text-xs font-800"
+                      style={{
+                        backgroundColor: isFav
+                          ? "rgba(232,0,26,0.18)"
+                          : "rgba(255,255,255,0.06)",
+                        color: isFav ? "#ff586a" : "rgba(255,255,255,0.7)",
+                        borderColor: isFav ? "rgba(232,0,26,0.55)" : "rgba(255,255,255,0.18)",
+                      }}
+                    >
+                      {odds}
+                    </span>
+                  );
+                })()}
+              </div>
 
               {/* Check do pick selecionado (antes do resultado) */}
               {isSelected && !completed && (
                 <div
-                  className="absolute top-3 right-3 w-5 h-5 flex items-center justify-center"
+                  className={`absolute top-3 z-20 flex h-7 w-7 items-center justify-center ${idx === 0 ? "left-3" : "right-3"}`}
                   style={{ backgroundColor: cornerColor }}
                 >
                   <svg
+                    aria-hidden="true"
                     width="10"
                     height="10"
                     viewBox="0 0 24 24"
@@ -385,10 +407,11 @@ export default function FightCard({
               {/* Ícone de acerto no vencedor (resultado confirmado) */}
               {completed && isWinner && isMyPick && (
                 <div
-                  className="absolute top-3 right-3 w-5 h-5 flex items-center justify-center"
+                  className={`absolute top-3 z-20 flex h-7 w-7 items-center justify-center ${idx === 0 ? "left-3" : "right-3"}`}
                   style={{ backgroundColor: "#22c55e" }}
                 >
                   <svg
+                    aria-hidden="true"
                     width="10"
                     height="10"
                     viewBox="0 0 24 24"
@@ -406,14 +429,15 @@ export default function FightCard({
 
         {/* VS ilha */}
         <div
-          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 flex flex-col items-center justify-center gap-1.5"
+          className="absolute left-1/2 top-[38%] z-20 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center gap-1"
         >
           <div
+            className="rotate-45"
             style={{
-              width: "34px",
-              height: "34px",
-              backgroundColor: "var(--bg-card)",
-              border: "1px solid var(--border)",
+              width: "42px",
+              height: "42px",
+              backgroundColor: "rgba(5,5,5,0.94)",
+              border: "1px solid rgba(255,255,255,0.3)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -421,10 +445,10 @@ export default function FightCard({
             }}
           >
             <span
-              className="font-condensed font-700"
+              className="-rotate-45 font-condensed font-900"
               style={{
-                color: "var(--text-muted)",
-                fontSize: "10px",
+                color: "white",
+                fontSize: "11px",
                 letterSpacing: "0.05em",
               }}
             >
@@ -439,14 +463,15 @@ export default function FightCard({
               onClick={(e) => e.stopPropagation()}
               className="font-condensed font-700 uppercase flex items-center gap-0.5 transition-opacity hover:opacity-70 min-tap"
               style={{
-                fontSize: "10px",
+                fontSize: "11px",
                 letterSpacing: "0.06em",
-                color: "var(--text-muted)",
+                color: "rgba(255,255,255,0.62)",
                 whiteSpace: "nowrap",
               }}
             >
               UFC.COM
               <svg
+                aria-hidden="true"
                 width="7"
                 height="7"
                 viewBox="0 0 24 24"
@@ -495,7 +520,7 @@ export default function FightCard({
                 type="button"
                 onClick={() => selectMethod(m.value)}
                 aria-pressed={selectedMethod === m.value}
-                className="font-condensed font-900 text-xs uppercase tracking-widest transition-all hover:opacity-80"
+                className="min-tap font-condensed font-900 text-xs uppercase tracking-widest transition-all hover:opacity-80"
                 style={{
                   padding: selectedMethod === m.value ? "8px 14px" : "8px 14px",
                   backgroundColor:
@@ -528,7 +553,7 @@ export default function FightCard({
                   onClick={() => selectRound(r)}
                   aria-pressed={selectedRound === r}
                   aria-label={`Round ${r}`}
-                  className="font-condensed font-900 text-sm uppercase transition-all hover:opacity-80"
+                  className="min-tap font-condensed font-900 text-sm uppercase transition-all hover:opacity-80"
                   style={{
                     padding: "8px 12px",
                     backgroundColor:
@@ -584,6 +609,7 @@ export default function FightCard({
           style={{ borderTop: "1px solid var(--border)" }}
         >
           <svg
+            aria-hidden="true"
             width="12"
             height="12"
             viewBox="0 0 24 24"
@@ -618,6 +644,7 @@ export default function FightCard({
           style={{ borderTop: "1px solid var(--border)" }}
         >
           <svg
+            aria-hidden="true"
             width="12"
             height="12"
             viewBox="0 0 24 24"

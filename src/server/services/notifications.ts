@@ -1,4 +1,3 @@
-import webpush from "web-push";
 import type { DbClient } from "@/types/database";
 import {
   buildNotificationContent,
@@ -149,6 +148,8 @@ export async function sendBrowserPush(
   if (!vapidConfig) {
     return { ok: false, removeSubscription: false };
   }
+
+  const { default: webpush } = await import("web-push");
 
   webpush.setVapidDetails(
     vapidConfig.subject,

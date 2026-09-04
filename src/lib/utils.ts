@@ -1,28 +1,55 @@
-import { formatDistanceToNow, format, isBefore } from "date-fns";
-import { ptBR } from "date-fns/locale";
+const eventDateFormatter = new Intl.DateTimeFormat("pt-BR", {
+  day: "2-digit",
+  month: "long",
+  year: "numeric",
+});
+
+const relativeTimeFormatter = new Intl.RelativeTimeFormat("pt-BR", {
+  numeric: "always",
+});
+
+const RELATIVE_TIME_UNITS = [
+  ["year", 365 * 24 * 60 * 60],
+  ["month", 30 * 24 * 60 * 60],
+  ["day", 24 * 60 * 60],
+  ["hour", 60 * 60],
+  ["minute", 60],
+  ["second", 1],
+] as const;
+
+export function formatRelativeTime(date: string | Date, now = new Date()) {
+  const target = typeof date === "string" ? new Date(date) : date;
+  const deltaSeconds = (target.getTime() - now.getTime()) / 1000;
+  const absoluteSeconds = Math.abs(deltaSeconds);
+  const [unit, secondsPerUnit] =
+    RELATIVE_TIME_UNITS.find(([, seconds]) => absoluteSeconds >= seconds) ||
+    RELATIVE_TIME_UNITS[RELATIVE_TIME_UNITS.length - 1];
+
+  return relativeTimeFormatter.format(
+    Math.round(deltaSeconds / secondsPerUnit),
+    unit,
+  );
+}
 
 export function formatEventDate(date: string) {
-  return format(new Date(date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
+  return eventDateFormatter.format(new Date(date));
 }
 
 export function timeUntilEvent(date: string) {
-  return formatDistanceToNow(new Date(date), { locale: ptBR, addSuffix: true });
+  return formatRelativeTime(date);
 }
 
 export function isPicksLocked(lockAt: string): boolean {
-  return isBefore(new Date(lockAt), new Date());
+  return new Date(lockAt).getTime() < Date.now();
 }
 
 export function isPicksOpen(picksOpenAt: string | null): boolean {
   if (!picksOpenAt) return true; // null = sempre aberto
-  return isBefore(new Date(picksOpenAt), new Date());
+  return new Date(picksOpenAt).getTime() < Date.now();
 }
 
 export function timeUntilPicksOpen(picksOpenAt: string): string {
-  return formatDistanceToNow(new Date(picksOpenAt), {
-    locale: ptBR,
-    addSuffix: true,
-  });
+  return formatRelativeTime(picksOpenAt);
 }
 
 export function getHomePicksStatusLabel({

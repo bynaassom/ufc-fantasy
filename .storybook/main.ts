@@ -10,6 +10,10 @@ const config: StorybookConfig = {
   },
   staticDirs: ["../public"],
   viteFinal(viteConfig) {
+    viteConfig.define = {
+      ...(viteConfig.define || {}),
+      "process.env": "{}",
+    };
     viteConfig.resolve = viteConfig.resolve || {};
     viteConfig.resolve.alias = {
       ...(viteConfig.resolve.alias || {}),

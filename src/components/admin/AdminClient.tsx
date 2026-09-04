@@ -2,22 +2,34 @@
 
 import { useMemo, useState, useEffect } from "react";
 import { groupAdminEvents } from "@/lib/admin-event-groups";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 
 import type { MainTab, SubTab } from "./types";
 import { adminGet } from "./shared";
 
-import EventsTab from "./tabs/EventsTab";
-import FightsTab from "./tabs/FightsTab";
-import ResultsTab from "./tabs/ResultsTab";
-import FightersTab from "./tabs/FightersTab";
-import SyncTab from "./tabs/SyncTab";
-import UsersTab from "./tabs/UsersTab";
-import BadgesTab from "./tabs/BadgesTab";
-import AnalyticsTab from "./tabs/AnalyticsTab";
-import LogsTab from "./tabs/LogsTab";
-import PickAuditTab from "./tabs/PickAuditTab";
+function AdminTabLoading() {
+  return (
+    <div
+      className="flex min-h-48 items-center justify-center border border-[var(--border)] bg-[var(--bg-card)] font-condensed text-xs font-800 uppercase tracking-widest text-[var(--text-muted)]"
+      role="status"
+    >
+      Carregando seção…
+    </div>
+  );
+}
+
+const EventsTab = dynamic(() => import("./tabs/EventsTab"), { loading: AdminTabLoading });
+const FightsTab = dynamic(() => import("./tabs/FightsTab"), { loading: AdminTabLoading });
+const ResultsTab = dynamic(() => import("./tabs/ResultsTab"), { loading: AdminTabLoading });
+const FightersTab = dynamic(() => import("./tabs/FightersTab"), { loading: AdminTabLoading });
+const SyncTab = dynamic(() => import("./tabs/SyncTab"), { loading: AdminTabLoading });
+const UsersTab = dynamic(() => import("./tabs/UsersTab"), { loading: AdminTabLoading });
+const BadgesTab = dynamic(() => import("./tabs/BadgesTab"), { loading: AdminTabLoading });
+const AnalyticsTab = dynamic(() => import("./tabs/AnalyticsTab"), { loading: AdminTabLoading });
+const LogsTab = dynamic(() => import("./tabs/LogsTab"), { loading: AdminTabLoading });
+const PickAuditTab = dynamic(() => import("./tabs/PickAuditTab"), { loading: AdminTabLoading });
 
 export default function AdminClient({
   events,

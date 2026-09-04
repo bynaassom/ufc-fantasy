@@ -4,9 +4,15 @@ const nextConfig = {
     root: process.cwd(),
   },
   images: {
-    // Desabilita o proxy de imagens do Next.js — carrega direto no browser
-    // sem passar pelo servidor (evita 403 em CDNs com proteção de origem)
-    unoptimized: true,
+    remotePatterns: [
+      { protocol: "https", hostname: "ufc.com", port: "", pathname: "/images/**" },
+      { protocol: "https", hostname: "www.ufc.com", port: "", pathname: "/images/**" },
+      { protocol: "https", hostname: "ufc.com.br", port: "", pathname: "/images/**" },
+      { protocol: "https", hostname: "www.ufc.com.br", port: "", pathname: "/images/**" },
+    ],
+    formats: ["image/webp"],
+    qualities: [80],
+    maximumRedirects: 3,
   },
 };
 

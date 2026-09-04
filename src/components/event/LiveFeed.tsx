@@ -4,6 +4,7 @@ import Link from "next/link";
 import { AnimatePresence, m } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { getMethodLabel } from "@/lib/utils";
+import MotionProvider from "@/components/ui/MotionProvider";
 
 interface LiveFighter {
   id: string;
@@ -78,7 +79,7 @@ interface OfficialLiveState {
 }
 
 interface LiveData {
-  status: string;
+  status: "upcoming" | "live" | "completed";
   fights: LiveFight[];
   picks: LivePick[];
   leaderboard?: LiveLeaderboardEntry[];
@@ -122,12 +123,38 @@ function getFightPhaseLabel(fight: OfficialLiveFight) {
   return "A seguir";
 }
 
-export default function LiveFeed({ eventSlug }: { eventSlug: string }) {
+const LIVE_POLL_INTERVAL_MS = 20_000;
+const UPCOMING_POLL_INTERVAL_MS = 60_000;
+const FAR_FUTURE_POLL_INTERVAL_MS = 5 * 60_000;
+const LIVE_WINDOW_MS = 6 * 60 * 60_000;
+
+type LiveFeedProps = {
+  eventSlug: string;
+  initialStatus: "upcoming" | "live" | "completed";
+  eventStartsAt: string;
+};
+
+function getPollInterval(status: string, eventStartsAt: string) {
+  if (status === "live") return LIVE_POLL_INTERVAL_MS;
+  if (status === "upcoming") {
+    const timeUntilStart = new Date(eventStartsAt).getTime() - Date.now();
+    return timeUntilStart > LIVE_WINDOW_MS
+      ? FAR_FUTURE_POLL_INTERVAL_MS
+      : UPCOMING_POLL_INTERVAL_MS;
+  }
+  return LIVE_POLL_INTERVAL_MS;
+}
+
+export default function LiveFeed({
+  eventSlug,
+  initialStatus,
+  eventStartsAt,
+}: LiveFeedProps) {
   const [open, setOpen] = useState(false);
   const [entries, setEntries] = useState<FeedEntry[]>([]);
   const [error, setError] = useState(false);
   const seenIds = useRef(new Set<string>());
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState(initialStatus === "live" ? "live" : "");
   const [leaderboard, setLeaderboard] = useState<LiveLeaderboardEntry[]>([]);
   const [myScore, setMyScore] = useState<LiveData["myScore"]>(null);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
@@ -141,22 +168,39 @@ export default function LiveFeed({ eventSlug }: { eventSlug: string }) {
 
   useEffect(() => {
     let mounted = true;
-    let timeoutId: ReturnType<typeof setTimeout>;
+    let polling = false;
+    let shouldContinue = initialStatus !== "completed";
+    let lastKnownStatus = initialStatus;
+    let pollAfterCurrent = false;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    let controller: AbortController | null = null;
+
+    function scheduleNextPoll(delay: number) {
+      if (!mounted || !shouldContinue || document.hidden) return;
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => void poll(), delay);
+    }
 
     async function poll() {
-      let shouldContinue = true;
+      if (!mounted || polling || document.hidden) return;
+      polling = true;
+      controller = new AbortController();
+
       try {
-        const res = await fetch(`/api/events/${eventSlug}/live`);
+        const res = await fetch(`/api/events/${eventSlug}/live`, {
+          signal: controller.signal,
+        });
         if (!res.ok) throw new Error("fetch failed");
         const json = await res.json();
         if (json.error) throw new Error(json.error);
         const data: LiveData = json.data;
         if (!mounted) return;
-        shouldContinue = data.status !== "completed";
         setError(false);
         setLastUpdatedAt(new Date());
 
         const effectiveStatus = data.officialLiveState?.status || data.status;
+        shouldContinue = effectiveStatus !== "completed";
+        lastKnownStatus = effectiveStatus;
         setStatus(effectiveStatus);
         setOfficialState(data.officialLiveState || null);
         if (data.leaderboard) setLeaderboard(data.leaderboard);
@@ -189,22 +233,63 @@ export default function LiveFeed({ eventSlug }: { eventSlug: string }) {
             setEntries((prev) => [...newEntries.reverse(), ...prev]);
           }
         }
-      } catch {
-        if (mounted) setError(true);
+      } catch (pollError) {
+        if (
+          mounted &&
+          !(pollError instanceof DOMException && pollError.name === "AbortError")
+        ) {
+          setError(true);
+        }
+      } finally {
+        polling = false;
+        controller = null;
       }
 
       if (mounted && shouldContinue) {
-        timeoutId = setTimeout(poll, 20000);
+        const nextDelay = pollAfterCurrent
+          ? 0
+          : getPollInterval(lastKnownStatus, eventStartsAt);
+        pollAfterCurrent = false;
+        scheduleNextPoll(nextDelay);
       }
     }
 
-    poll();
+    function handleVisibilityChange() {
+      if (document.hidden) {
+        if (timeoutId) clearTimeout(timeoutId);
+        timeoutId = undefined;
+        controller?.abort();
+        return;
+      }
+
+      if (!shouldContinue) return;
+      if (polling) {
+        pollAfterCurrent = true;
+      } else {
+        void poll();
+      }
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    const initialPollInterval = getPollInterval(initialStatus, eventStartsAt);
+    if (
+      initialStatus === "upcoming" &&
+      retryNonce === 0 &&
+      initialPollInterval === FAR_FUTURE_POLL_INTERVAL_MS
+    ) {
+      scheduleNextPoll(initialPollInterval);
+    } else {
+      void poll();
+    }
 
     return () => {
       mounted = false;
-      clearTimeout(timeoutId);
+      if (timeoutId) clearTimeout(timeoutId);
+      controller?.abort();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [eventSlug, retryNonce]);
+  }, [eventSlug, eventStartsAt, initialStatus, retryNonce]);
 
   useEffect(() => {
     if (status === "live" && !didAutoOpenRef.current) {
@@ -216,12 +301,13 @@ export default function LiveFeed({ eventSlug }: { eventSlug: string }) {
   if (status !== "live" && entries.length === 0 && !error) return null;
 
   return (
-    <div
-      className="sticky top-0 md:top-14 z-30"
-      style={{
-        borderBottom: open ? "1px solid var(--border)" : "none",
-      }}
-    >
+    <MotionProvider>
+      <div
+        className="sticky top-0 md:top-14 z-30"
+        style={{
+          borderBottom: open ? "1px solid var(--border)" : "none",
+        }}
+      >
       {/* Error banner */}
       {error && (
         <div className="px-4 py-3 text-sm" style={{ backgroundColor: "var(--bg-card)", borderBottom: "1px solid var(--border)" }}>
@@ -551,6 +637,7 @@ export default function LiveFeed({ eventSlug }: { eventSlug: string }) {
           </p>
         </div>
       )}
-    </div>
+      </div>
+    </MotionProvider>
   );
 }

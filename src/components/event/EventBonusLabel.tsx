@@ -1,7 +1,7 @@
 export default function EventBonusLabel({ overlay = false }: { overlay?: boolean }) {
   return (
     <span
-      className="inline-flex items-center border px-2 py-1 font-condensed text-[10px] font-900 uppercase tracking-[0.14em]"
+      className="inline-flex items-center border px-2 py-1 font-condensed text-[11px] font-900 uppercase tracking-[0.14em]"
       style={
         overlay
           ? {

@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { formatDistanceToNow } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { readApiResponse } from "@/lib/api";
+import { formatRelativeTime } from "@/lib/utils";
 import type { NotificationsResponse } from "@/types/api";
 import type { Notification } from "@/types";
 import toast from "react-hot-toast";
@@ -17,6 +16,8 @@ let notificationsCache:
       fetchedAt: number;
     }
   | null = null;
+
+let notificationsRequest: Promise<NotificationsResponse> | null = null;
 
 function readNotificationsCache() {
   if (!notificationsCache) return null;
@@ -31,6 +32,18 @@ function writeNotificationsCache(data: NotificationsResponse) {
     data,
     fetchedAt: Date.now(),
   };
+}
+
+function fetchNotificationsOnce() {
+  if (!notificationsRequest) {
+    notificationsRequest = fetch("/api/me/notifications")
+      .then((response) => readApiResponse<NotificationsResponse>(response))
+      .finally(() => {
+        notificationsRequest = null;
+      });
+  }
+
+  return notificationsRequest;
 }
 
 export default function NotificationBell({
@@ -61,9 +74,7 @@ export default function NotificationBell({
 
     setLoading(true);
     try {
-      const data = await readApiResponse<NotificationsResponse>(
-        await fetch("/api/me/notifications"),
-      );
+      const data = await fetchNotificationsOnce();
       writeNotificationsCache(data);
       setNotifications(data.notifications);
       setUnreadCount(data.unreadCount);
@@ -324,10 +335,7 @@ export default function NotificationBell({
                         {notification.message}
                       </p>
                       <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>
-                        {formatDistanceToNow(new Date(notification.created_at), {
-                          addSuffix: true,
-                          locale: ptBR,
-                        })}
+                        {formatRelativeTime(notification.created_at)}
                       </p>
                     </div>
                   </div>

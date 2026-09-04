@@ -8,6 +8,7 @@ import {
   EventAlertButton,
   EventAlertProvider,
 } from "@/components/event/EventAlertControls";
+import { shouldOptimizeRemoteImage } from "@/lib/image-optimization";
 import { formatEventDate } from "@/lib/utils";
 import { getCompanionEventPageData } from "@/server/services/app";
 
@@ -68,6 +69,8 @@ export default async function CompanionEventPage(props: Params) {
               alt={event.name}
               fill
               priority
+              sizes="100vw"
+              unoptimized={!shouldOptimizeRemoteImage(event.banner_image_url)}
               className="object-cover"
               style={{ objectPosition: event.banner_object_position || "center" }}
             />

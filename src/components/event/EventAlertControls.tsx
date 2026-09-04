@@ -97,14 +97,26 @@ export function EventAlertProvider({ eventSlug, eventName, disabled, publicMode 
   const [preferences, setPreferences] = useState<AlertPreferences>(DEFAULT_PREFERENCES);
 
   useEffect(() => {
+    if (disabled) {
+      return;
+    }
+
     let cancelled = false;
-    fetch(`/api/events/${eventSlug}/alerts`)
+    const controller = new AbortController();
+    fetch(`/api/events/${eventSlug}/alerts`, { signal: controller.signal })
       .then((response) => readApiResponse<AlertState>(response))
       .then((next) => { if (!cancelled) setState(next); })
-      .catch((error) => console.error(error))
+      .catch((error) => {
+        if (!(error instanceof DOMException && error.name === "AbortError")) {
+          console.error(error);
+        }
+      })
       .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [eventSlug]);
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [disabled, eventSlug]);
 
   useEffect(() => {
     if (!target) return;

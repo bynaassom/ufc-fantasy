@@ -1,10 +1,11 @@
 import Image from "next/image";
 import Link from "next/link";
 import BrandLogo from "@/components/ui/BrandLogo";
+import { shouldOptimizeRemoteImage } from "@/lib/image-optimization";
 import { formatEventDate } from "@/lib/utils";
 import { getLandingPageData } from "@/server/services/app";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 30;
 
 function ArrowIcon() {
   return (
@@ -95,6 +96,8 @@ export default async function LandingPage() {
                 alt={currentEvent?.name || "Card atual"}
                 fill
                 priority
+                sizes="(max-width: 1023px) 100vw, 576px"
+                unoptimized={!shouldOptimizeRemoteImage(bannerUrl)}
                 className="object-cover"
                 style={{ objectPosition: currentEvent?.banner_object_position || "center" }}
               />
@@ -166,7 +169,7 @@ export default async function LandingPage() {
                 <span className="text-[var(--text-muted)]">+</span>
                 <div><strong className="block font-condensed text-2xl font-900">+1</strong><span className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Round</span></div>
               </div>
-              <Link href="/register" className="mt-6 inline-flex items-center gap-2 font-condensed text-xs font-900 uppercase tracking-widest text-[var(--red)] hover:underline">
+              <Link href="/register" prefetch={false} className="mt-6 inline-flex items-center gap-2 font-condensed text-xs font-900 uppercase tracking-widest text-[var(--red)] hover:underline">
                 Começar a jogar <ArrowIcon />
               </Link>
             </div>
@@ -197,7 +200,7 @@ export default async function LandingPage() {
                 </div>
               ))}
             </div>
-            <Link href="/companion" className="mt-6 inline-flex items-center gap-2 font-condensed text-xs font-900 uppercase tracking-widest text-[var(--red)] hover:underline">
+            <Link href="/companion" prefetch={false} className="mt-6 inline-flex items-center gap-2 font-condensed text-xs font-900 uppercase tracking-widest text-[var(--red)] hover:underline">
               Ativar meu Companion <ArrowIcon />
             </Link>
           </article>
@@ -224,8 +227,8 @@ export default async function LandingPage() {
             <h2 className="mt-2 font-condensed text-3xl font-900 uppercase leading-none sm:text-4xl">Entre para competir ou só para acompanhar.</h2>
           </div>
           <div className="flex flex-col gap-3 min-[430px]:flex-row">
-            <Link href="/companion" className="min-tap border border-[var(--border)] px-5 font-condensed text-xs font-900 uppercase tracking-widest hover:border-[var(--text-muted)]">Só acompanhar</Link>
-            <Link href="/register" className="min-tap bg-[var(--red)] px-5 font-condensed text-xs font-900 uppercase tracking-widest text-white hover:opacity-90">Criar conta</Link>
+            <Link href="/companion" prefetch={false} className="min-tap border border-[var(--border)] px-5 font-condensed text-xs font-900 uppercase tracking-widest hover:border-[var(--text-muted)]">Só acompanhar</Link>
+            <Link href="/register" prefetch={false} className="min-tap bg-[var(--red)] px-5 font-condensed text-xs font-900 uppercase tracking-widest text-white hover:opacity-90">Criar conta</Link>
           </div>
         </div>
       </section>

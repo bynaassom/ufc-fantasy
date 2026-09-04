@@ -5,12 +5,12 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Dialog, DropdownMenu } from "radix-ui";
-import { createAuthClient } from "@/lib/supabase/client";
 import { Profile } from "@/types";
 import { getDisplayName, getDisplaySubtitle } from "@/lib/utils";
 import NotificationBell from "./NotificationBell";
 import PushNotificationManager from "./PushNotificationManager";
 import ThemeToggle from "@/components/ui/ThemeToggle";
+import { ThemeProvider } from "@/components/ui/ThemeProvider";
 import BrandLogo from "@/components/ui/BrandLogo";
 import PwaInstallButton from "./PwaInstallButton";
 
@@ -35,6 +35,7 @@ export default function Navbar({ profile }: NavbarProps) {
   }, []);
 
   async function handleLogout() {
+    const { createAuthClient } = await import("@/lib/supabase/client");
     const supabase = createAuthClient();
     await supabase.auth.signOut();
     router.push("/");
@@ -61,7 +62,8 @@ export default function Navbar({ profile }: NavbarProps) {
   const logo = <BrandLogo priority />;
 
   return (
-    <Dialog.Root open={moreMenuOpen} onOpenChange={setMoreMenuOpen}>
+    <ThemeProvider>
+      <Dialog.Root open={moreMenuOpen} onOpenChange={setMoreMenuOpen}>
       <PushNotificationManager variant="mobile" />
 
       {/* ── DESKTOP ── */}
@@ -448,6 +450,7 @@ export default function Navbar({ profile }: NavbarProps) {
             <PwaInstallButton />
           </Dialog.Content>
       </Dialog.Portal>
-    </Dialog.Root>
+      </Dialog.Root>
+    </ThemeProvider>
   );
 }

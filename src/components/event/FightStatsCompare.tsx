@@ -43,20 +43,20 @@ function StatBar({
     <div className="space-y-1.5">
       <div className="flex items-center justify-between gap-2">
         <span
-          className="font-condensed font-700 text-sm w-14 text-left"
-          style={{ color: aWins ? "var(--red)" : "var(--text-secondary)" }}
+          className="w-14 text-left font-condensed text-base font-900 tabular-nums"
+          style={{ color: aWins ? "var(--red-text)" : "var(--text-secondary)" }}
         >
           {valA || "--"}
         </span>
         <span
-          className="font-condensed font-600 text-xs uppercase tracking-widest text-center flex-1"
-          style={{ color: "var(--text-muted)", fontSize: "10px" }}
+          className="flex-1 text-center font-condensed text-[11px] font-700 uppercase tracking-[0.12em]"
+          style={{ color: "var(--text-muted)" }}
         >
           {label}
         </span>
         <span
-          className="font-condensed font-700 text-sm w-14 text-right"
-          style={{ color: bWins ? "#3b82f6" : "var(--text-secondary)" }}
+          className="w-14 text-right font-condensed text-base font-900 tabular-nums"
+          style={{ color: bWins ? "var(--blue-text)" : "var(--text-secondary)" }}
         >
           {valB || "--"}
         </span>
@@ -79,7 +79,7 @@ function StatBar({
         <div
           style={{
             width: `${100 - pctA}%`,
-            backgroundColor: bWins ? "#3b82f6" : aWins ? "#4b5563" : "#4b5563",
+            backgroundColor: bWins ? "var(--blue)" : aWins ? "#4b5563" : "#4b5563",
             transition: "width 0.6s ease",
           }}
         />
@@ -103,19 +103,19 @@ function StatRow({
       style={{ borderBottom: "1px solid var(--border-light)" }}
     >
       <span
-        className="font-condensed font-700 text-sm w-20 text-left"
+        className="w-20 text-left font-condensed text-base font-900 tabular-nums"
         style={{ color: "var(--text)" }}
       >
         {valA || "--"}
       </span>
       <span
-        className="font-condensed font-600 text-xs uppercase tracking-widest text-center flex-1"
-        style={{ color: "var(--text-muted)", fontSize: "10px" }}
+        className="flex-1 text-center font-condensed text-[11px] font-700 uppercase tracking-[0.12em]"
+        style={{ color: "var(--text-muted)" }}
       >
         {label}
       </span>
       <span
-        className="font-condensed font-700 text-sm w-20 text-right"
+        className="w-20 text-right font-condensed text-base font-900 tabular-nums"
         style={{ color: "var(--text)" }}
       >
         {valB || "--"}
@@ -148,28 +148,40 @@ export default function FightStatsCompare({
   );
 
   useEffect(() => {
-    if (!open || statsA || loading) return;
+    if (!open || statsA) return;
+    const controller = new AbortController();
+    let cancelled = false;
     setLoading(true);
     setError(false);
     Promise.all([
-      fetch(statsUrlA).then((r) => r.json()),
-      fetch(statsUrlB).then((r) => r.json()),
+      fetch(statsUrlA, { signal: controller.signal }).then((r) => r.json()),
+      fetch(statsUrlB, { signal: controller.signal }).then((r) => r.json()),
     ])
       .then(([a, b]) => {
+        if (cancelled) return;
         if (a.error || b.error) {
           setError(true);
-          setLoading(false);
           return;
         }
         setStatsA(a);
         setStatsB(b);
-        setLoading(false);
       })
-      .catch(() => {
-        setError(true);
-        setLoading(false);
+      .catch((fetchError) => {
+        if (
+          !cancelled &&
+          !(fetchError instanceof DOMException && fetchError.name === "AbortError")
+        ) {
+          setError(true);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
       });
-  }, [open, statsUrlA, statsUrlB, statsA, loading]);
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [open, statsUrlA, statsUrlB, statsA]);
 
   const tabs: { key: typeof activeTab; label: string }[] = [
     { key: "confronto", label: "CONFRONTO" },
@@ -180,25 +192,30 @@ export default function FightStatsCompare({
 
   const lastNameA = nameA.split(" ").pop() || nameA;
   const lastNameB = nameB.split(" ").pop() || nameB;
+  const panelId = `fighter-stats-${slugA}-${slugB}`;
 
   return (
     <div>
       {/* Botão COMPARE */}
       <button
+        type="button"
         onClick={(e) => {
           e.stopPropagation();
           setOpen((o) => !o);
         }}
-        className="w-full flex items-center justify-center gap-2 py-2.5 font-condensed font-700 uppercase tracking-widest transition-all hover:opacity-80"
+        aria-expanded={open}
+        aria-controls={panelId}
+        className="flex min-h-11 w-full items-center justify-center gap-2 py-2.5 font-condensed font-800 uppercase tracking-widest transition-all hover:opacity-80"
         style={{
           fontSize: "11px",
           letterSpacing: "0.08em",
-          color: open ? "var(--red)" : "var(--text-secondary)",
+          color: open ? "var(--red-text)" : "var(--text-secondary)",
           borderTop: "1px solid var(--border)",
           backgroundColor: open ? "rgba(232,0,26,0.04)" : "transparent",
         }}
       >
         <svg
+          aria-hidden="true"
           width="12"
           height="12"
           viewBox="0 0 24 24"
@@ -210,6 +227,7 @@ export default function FightStatsCompare({
         </svg>
         {open ? "FECHAR" : "COMPARAR LUTADORES"}
         <svg
+          aria-hidden="true"
           width="10"
           height="10"
           viewBox="0 0 24 24"
@@ -227,7 +245,7 @@ export default function FightStatsCompare({
 
       {/* Painel expandido — inline, não flutuante */}
       {open && (
-        <div style={{ borderTop: "1px solid var(--border)" }}>
+        <div id={panelId} style={{ borderTop: "1px solid var(--border)" }}>
           {/* Cabeçalho com nomes */}
           <div
             className="grid grid-cols-3 px-4 py-2.5"
@@ -238,19 +256,19 @@ export default function FightStatsCompare({
           >
             <span
               className="font-condensed font-900 text-xs uppercase tracking-wide truncate"
-              style={{ color: "var(--red)" }}
+              style={{ color: "var(--red-text)" }}
             >
               {lastNameA}
             </span>
             <span
-              className="font-condensed font-700 text-xs uppercase tracking-widest text-center"
-              style={{ color: "var(--text-muted)", fontSize: "10px" }}
+              className="text-center font-condensed text-[11px] font-800 uppercase tracking-[0.14em]"
+              style={{ color: "var(--text-muted)" }}
             >
               STATS
             </span>
             <span
               className="font-condensed font-900 text-xs uppercase tracking-wide truncate text-right"
-              style={{ color: "#3b82f6" }}
+              style={{ color: "var(--blue-text)" }}
             >
               {lastNameB}
             </span>
@@ -258,7 +276,7 @@ export default function FightStatsCompare({
 
           {/* Tabs */}
           <div
-            className="flex"
+            className="grid grid-cols-2 sm:grid-cols-4"
             style={{
               borderBottom: "1px solid var(--border)",
               backgroundColor: "var(--bg-card)",
@@ -266,14 +284,14 @@ export default function FightStatsCompare({
           >
             {tabs.map((t) => (
               <button
+                type="button"
                 key={t.key}
                 onClick={(e) => {
                   e.stopPropagation();
                   setActiveTab(t.key);
                 }}
-                className="flex-1 py-2.5 font-condensed font-700 text-center transition-all relative"
+                className="relative min-h-11 px-2 py-2.5 text-center font-condensed text-[11px] font-800 transition-all"
                 style={{
-                  fontSize: "9px",
                   letterSpacing: "0.04em",
                   color:
                     activeTab === t.key ? "var(--text)" : "var(--text-muted)",
@@ -298,8 +316,9 @@ export default function FightStatsCompare({
             style={{ backgroundColor: "var(--bg-card)" }}
           >
             {loading && (
-              <div className="flex items-center justify-center py-8">
+              <div className="flex items-center justify-center py-8" role="status" aria-label="Carregando estatísticas dos lutadores">
                 <svg
+                  aria-hidden="true"
                   className="animate-spin"
                   width="20"
                   height="20"

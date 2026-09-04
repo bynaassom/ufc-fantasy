@@ -4,20 +4,43 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 export default function HorizontalEventRail({ children, label }: { children: React.ReactNode; label: string }) {
   const railRef = useRef<HTMLDivElement>(null);
+  const animationFrameRef = useRef<number | null>(null);
   const [position, setPosition] = useState({ start: true, end: false });
   const update = useCallback(() => {
     const element = railRef.current;
     if (!element) return;
-    setPosition({ start: element.scrollLeft <= 2, end: element.scrollLeft + element.clientWidth >= element.scrollWidth - 2 });
+    const nextPosition = {
+      start: element.scrollLeft <= 2,
+      end: element.scrollLeft + element.clientWidth >= element.scrollWidth - 2,
+    };
+    setPosition((current) =>
+      current.start === nextPosition.start && current.end === nextPosition.end
+        ? current
+        : nextPosition,
+    );
   }, []);
+  const scheduleUpdate = useCallback(() => {
+    if (animationFrameRef.current !== null) return;
+    animationFrameRef.current = window.requestAnimationFrame(() => {
+      animationFrameRef.current = null;
+      update();
+    });
+  }, [update]);
   useEffect(() => {
-    update();
     const element = railRef.current;
     if (!element) return;
-    element.addEventListener("scroll", update, { passive: true });
-    window.addEventListener("resize", update);
-    return () => { element.removeEventListener("scroll", update); window.removeEventListener("resize", update); };
-  }, [update]);
+    scheduleUpdate();
+    element.addEventListener("scroll", scheduleUpdate, { passive: true });
+    const resizeObserver = new ResizeObserver(scheduleUpdate);
+    resizeObserver.observe(element);
+    return () => {
+      element.removeEventListener("scroll", scheduleUpdate);
+      resizeObserver.disconnect();
+      if (animationFrameRef.current !== null) {
+        window.cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [scheduleUpdate]);
   const scroll = (direction: number) => {
     const element = railRef.current;
     if (!element) return;

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { m } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
 import { getPlayerLevel } from "@/lib/player-levels";
+import MotionProvider from "@/components/ui/MotionProvider";
 
 export type AnimatedRankingRow = {
   rank: number;
@@ -87,7 +88,7 @@ export default function AnimatedRankingTable({
   const myMovement = rows.find((entry) => entry.userId === currentUserId)?.movement || 0;
 
   return (
-    <>
+    <MotionProvider>
       <p className="sr-only" aria-live="polite">
         {settled && myMovement !== 0
           ? `Ranking atualizado. Você ${myMovement > 0 ? "subiu" : "desceu"} ${Math.abs(myMovement)} ${Math.abs(myMovement) === 1 ? "posição" : "posições"}.`
@@ -193,6 +194,6 @@ export default function AnimatedRankingTable({
           );
         })}
       </div>
-    </>
+    </MotionProvider>
   );
 }

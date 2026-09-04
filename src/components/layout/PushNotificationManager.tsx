@@ -13,6 +13,9 @@ import type {
   VapidPublicKeyResponse,
 } from "@/types/api";
 
+let vapidConfigurationRequest: Promise<VapidPublicKeyResponse> | null = null;
+let subscriptionSyncRequest: Promise<PushSubscription> | null = null;
+
 function isPushSupported() {
   return (
     typeof window !== "undefined" &&
@@ -82,6 +85,34 @@ async function getOrCreateSubscription(publicKey: string) {
   });
 }
 
+function getVapidConfiguration() {
+  if (!vapidConfigurationRequest) {
+    vapidConfigurationRequest = fetch("/api/push/vapid-public-key").then(
+      (response) => readApiResponse<VapidPublicKeyResponse>(response),
+    ).catch((error) => {
+      vapidConfigurationRequest = null;
+      throw error;
+    });
+  }
+
+  return vapidConfigurationRequest;
+}
+
+function syncSubscription(publicKey: string) {
+  if (!subscriptionSyncRequest) {
+    subscriptionSyncRequest = getOrCreateSubscription(publicKey)
+      .then(async (subscription) => {
+        await saveSubscription(subscription);
+        return subscription;
+      })
+      .finally(() => {
+        subscriptionSyncRequest = null;
+      });
+  }
+
+  return subscriptionSyncRequest;
+}
+
 export default function PushNotificationManager({
   variant = "desktop",
 }: {
@@ -108,8 +139,7 @@ export default function PushNotificationManager({
       setPromptOpen(false);
       if (nextPermission !== "granted") return;
 
-      const subscription = await getOrCreateSubscription(publicKey);
-      await saveSubscription(subscription);
+      await syncSubscription(publicKey);
       setSubscribed(true);
     },
     [publicKey],
@@ -125,16 +155,13 @@ export default function PushNotificationManager({
 
     async function boot() {
       try {
-        const data = await readApiResponse<VapidPublicKeyResponse>(
-          await fetch("/api/push/vapid-public-key"),
-        );
+        const data = await getVapidConfiguration();
         if (cancelled || !data.enabled || !data.publicKey) return;
 
         setPublicKey(data.publicKey);
 
         if (supported && getPushPermission() === "granted") {
-          const subscription = await getOrCreateSubscription(data.publicKey);
-          await saveSubscription(subscription);
+          await syncSubscription(data.publicKey);
           if (!cancelled) setSubscribed(true);
         }
       } catch (error) {

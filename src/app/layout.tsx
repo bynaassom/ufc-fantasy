@@ -2,8 +2,6 @@ import type { Metadata, Viewport } from "next";
 import { Saira_Condensed } from "next/font/google";
 import { Toaster } from "react-hot-toast";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
-import { ThemeProvider } from "@/components/ui/ThemeProvider";
-import MotionProvider from "@/components/ui/MotionProvider";
 import PwaManager from "@/components/layout/PwaManager";
 import "./globals.css";
 
@@ -11,6 +9,7 @@ const sairaCondensed = Saira_Condensed({
   weight: ["400", "500", "600", "700", "800", "900"],
   subsets: ["latin"],
   display: "swap",
+  preload: false,
   variable: "--font-saira-condensed",
 });
 
@@ -70,15 +69,11 @@ export default function RootLayout({
         <a href="#app-content" className="skip-link">
           Pular para o conteúdo
         </a>
-        <ThemeProvider>
-          <MotionProvider>
-            <ErrorBoundary>
-              <div id="app-content" tabIndex={-1}>
-                {children}
-              </div>
-            </ErrorBoundary>
-          </MotionProvider>
-        </ThemeProvider>
+        <ErrorBoundary>
+          <div id="app-content" tabIndex={-1}>
+            {children}
+          </div>
+        </ErrorBoundary>
         <Toaster
           position="top-center"
           toastOptions={{

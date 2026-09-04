@@ -60,6 +60,46 @@ function isPendingPick(value: unknown): value is PendingPick {
   );
 }
 
+function CardSectionHeading({
+  title,
+  count,
+  index,
+  headingId,
+  primary = false,
+}: {
+  title: string;
+  count: number;
+  index: string;
+  headingId: string;
+  primary?: boolean;
+}) {
+  return (
+    <div className="mb-4 flex items-end justify-between gap-4 border-b border-[var(--border)] pb-3">
+      <div className="flex min-w-0 items-end gap-3">
+        <span
+          aria-hidden="true"
+          className={`font-condensed text-4xl font-900 leading-[0.75] ${
+            primary ? "text-[var(--red)]" : "text-[var(--border)]"
+          }`}
+        >
+          {index}
+        </span>
+        <div className="min-w-0">
+          <p className="font-condensed text-[11px] font-800 uppercase tracking-[0.2em] text-[var(--text-muted)]">
+            Fight night
+          </p>
+          <h2 id={headingId} className="font-condensed text-2xl font-900 uppercase leading-none tracking-[-0.02em] text-[var(--text)] sm:text-3xl">
+            {title}
+          </h2>
+        </div>
+      </div>
+      <span className="shrink-0 pb-0.5 font-condensed text-[11px] font-800 uppercase tracking-[0.14em] text-[var(--text-muted)]">
+        {count} {count === 1 ? "luta" : "lutas"}
+      </span>
+    </div>
+  );
+}
+
 export default function EventPicksClient({
   event,
   existingPicks,
@@ -335,32 +375,26 @@ export default function EventPicksClient({
     <div>
       {/* Progress indicator */}
       {!locked && (
-        <div
-          className="mb-6 flex flex-col items-start gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
-          style={{
-            backgroundColor: "var(--bg-card)",
-            border: "1px solid var(--border)",
-          }}
-        >
-          <div>
-            <p className="text-sm font-bold" style={{ color: "var(--text)" }}>
-              {pickedFights}/{totalFights} lutas com pick
-            </p>
-            <div
-              className="mt-2 h-1.5 w-48 max-w-full rounded-full overflow-hidden"
-              style={{ backgroundColor: "var(--border)" }}
-            >
-              <div
-                className="h-full rounded-full transition-all duration-500"
-                style={{
-                  backgroundColor: "var(--red)",
-                  width: `${totalFights > 0 ? (pickedFights / totalFights) * 100 : 0}%`,
-                }}
-              />
+        <aside className="event-picks-scorebug mb-8 border border-[var(--border)] bg-[var(--bg-card)]">
+          <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <div className="min-w-0">
+              <p className="font-condensed text-[11px] font-900 uppercase tracking-[0.2em] text-[var(--red-text)]">
+                Seu card
+              </p>
+              <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                <strong className="font-condensed text-4xl font-900 leading-none tabular-nums text-[var(--text)]">
+                  {pickedFights}
+                </strong>
+                <span className="font-condensed text-xl font-700 text-[var(--text-muted)]">
+                  / {totalFights}
+                </span>
+                <span className="font-condensed text-xs font-800 uppercase tracking-[0.12em] text-[var(--text-secondary)]">
+                  picks completos
+                </span>
+              </div>
             </div>
-          </div>
           <div
-            className="flex items-center gap-2 text-xs font-semibold"
+            className="flex min-h-11 items-center gap-2 font-condensed text-xs font-800 uppercase tracking-[0.1em]"
             aria-live="polite"
             role={saveStatus === "error" ? "alert" : "status"}
             style={{
@@ -413,29 +447,23 @@ export default function EventPicksClient({
               </button>
             )}
           </div>
-        </div>
+          </div>
+          <div className="h-1.5 overflow-hidden bg-[var(--border)]">
+            <div
+              className="h-full bg-[var(--red)] transition-[width] duration-500"
+              style={{
+                width: `${totalFights > 0 ? (pickedFights / totalFights) * 100 : 0}%`,
+              }}
+            />
+          </div>
+        </aside>
       )}
 
       {/* Main Card */}
       {mainCard.length > 0 && (
-        <section className="mb-8">
-          <div className="flex items-center gap-3 mb-4">
-            <div
-              className="h-px flex-1"
-              style={{ backgroundColor: "var(--border)" }}
-            />
-            <h2
-              className="text-sm font-black uppercase tracking-widest px-3 py-1"
-              style={{ backgroundColor: "var(--red)", color: "white" }}
-            >
-              Card Principal
-            </h2>
-            <div
-              className="h-px flex-1"
-              style={{ backgroundColor: "var(--border)" }}
-            />
-          </div>
-          <div className="space-y-4">
+        <section className="mb-12" aria-labelledby="main-card-heading">
+          <CardSectionHeading title="Card principal" count={mainCard.length} index="01" headingId="main-card-heading" primary />
+          <div className="space-y-5">
             {mainCard.map((fight) => (
               <div key={fight.id} id={`fight-${fight.id}`} className="scroll-mt-20">
                 <FightCard
@@ -453,28 +481,9 @@ export default function EventPicksClient({
 
       {/* Prelim Card */}
       {prelimCard.length > 0 && (
-        <section className="mb-8">
-          <div className="flex items-center gap-3 mb-4">
-            <div
-              className="h-px flex-1"
-              style={{ backgroundColor: "var(--border)" }}
-            />
-            <h2
-              className="text-sm font-black uppercase tracking-widest px-3 py-1"
-              style={{
-                backgroundColor: "var(--bg-card)",
-                color: "var(--text)",
-                border: "1px solid var(--border)",
-              }}
-            >
-              Card Preliminar
-            </h2>
-            <div
-              className="h-px flex-1"
-              style={{ backgroundColor: "var(--border)" }}
-            />
-          </div>
-          <div className="space-y-4">
+        <section className="mb-12" aria-labelledby="prelim-card-heading">
+          <CardSectionHeading title="Card preliminar" count={prelimCard.length} index="02" headingId="prelim-card-heading" />
+          <div className="space-y-5">
             {prelimCard.map((fight) => (
               <div key={fight.id} id={`fight-${fight.id}`} className="scroll-mt-20">
                 <FightCard
