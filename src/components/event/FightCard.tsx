@@ -331,7 +331,7 @@ export default function FightCard({
                       fighter.headshot_url || getFallbackHeadshot(fighter.name),
                     )
                   }
-                  className={`${hasHeadshot ? "object-contain object-bottom" : "object-cover object-center"} transition-opacity duration-300`}
+                  className={`${hasHeadshot ? "object-cover object-top" : "object-cover object-center"} transition-opacity duration-300`}
                   onLoad={() =>
                     setLoadedHeadshots((current) => ({
                       ...current,

@@ -20,6 +20,17 @@ function portraitData(accent: string, label: string) {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
+function fullBodyData(accent: string, label: string) {
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 185 691">
+      <circle cx="92.5" cy="54" r="40" fill="#c7c7c7"/>
+      <path d="M24 252c4-108 30-158 68.5-158S157 144 161 252" fill="#b8b8b8"/>
+      <path d="M52 240h81l17 260h-42l-15.5-190L77 500H35z" fill="${accent}" opacity=".45"/>
+      <text x="92.5" y="228" text-anchor="middle" fill="white" font-family="Arial" font-size="13" font-weight="700">${label}</text>
+    </svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
 const timestamp = "2026-09-04T00:00:00.000Z";
 
 const titleFight: FightWithFighters = {
@@ -39,7 +50,7 @@ const titleFight: FightWithFighters = {
     id: "fighter-red",
     name: "Rafael Almeida",
     country: "Brasil",
-    headshot_url: portraitData("#e8001a", "ALMEIDA"),
+    headshot_url: fullBodyData("#e8001a", "ALMEIDA"),
     created_at: timestamp,
     updated_at: timestamp,
   },
