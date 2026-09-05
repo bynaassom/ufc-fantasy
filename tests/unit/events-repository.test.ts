@@ -1,4 +1,5 @@
 import {
+  deleteEvent,
   findEventBySlugWithFights,
   getCurrentPublicEvent,
 } from "@/server/repositories/events";
@@ -36,5 +37,22 @@ describe("events repository", () => {
     await getCurrentPublicEvent(client);
 
     expect(query.eq).toHaveBeenCalledWith("is_bonus", false);
+  });
+
+  it("deletes an event through the privileged cascade operation", async () => {
+    const rpc = vi.fn(async () => ({ data: true, error: null }));
+
+    await deleteEvent({ rpc } as any, "event-1");
+
+    expect(rpc).toHaveBeenCalledWith("delete_event_cascade", {
+      p_event_id: "event-1",
+    });
+  });
+
+  it("surfaces a failed privileged cascade operation", async () => {
+    const error = { code: "P0001", message: "cascade failed" };
+    const rpc = vi.fn(async () => ({ data: null, error }));
+
+    await expect(deleteEvent({ rpc } as any, "event-1")).rejects.toBe(error);
   });
 });

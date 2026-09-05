@@ -222,6 +222,9 @@ export async function updateEvent(
 }
 
 export async function deleteEvent(client: DbClient, eventId: string) {
-  const { error } = await client.from("events").delete().eq("id", eventId);
+  const { data: deleted, error } = await client.rpc("delete_event_cascade", {
+    p_event_id: eventId,
+  });
   if (error) throw error;
+  if (deleted !== true) throw new Error("Evento não encontrado.");
 }
