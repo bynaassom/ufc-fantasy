@@ -534,7 +534,7 @@ function OperacoesFotos() {
               onChange={(e) => setOnlyMissing(e.target.checked)}
             />
             <span className="text-xs uppercase tracking-widest">
-              Só fighters sem foto
+              Só fighters sem foto ou com baixa qualidade
             </span>
           </label>
         </div>

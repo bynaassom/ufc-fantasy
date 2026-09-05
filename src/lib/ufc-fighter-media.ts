@@ -19,6 +19,80 @@ export function isUsableHeadshotUrl(value?: string | null) {
   return /^https?:\/\/.+\.(png|webp|jpg|jpeg)(\?.*)?$/i.test(normalized);
 }
 
+export function getUfcHeadshotQualityScore(value?: string | null) {
+  if (!isUsableHeadshotUrl(value)) return -1;
+
+  try {
+    const url = new URL(value!.trim());
+    const path = url.pathname.toLowerCase();
+    const isUfcMedia = url.hostname === "ufc.com" || url.hostname.endsWith(".ufc.com");
+
+    if (!isUfcMedia) return 50;
+    if (path.includes("/styles/event_fight_card_upper_body")) return 20;
+    if (path.includes("/styles/athlete_splash/")) return 60;
+    if (path.includes("/styles/athlete_bio_full_body/")) return 70;
+    if (path.includes("/styles/event_results_athlete_headshot/")) return 80;
+    if (path.includes("/styles/inline/")) return 90;
+    if (path.includes("/images/") && !path.includes("/images/styles/")) return 100;
+    return 50;
+  } catch {
+    return -1;
+  }
+}
+
+export function isLowQualityHeadshotUrl(value?: string | null) {
+  const score = getUfcHeadshotQualityScore(value);
+  return score >= 0 && score <= 20;
+}
+
+export function selectPreferredHeadshotUrl(
+  ...values: Array<string | null | undefined>
+) {
+  let preferred = "";
+  let preferredScore = -1;
+
+  for (const value of values) {
+    const score = getUfcHeadshotQualityScore(value);
+    if (score > preferredScore) {
+      preferred = value?.trim() || "";
+      preferredScore = score;
+    }
+  }
+
+  return preferred;
+}
+
+export function isLikelyMismatchedUfcHeadshot(
+  value: string | null | undefined,
+  fighterName: string,
+) {
+  if (!isUsableHeadshotUrl(value)) return false;
+
+  try {
+    const url = new URL(value!.trim());
+    if (url.hostname !== "ufc.com" && !url.hostname.endsWith(".ufc.com")) {
+      return false;
+    }
+
+    const filename = decodeURIComponent(url.pathname.split("/").pop() || "")
+      .replace(/\.(png|webp|jpg|jpeg)$/i, "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-");
+    const nameTokens = fighterName
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .split(/[^a-z0-9]+/)
+      .filter((token) => token.length >= 3);
+
+    return nameTokens.length > 0 && !nameTokens.some((token) => filename.includes(token));
+  } catch {
+    return false;
+  }
+}
+
 function toSlug(name: string) {
   return name
     .toLowerCase()
@@ -87,20 +161,7 @@ function extractHeadshotUrl(html: string, base: string) {
     .map((candidate) => candidate.trim())
     .filter(Boolean);
 
-  const ranked = normalized.sort((left, right) => {
-    const score = (value: string) => {
-      let total = 0;
-      if (value.includes("athlete_bio_full_body")) total += 4;
-      if (value.includes("athlete_splash")) total += 3;
-      if (value.includes("event_fight_card_upper_body")) total += 2;
-      if (/\.(png|webp|jpg|jpeg)(\?|$)/i.test(value)) total += 1;
-      return total;
-    };
-
-    return score(right) - score(left);
-  });
-
-  return ranked[0] || "";
+  return selectPreferredHeadshotUrl(...normalized);
 }
 
 function extractHeadshotCandidates(htmlBlock: string, base: string) {
@@ -261,8 +322,12 @@ export function generateFighterSlugCandidates(name: string) {
 export async function resolveUfcFighterMedia(
   name: string,
   totalTimeoutMs = 10_000,
+  preferredSlug?: string,
 ): Promise<FighterMediaResult | null> {
-  const slugs = generateFighterSlugCandidates(name);
+  const slugs = unique([
+    ...(preferredSlug ? [preferredSlug] : []),
+    ...generateFighterSlugCandidates(name),
+  ]);
   const deadline = Date.now() + Math.max(1, totalTimeoutMs);
 
   for (const slug of slugs) {

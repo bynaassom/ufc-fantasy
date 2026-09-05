@@ -10,6 +10,10 @@ import {
 } from "@/lib/ufc-card-sync";
 
 describe("ufc-card-sync", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("uses the UFC API as the primary source for card metadata", () => {
     const scrapedFight: ScrapedCardFight = {
       fmid: "12772",
@@ -437,7 +441,7 @@ describe("ufc-card-sync", () => {
               data: {
                 id: "delphine-id",
                 headshot_url:
-                  "https://ufc.com/images/styles/event_fight_card_upper_body_of_standing_athlete/s3/MONTENEGRO_SOFIA_R.png",
+                  "https://ufc.com/images/2026-09/MONTENEGRO_SOFIA_R.png",
                 country: "Argentina",
               },
               error: null,
@@ -448,7 +452,7 @@ describe("ufc-card-sync", () => {
       }),
     };
     const correctHeadshot =
-      "https://ufc.com/images/styles/event_fight_card_upper_body_of_standing_athlete/s3/2026-09/BENOUAICH_DELPHINE_L_09-05.png?itok=test";
+      "https://ufc.com/images/2026-09/BENOUAICH_DELPHINE_L_09-05.png";
 
     await expect(
       ensureFighter(adminSupabase, {
@@ -462,6 +466,93 @@ describe("ufc-card-sync", () => {
       country: "França",
       headshot_url: correctHeadshot,
     });
+  });
+
+  it("upgrades a low-resolution card image from the athlete page", async () => {
+    const lowResolution =
+      "https://ufc.com/images/styles/event_fight_card_upper_body_of_standing_athlete/s3/2025-03/SPANN_RYAN_R.png";
+    const original = "https://ufc.com/images/2026-09/SPANN_RYAN_09-05.png";
+    const update = vi.fn().mockReturnValue({
+      eq: vi.fn().mockResolvedValue({ error: null }),
+    });
+    const adminSupabase = {
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: {
+                id: "ryan-id",
+                name: "Ryan Spann",
+                slug: "ryan-spann",
+                headshot_url: lowResolution,
+                country: "Estados Unidos",
+              },
+              error: null,
+            }),
+          }),
+        }),
+        update,
+      }),
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        text: async () => `<meta property="og:image" content="${original}" />`,
+      }),
+    );
+
+    await expect(
+      ensureFighter(adminSupabase, {
+        name: "Ryan Spann",
+        slug: "ryan-spann",
+        country: "Estados Unidos",
+        headshot_url: lowResolution,
+      }),
+    ).resolves.toBe("ryan-id");
+
+    expect(update).toHaveBeenCalledWith({ headshot_url: original });
+  });
+
+  it("does not replace a good headshot with a fight-card thumbnail", async () => {
+    const highResolution =
+      "https://ufc.com/images/styles/inline/s3/2025-10/PINTO_MARIO.png";
+    const update = vi.fn().mockReturnValue({
+      eq: vi.fn().mockResolvedValue({ error: null }),
+    });
+    const adminSupabase = {
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: {
+                id: "mario-id",
+                name: "Mario Pinto",
+                slug: null,
+                headshot_url: highResolution,
+                country: "Portugal",
+              },
+              error: null,
+            }),
+          }),
+        }),
+        update,
+      }),
+    };
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      ensureFighter(adminSupabase, {
+        name: "Mario Pinto",
+        country: "Portugal",
+        headshot_url:
+          "https://ufc.com/images/styles/event_fight_card_upper_body_of_standing_athlete/s3/2026-09/PINTO_MARIO_L.png",
+      }),
+    ).resolves.toBe("mario-id");
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
   });
 
   it("uses the official UFC slug to reuse an existing fighter", async () => {

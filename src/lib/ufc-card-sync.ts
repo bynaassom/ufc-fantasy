@@ -8,8 +8,12 @@ import {
 import { namesMatch } from "@/lib/ufc-results-sync";
 import {
   extractEventCardHeadshots,
+  getUfcHeadshotQualityScore,
+  isLikelyMismatchedUfcHeadshot,
+  isLowQualityHeadshotUrl,
   isUsableHeadshotUrl,
   resolveUfcFighterMedia,
+  selectPreferredHeadshotUrl,
 } from "@/lib/ufc-fighter-media";
 import { extractWeightClassFromHtmlBlock } from "@/lib/ufc-weight";
 
@@ -1036,22 +1040,6 @@ export async function ensureFighter(adminSupabase: any, fighter: ScrapedCardFigh
   if (candidate.slug && !getValidatedAthleteSlug({ name: candidate.name, slug: candidate.slug })) {
     candidate.slug = undefined;
   }
-  if (!isUsableHeadshotUrl(candidate.headshot_url) || !candidate.country) {
-    const resolved = await resolveUfcFighterMedia(candidate.name);
-    if (resolved) {
-      candidate = {
-        ...candidate,
-        headshot_url: isUsableHeadshotUrl(candidate.headshot_url)
-          ? candidate.headshot_url
-          : resolved.headshot_url,
-        country: candidate.country || resolved.country,
-        slug:
-          candidate.slug ||
-          getValidatedAthleteSlug({ name: candidate.name, slug: resolved.slug }) ||
-          undefined,
-      };
-    }
-  }
 
   let existing = null;
 
@@ -1081,15 +1069,68 @@ export async function ensureFighter(adminSupabase: any, fighter: ScrapedCardFigh
     existing = data;
   }
 
+  const bestKnownHeadshot = selectPreferredHeadshotUrl(
+    existing?.headshot_url,
+    candidate.headshot_url,
+  );
+  const existingHeadshotMismatch = isLikelyMismatchedUfcHeadshot(
+    existing?.headshot_url,
+    candidate.name,
+  );
+  const candidateHeadshotMismatch = isLikelyMismatchedUfcHeadshot(
+    candidate.headshot_url,
+    candidate.name,
+  );
+  const shouldResolveMedia =
+    !bestKnownHeadshot ||
+    isLowQualityHeadshotUrl(bestKnownHeadshot) ||
+    (!candidate.country && !existing?.country) ||
+    (existingHeadshotMismatch &&
+      (candidateHeadshotMismatch ||
+        getUfcHeadshotQualityScore(candidate.headshot_url) < 90));
+
+  if (shouldResolveMedia) {
+    const resolved = await resolveUfcFighterMedia(
+      candidate.name,
+      10_000,
+      candidate.slug,
+    );
+    if (resolved) {
+      candidate = {
+        ...candidate,
+        headshot_url: selectPreferredHeadshotUrl(
+          resolved.headshot_url,
+          candidate.headshot_url,
+        ),
+        country: candidate.country || resolved.country,
+        slug:
+          candidate.slug ||
+          getValidatedAthleteSlug({ name: candidate.name, slug: resolved.slug }) ||
+          undefined,
+      };
+    }
+  }
+
   if (existing) {
     const update: Record<string, unknown> = {};
     if (candidate.slug && !existing.slug) {
       update.slug = candidate.slug;
     }
-    if (
-      isUsableHeadshotUrl(candidate.headshot_url) &&
-      existing.headshot_url !== candidate.headshot_url
-    ) {
+    const candidateIsUsable = isUsableHeadshotUrl(candidate.headshot_url);
+    const candidateIsMismatch = isLikelyMismatchedUfcHeadshot(
+      candidate.headshot_url,
+      candidate.name,
+    );
+    const shouldReplaceHeadshot =
+      candidateIsUsable &&
+      !candidateIsMismatch &&
+      existing.headshot_url !== candidate.headshot_url &&
+      (!isUsableHeadshotUrl(existing.headshot_url) ||
+        existingHeadshotMismatch ||
+        getUfcHeadshotQualityScore(candidate.headshot_url) >
+          getUfcHeadshotQualityScore(existing.headshot_url));
+
+    if (shouldReplaceHeadshot) {
       update.headshot_url = candidate.headshot_url;
     }
     if (candidate.country && existing.country !== candidate.country) {

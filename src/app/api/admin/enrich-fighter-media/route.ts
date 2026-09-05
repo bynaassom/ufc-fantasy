@@ -3,8 +3,10 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import {
+  isLowQualityHeadshotUrl,
   isUsableHeadshotUrl,
   resolveUfcFighterMedia,
+  selectPreferredHeadshotUrl,
 } from "@/lib/ufc-fighter-media";
 import { logAdminAction } from "@/lib/admin-audit";
 import { assertSameOriginForMutation } from "@/server/api";
@@ -46,7 +48,7 @@ export async function POST(req: NextRequest) {
 
   const { data: fighters, error } = await auth.adminSupabase
     .from("fighters")
-    .select("id, name, headshot_url, country")
+    .select("id, name, slug, headshot_url, country")
     .order("name", { ascending: true });
 
   if (error) {
@@ -56,7 +58,8 @@ export async function POST(req: NextRequest) {
   const targets = (fighters || [])
     .filter((fighter: any) =>
       onlyMissing
-        ? !isUsableHeadshotUrl(fighter.headshot_url)
+        ? !isUsableHeadshotUrl(fighter.headshot_url) ||
+          isLowQualityHeadshotUrl(fighter.headshot_url)
         : true,
     )
     .slice(0, limit);
@@ -67,15 +70,24 @@ export async function POST(req: NextRequest) {
 
   for (const fighter of targets) {
     try {
-      const resolved = await resolveUfcFighterMedia(fighter.name);
+      const resolved = await resolveUfcFighterMedia(
+        fighter.name,
+        10_000,
+        fighter.slug || undefined,
+      );
       if (!resolved?.headshot_url) {
         notFound.push(fighter.name);
         continue;
       }
 
+      const preferredHeadshot = selectPreferredHeadshotUrl(
+        resolved.headshot_url,
+        fighter.headshot_url,
+      );
+
       if (!dryRun) {
         const payload: Record<string, unknown> = {
-          headshot_url: resolved.headshot_url,
+          headshot_url: preferredHeadshot,
         };
         if (!fighter.country && resolved.country) {
           payload.country = resolved.country;
