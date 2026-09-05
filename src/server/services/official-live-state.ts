@@ -7,6 +7,7 @@ import {
   type UfcLiveCardFight,
   type UfcLiveEvent,
 } from "@/lib/ufc-live-api";
+import { namesMatch } from "@/lib/ufc-results-sync";
 import { isAllowedScrapeUrl } from "@/lib/security";
 
 const ACTIVE_PHASES = new Set<UfcFightLivePhase>([
@@ -42,6 +43,20 @@ function normalizeName(value: string) {
 
 function matchupKey(fighterA: string, fighterB: string) {
   return [normalizeName(fighterA), normalizeName(fighterB)].sort().join(":");
+}
+
+function matchupNamesMatch(
+  officialFight: UfcLiveCardFight,
+  localFight: Pick<FightWithFighters, "fighter_a" | "fighter_b">,
+) {
+  const sameCorners =
+    namesMatch(officialFight.fighterA.name, localFight.fighter_a.name) &&
+    namesMatch(officialFight.fighterB.name, localFight.fighter_b.name);
+  const swappedCorners =
+    namesMatch(officialFight.fighterA.name, localFight.fighter_b.name) &&
+    namesMatch(officialFight.fighterB.name, localFight.fighter_a.name);
+
+  return sameCorners || swappedCorners;
 }
 
 function numericEventId(value?: string | null) {
@@ -98,19 +113,58 @@ function mapOfficialFights(
     Pick<FightWithFighters, "id" | "fighter_a" | "fighter_b">
   >,
 ) {
-  const localByMatchup = new Map(
-    localFights.map((fight) => [
-      matchupKey(fight.fighter_a.name, fight.fighter_b.name),
-      fight.id,
-    ]),
+  const remainingLocalFights = new Map(
+    localFights.map((fight) => [fight.id, fight]),
   );
+  const matchedLocalIds = new Map<number, string>();
+
+  const claimUniqueMatch = (
+    officialIndex: number,
+    predicate: (
+      localFight: Pick<
+        FightWithFighters,
+        "id" | "fighter_a" | "fighter_b"
+      >,
+    ) => boolean,
+  ) => {
+    const candidates = Array.from(remainingLocalFights.values()).filter(
+      predicate,
+    );
+    if (candidates.length !== 1) return;
+
+    const [candidate] = candidates;
+    matchedLocalIds.set(officialIndex, candidate.id);
+    remainingLocalFights.delete(candidate.id);
+  };
+
+  // Resolve exact pairs first so a fuzzy match can never consume a fight that
+  // has an unambiguous official/local name match elsewhere on the card.
+  officialFights.forEach((officialFight, officialIndex) => {
+    const officialKey = matchupKey(
+      officialFight.fighterA.name,
+      officialFight.fighterB.name,
+    );
+    claimUniqueMatch(
+      officialIndex,
+      (localFight) =>
+        matchupKey(localFight.fighter_a.name, localFight.fighter_b.name) ===
+        officialKey,
+    );
+  });
+
+  // UFC feeds occasionally omit middle names or suffixes. Accept a tolerant
+  // fallback only when the whole matchup identifies one remaining local fight.
+  officialFights.forEach((officialFight, officialIndex) => {
+    if (matchedLocalIds.has(officialIndex)) return;
+    claimUniqueMatch(officialIndex, (localFight) =>
+      matchupNamesMatch(officialFight, localFight),
+    );
+  });
 
   return officialFights
-    .map((fight) => ({
+    .map((fight, officialIndex) => ({
       ...fight,
-      localFightId:
-        localByMatchup.get(matchupKey(fight.fighterA.name, fight.fighterB.name)) ||
-        null,
+      localFightId: matchedLocalIds.get(officialIndex) || null,
     }))
     .sort((a, b) => b.fightOrder - a.fightOrder);
 }
