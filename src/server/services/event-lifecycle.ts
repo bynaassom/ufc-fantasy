@@ -27,10 +27,14 @@ export async function finalizeStaleEvents(client: DbClient, now = new Date()) {
 }
 
 export async function promoteDueEventsToLive(client: DbClient, now = new Date()) {
+  const activeLiveCutoff = new Date(
+    now.getTime() - EVENT_AUTO_END_HOURS_AFTER_MAIN_CARD * 60 * 60_000,
+  ).toISOString();
   const { data: existingLive, error: liveError } = await client
     .from("events")
     .select("id")
     .eq("status", "live")
+    .gte("event_date", activeLiveCutoff)
     .limit(1)
     .maybeSingle();
   if (liveError) throw new Error(liveError.message);
