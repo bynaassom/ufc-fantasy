@@ -19,7 +19,6 @@ async function dispatch(request: NextRequest) {
   const syncSecret = process.env.SYNC_SECRET!;
   const startedAt = new Date().toISOString();
   const adminSupabase = await getAdminSupabase();
-  await tryRecordAutomationHealth(adminSupabase, "results", "running", startedAt);
 
   try {
     const result = await runResultSupervisor(adminSupabase, {

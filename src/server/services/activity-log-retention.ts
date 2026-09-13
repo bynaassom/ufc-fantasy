@@ -1,6 +1,6 @@
 import type { AdminSupabaseClient } from "@/server/supabase";
 
-export const OPERATIONAL_LOG_RETENTION_DAYS = 60;
+export const OPERATIONAL_LOG_RETENTION_DAYS = 7;
 
 export type OperationalLogPruneResult = {
   retentionDays: number;
