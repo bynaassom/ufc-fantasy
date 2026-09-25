@@ -28,13 +28,11 @@ function FighterVisual({ fighter, corner }: { fighter: HomeFighter; corner: Corn
       />
       <div className="absolute inset-x-0 bottom-0 h-[45%] bg-gradient-to-t from-black via-black/55 to-transparent" />
 
-      {fighter.imageUrl && (
-        <FighterHeadshotMedia
-          imageUrl={fighter.imageUrl}
-          fighterName={fighter.name}
-          corner={corner}
-        />
-      )}
+      <FighterHeadshotMedia
+        imageUrl={fighter.imageUrl}
+        fighterName={fighter.name}
+        corner={corner}
+      />
 
       <div
         className={`absolute inset-x-3 bottom-3 z-10 sm:inset-x-6 sm:bottom-5 ${

@@ -88,13 +88,8 @@ export function getMethodLabel(method: string): string {
 }
 
 export function getFallbackHeadshot(name: string): string {
-  const initials = name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-  return `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=1a1a1a&color=EF4444&size=200&bold=true`;
+  void name;
+  return "/fighter-placeholder.svg";
 }
 
 // Retorna o nome de exibição: nickname se existir, senão "Nome Sobrenome"

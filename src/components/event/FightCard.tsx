@@ -5,6 +5,7 @@ import { useState } from "react";
 import { FightWithFighters, FightMethod, Pick } from "@/types";
 import { shouldOptimizeRemoteImage } from "@/lib/image-optimization";
 import { getFallbackHeadshot, getMethodLabel } from "@/lib/utils";
+import { getUfcOriginalHeadshotUrl } from "@/lib/ufc-image-url";
 import FightStatsCompare from "./FightStatsCompare";
 import { WEIGHT_CLASS_PT } from "@/lib/ufc-weight";
 import { FightAlertButton } from "./EventAlertControls";
@@ -57,6 +58,8 @@ export default function FightCard({
   );
   const [hoveredFighterId, setHoveredFighterId] = useState<string | null>(null);
   const [loadedHeadshots, setLoadedHeadshots] = useState<Record<string, boolean>>({});
+  const [failedHeadshots, setFailedHeadshots] = useState<Record<string, boolean>>({});
+  const [failedOriginalHeadshots, setFailedOriginalHeadshots] = useState<Record<string, boolean>>({});
 
   const weightLabel = WEIGHT_CLASS_PT[fight.weight_class] || fight.weight_class;
   const rounds = Array.from({ length: fight.total_rounds }, (_, i) => i + 1);
@@ -203,7 +206,16 @@ export default function FightCard({
           const isDefeated =
             !completed && !!selectedWinnerId && selectedWinnerId !== fighter.id;
           const isHovered = hoveredFighterId === fighter.id && !locked && !completed;
-          const hasHeadshot = Boolean(fighter.headshot_url);
+          const hasHeadshot = Boolean(fighter.headshot_url && !failedHeadshots[fighter.id]);
+          const preferredHeadshot = getUfcOriginalHeadshotUrl(fighter.headshot_url);
+          const useStoredHeadshot = Boolean(
+            preferredHeadshot !== fighter.headshot_url && failedOriginalHeadshots[fighter.id],
+          );
+          const headshotSource = hasHeadshot
+            ? useStoredHeadshot
+              ? fighter.headshot_url!
+              : preferredHeadshot || fighter.headshot_url!
+            : getFallbackHeadshot(fighter.name);
 
           // Corner: vermelho (esquerda) / azul (direita)
           const cornerColor = idx === 0 ? "var(--red)" : "var(--blue)";
@@ -302,11 +314,7 @@ export default function FightCard({
               />
               {/* Headshot */}
               <div
-                className={`fight-card-portrait relative z-[1] overflow-hidden transition-transform duration-300 ${
-                  hasHeadshot
-                    ? "h-[150px] w-full max-w-[190px] sm:h-[198px] sm:max-w-[250px]"
-                    : "mb-4 h-24 w-24 rounded-full sm:h-28 sm:w-28"
-                }`}
+                className="fight-card-portrait relative z-[1] h-[150px] w-full max-w-[190px] overflow-hidden transition-transform duration-300 sm:h-[198px] sm:max-w-[250px]"
                 style={{
                   border: hasHeadshot ? "none" : photoBorder,
                   boxShadow: photoGlow,
@@ -320,24 +328,37 @@ export default function FightCard({
                   />
                 )}
                 <Image
-                  src={
-                    fighter.headshot_url || getFallbackHeadshot(fighter.name)
-                  }
-                  alt={fighter.name}
+                  src={headshotSource}
+                  alt={hasHeadshot ? fighter.name : ""}
                   fill
                   sizes="(max-width: 640px) 48vw, 380px"
                   unoptimized={
                     !shouldOptimizeRemoteImage(
-                      fighter.headshot_url || getFallbackHeadshot(fighter.name),
+                      headshotSource,
                     )
                   }
-                  className={`${hasHeadshot ? "object-cover object-top" : "object-cover object-center"} transition-opacity duration-300`}
+                  className={`${hasHeadshot ? "object-cover object-top" : "object-contain object-center"} transition-opacity duration-300`}
                   onLoad={() =>
                     setLoadedHeadshots((current) => ({
                       ...current,
                       [fighter.id]: true,
                     }))
                   }
+                  onError={() => {
+                    if (hasHeadshot) {
+                      if (headshotSource !== fighter.headshot_url && !useStoredHeadshot) {
+                        setFailedOriginalHeadshots((current) => ({
+                          ...current,
+                          [fighter.id]: true,
+                        }));
+                      } else {
+                        setFailedHeadshots((current) => ({
+                          ...current,
+                          [fighter.id]: true,
+                        }));
+                      }
+                    }
+                  }}
                   style={{ opacity: loadedHeadshots[fighter.id] ? 1 : 0 }}
                 />
               </div>

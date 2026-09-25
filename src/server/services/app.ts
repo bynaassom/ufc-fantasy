@@ -148,7 +148,11 @@ import { buildChallengeSuggestions } from "@/lib/challenge-suggestions";
 import { buildPreviousEventPerformances } from "@/lib/home-event-performance";
 import { selectHomeMainEventFight } from "@/lib/home-main-event";
 import { fetchUfcFighterStats, toHomeFighterStats } from "@/lib/ufc-fighter-stats";
-import { getCachedUfcFighterMedia, isUsableHeadshotUrl } from "@/lib/ufc-fighter-media";
+import {
+  getCachedUfcFighterMedia,
+  isLowQualityHeadshotUrl,
+  isUsableHeadshotUrl,
+} from "@/lib/ufc-fighter-media";
 
 type RankingProfileRow = Pick<
   Profile,
@@ -967,7 +971,9 @@ export async function getPublicEventPickShareData(
 }
 
 async function buildHomeFighter(fighter: any) {
-  const mediaPromise = isUsableHeadshotUrl(fighter?.headshot_url)
+  const mediaPromise =
+    isUsableHeadshotUrl(fighter?.headshot_url) &&
+    !isLowQualityHeadshotUrl(fighter?.headshot_url)
     ? Promise.resolve(null)
     : getCachedUfcFighterMedia(fighter?.name || "", HOME_UFC_ENRICHMENT_BUDGET_MS);
   const statsPromise = fetchUfcFighterStats({
@@ -982,9 +988,11 @@ async function buildHomeFighter(fighter: any) {
     id: String(fighter.id),
     name: fighter.name,
     slug: fighter.slug || media?.slug || null,
-    imageUrl: isUsableHeadshotUrl(fighter.headshot_url)
+    imageUrl:
+      isUsableHeadshotUrl(fighter.headshot_url) &&
+      !isLowQualityHeadshotUrl(fighter.headshot_url)
       ? fighter.headshot_url
-      : media?.headshot_url || null,
+      : media?.headshot_url || (isUsableHeadshotUrl(fighter.headshot_url) ? fighter.headshot_url : null),
     stats: toHomeFighterStats(stats),
   };
 }
