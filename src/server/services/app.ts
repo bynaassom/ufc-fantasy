@@ -1042,20 +1042,21 @@ export async function getHomePageData() {
   const perfEnabled = process.env.HOME_PERF_LOGGING === "1";
   const perfStartedAt = perfEnabled ? performance.now() : 0;
   const perfRequestId = perfEnabled ? crypto.randomUUID() : "";
-  const logHomePerf = (stage: string) => {
+  const perfStages: Record<string, number> = {};
+  const markHomePerf = (stage: string) => {
     if (perfEnabled) {
-      console.info("[home:perf]", JSON.stringify({ requestId: perfRequestId, stage, elapsedMs: Math.round(performance.now() - perfStartedAt) }));
+      perfStages[stage] = Math.round(performance.now() - perfStartedAt);
     }
   };
   const { profile, user } = await requirePageUserProfile();
-  logHomePerf("auth-and-profile");
+  markHomePerf("auth-and-profile");
   const [cachedCurrentEvent, rawUpcomingEvents, activeBonusEvents, completedEvents] = await Promise.all([
     getCachedCurrentPublicEvent(),
     getCachedUpcomingEvents(10),
     getCachedActiveBonusEvents(3),
     getCachedRecentCompletedEvents(6),
   ]);
-  logHomePerf("public-events");
+  markHomePerf("public-events");
 
   const eventSequence = resolvePublicEventSequence([
     cachedCurrentEvent,
@@ -1094,7 +1095,7 @@ export async function getHomePageData() {
     } catch (error) {
       console.warn("[home] Não foi possível carregar ranking para sugestão de rival.", error);
     }
-    logHomePerf("ranking");
+    markHomePerf("ranking");
     return { standings, lastEventScores };
   })();
 
@@ -1116,9 +1117,9 @@ export async function getHomePageData() {
       ? listPicksForUserAndEvents(adminSupabase, user.id, previousEventIds)
       : Promise.resolve([]),
   ]);
-  logHomePerf("user-events-and-challenges");
+  markHomePerf("user-events-and-challenges");
   const mainEventPromise = buildHomeMainEvent(currentEvent, currentEventFights).then((mainEvent) => {
-    logHomePerf("fighter-comparison");
+    markHomePerf("fighter-comparison");
     return mainEvent;
   });
 
@@ -1134,7 +1135,12 @@ export async function getHomePageData() {
     new Set(activeChallengeRows.flatMap((c) => [c.challenger_id, c.challenged_id])),
   );
   const profiles = await findPublicProfilesByIds(adminSupabase, profileIds);
-  logHomePerf("home-ready");
+  markHomePerf("home-ready");
+  if (perfEnabled) {
+    void Promise.allSettled([rankingPromise, mainEventPromise]).then(() => {
+      console.info("[home:perf]", JSON.stringify({ requestId: perfRequestId, elapsedMs: perfStages }));
+    });
+  }
   const profileMap = new Map(
     profiles.map((p: any) => [String(p.id), p as RankingProfileRow]),
   );
