@@ -184,16 +184,14 @@ describe("getHomePageData", () => {
 
     const { getHomePageData } = await import("@/server/services/app");
 
-    await expect(getHomePageData()).resolves.toMatchObject({
+    const result = await getHomePageData();
+    expect(result).toMatchObject({
       currentEvent: {
         id: "ufc-326",
         name: "UFC 326",
       },
-      currentEventPickProgress: {
-        picked: 0,
-        total: 12,
-      },
     });
+    await expect(result.currentEventPickProgress).resolves.toEqual({ picked: 0, total: 12 });
     expect(mocks.getCurrentPublicEvent).toHaveBeenCalledOnce();
     expect(mocks.countFightsForEvent).not.toHaveBeenCalled();
   });
@@ -225,7 +223,7 @@ describe("getHomePageData", () => {
     const { getHomePageData } = await import("@/server/services/app");
     const result = await getHomePageData();
 
-    expect(result.currentEventPickProgress).toEqual({ picked: 0, total: 12 });
+    await expect(result.currentEventPickProgress).resolves.toEqual({ picked: 0, total: 12 });
     expect(result.activeChallenges).toBeInstanceOf(Promise);
     expect(result.previousEvents).toBeInstanceOf(Promise);
     finishChallenges([]);
@@ -233,6 +231,20 @@ describe("getHomePageData", () => {
     await expect(result.activeChallenges).resolves.toEqual([]);
     await expect(result.previousEvents).resolves.toEqual([]);
     await expect(result.suggestedRivals).resolves.toEqual([]);
+  });
+
+  it("returns the current event before personalized pick progress finishes", async () => {
+    let finishPicks!: (rows: unknown[]) => void;
+    mocks.getCurrentPublicEvent.mockResolvedValue(makeEvent({}));
+    mocks.listPicksForUserEvent.mockReturnValue(new Promise((resolve) => { finishPicks = resolve; }));
+
+    const { getHomePageData } = await import("@/server/services/app");
+    const result = await getHomePageData();
+
+    expect(result.currentEvent?.id).toBe("event-id");
+    expect(result.currentEventPickProgress).toBeInstanceOf(Promise);
+    finishPicks([{ id: "pick-1" }]);
+    await expect(result.currentEventPickProgress).resolves.toEqual({ picked: 1, total: 12 });
   });
 
   it("keeps secondary query failures handled while the hero is pending", async () => {
@@ -248,7 +260,7 @@ describe("getHomePageData", () => {
     finishPicks([]);
 
     const result = await pendingHome;
-    expect(result.currentEventPickProgress).toEqual({ picked: 0, total: 12 });
+    await expect(result.currentEventPickProgress).resolves.toEqual({ picked: 0, total: 12 });
     await expect(result.activeChallenges).rejects.toThrow("challenge query failed");
     await expect(result.suggestedRivals).rejects.toThrow("challenge query failed");
   });

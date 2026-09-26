@@ -1162,11 +1162,13 @@ export async function getHomePageData() {
       performance: performanceByEvent.get(event.id) || buildPreviousEventPerformances([event.id], [], [])[0],
     }));
   });
-  // Attach rejection handlers before waiting for the hero; secondary queries
-  // may fail while its picks or fights are still pending.
-  const deferredCompletion = Promise.allSettled([rankingPromise, mainEventPromise, challengeDataPromise, previousEventsPromise]);
+  const currentEventPickProgress = Promise.all([currentEventPicksPromise, currentEventFightsPromise]).then(([picks, fights]) => ({
+    picked: picks.length,
+    total: fights.length,
+  }));
+  // Attach rejection handlers before React starts rendering the streamed sections.
+  const deferredCompletion = Promise.allSettled([rankingPromise, mainEventPromise, challengeDataPromise, previousEventsPromise, currentEventPickProgress]);
 
-  const [currentEventPicks, currentEventFights] = await Promise.all([currentEventPicksPromise, currentEventFightsPromise]);
   markHomePerf("home-ready");
   if (perfEnabled) {
     void deferredCompletion.then(() => {
@@ -1209,10 +1211,7 @@ export async function getHomePageData() {
     hasPreviousEvents: previousEvents.length > 0,
     previousEvents: previousEventsPromise,
     mainEvent: mainEventPromise,
-    currentEventPickProgress: {
-      picked: currentEventPicks.length,
-      total: currentEventFights.length,
-    },
+    currentEventPickProgress,
     activeChallenges,
     suggestedRivals,
   };
