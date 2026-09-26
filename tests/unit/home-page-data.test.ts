@@ -9,6 +9,10 @@ const mocks = vi.hoisted(() => ({
   listChallengesForUser: vi.fn(),
   findPublicProfilesByIds: vi.fn(),
   listPicksForUserEvent: vi.fn(),
+  listPicksForUserAndEvents: vi.fn(),
+  listEventScoresForUserAndEvents: vi.fn(),
+  getCurrentSeason: vi.fn(),
+  listGlobalSeasonStandings: vi.fn(),
   countFightsForEvent: vi.fn(),
   getAdminSupabase: vi.fn(),
   requirePageUserProfile: vi.fn(),
@@ -54,6 +58,16 @@ vi.mock("@/server/repositories/profiles", () => ({
 
 vi.mock("@/server/repositories/picks", () => ({
   listPicksForUserEvent: mocks.listPicksForUserEvent,
+  listPicksForUserAndEvents: mocks.listPicksForUserAndEvents,
+}));
+
+vi.mock("@/server/repositories/event-scores", () => ({
+  listEventScoresForUserAndEvents: mocks.listEventScoresForUserAndEvents,
+}));
+
+vi.mock("@/server/repositories/standings", () => ({
+  getCurrentSeason: mocks.getCurrentSeason,
+  listGlobalSeasonStandings: mocks.listGlobalSeasonStandings,
 }));
 
 vi.mock("@/server/repositories/stats", () => ({
@@ -118,12 +132,17 @@ describe("getHomePageData", () => {
         updated_at: "2026-05-01T00:00:00.000Z",
       } satisfies Partial<Profile>,
     });
+    mocks.getCurrentPublicEvent.mockResolvedValue(null);
     mocks.listRecentCompletedEvents.mockResolvedValue([]);
     mocks.listActiveBonusEvents.mockResolvedValue([]);
     mocks.listUpcomingEvents.mockResolvedValue([]);
     mocks.listChallengesForUser.mockResolvedValue([]);
     mocks.findPublicProfilesByIds.mockResolvedValue([]);
     mocks.listPicksForUserEvent.mockResolvedValue([]);
+    mocks.listPicksForUserAndEvents.mockResolvedValue([]);
+    mocks.listEventScoresForUserAndEvents.mockResolvedValue([]);
+    mocks.getCurrentSeason.mockResolvedValue(null);
+    mocks.listGlobalSeasonStandings.mockResolvedValue([]);
     mocks.countFightsForEvent.mockResolvedValue(12);
     mocks.getAdminSupabase.mockResolvedValue({ client: "admin" });
   });
@@ -166,6 +185,23 @@ describe("getHomePageData", () => {
       },
     });
     expect(mocks.getCurrentPublicEvent).toHaveBeenCalledOnce();
+  });
+
+  it("does not hold the home response while rival rankings load", async () => {
+    let finishStandings!: (rows: unknown[]) => void;
+    mocks.getCurrentSeason.mockResolvedValue({ id: "season-id" });
+    mocks.listGlobalSeasonStandings.mockReturnValue(new Promise((resolve) => {
+      finishStandings = resolve;
+    }));
+    mocks.getAdminSupabase.mockResolvedValue({ from: vi.fn() });
+
+    const { getHomePageData } = await import("@/server/services/app");
+    const result = await getHomePageData();
+
+    expect(mocks.listGlobalSeasonStandings).toHaveBeenCalledOnce();
+    expect(result.suggestedRivals).toBeInstanceOf(Promise);
+    finishStandings([]);
+    await expect(result.suggestedRivals).resolves.toEqual([]);
   });
 
   it("promotes the next event when the previous upcoming event has expired", async () => {

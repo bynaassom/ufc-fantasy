@@ -1039,13 +1039,23 @@ export async function getEventsIndexPageData() {
 }
 
 export async function getHomePageData() {
+  const perfEnabled = process.env.HOME_PERF_LOGGING === "1";
+  const perfStartedAt = perfEnabled ? performance.now() : 0;
+  const perfRequestId = perfEnabled ? crypto.randomUUID() : "";
+  const logHomePerf = (stage: string) => {
+    if (perfEnabled) {
+      console.info("[home:perf]", JSON.stringify({ requestId: perfRequestId, stage, elapsedMs: Math.round(performance.now() - perfStartedAt) }));
+    }
+  };
   const { profile, user } = await requirePageUserProfile();
+  logHomePerf("auth-and-profile");
   const [cachedCurrentEvent, rawUpcomingEvents, activeBonusEvents, completedEvents] = await Promise.all([
     getCachedCurrentPublicEvent(),
     getCachedUpcomingEvents(10),
     getCachedActiveBonusEvents(3),
     getCachedRecentCompletedEvents(6),
   ]);
+  logHomePerf("public-events");
 
   const eventSequence = resolvePublicEventSequence([
     cachedCurrentEvent,
@@ -1061,7 +1071,34 @@ export async function getHomePageData() {
   );
 
   const adminSupabase = await getAdminSupabase();
-  const [rawChallenges, currentEventPicks, currentEventFightCount, currentEventFights] = await Promise.all([
+  const previousEvents = completedEvents.slice(0, 6);
+  const previousEventIds = previousEvents.map((event) => event.id);
+  const rankingPromise = (async () => {
+    let standings: any[] = [];
+    let lastEventScores: any[] = [];
+    try {
+      if (typeof adminSupabase?.from !== "function") throw new Error("Supabase indisponível");
+      const [season, lastScoresResult] = await Promise.all([
+        getCachedCurrentSeason(),
+        previousEventIds.length
+          ? adminSupabase
+              .from("event_scores")
+              .select("user_id, total_points")
+              .eq("event_id", previousEventIds[0])
+          : Promise.resolve(null),
+      ]);
+      if (lastScoresResult && !lastScoresResult.error) {
+        lastEventScores = lastScoresResult.data || [];
+      }
+      if (season) standings = await getCachedHomeSeasonStandings(season.id);
+    } catch (error) {
+      console.warn("[home] Não foi possível carregar ranking para sugestão de rival.", error);
+    }
+    logHomePerf("ranking");
+    return { standings, lastEventScores };
+  })();
+
+  const [rawChallenges, currentEventPicks, currentEventFightCount, currentEventFights, previousScores, previousPicks] = await Promise.all([
     listChallengesForUser(adminSupabase, user.id) as Promise<ChallengeRow[]>,
     currentEvent
       ? listPicksForUserEvent(adminSupabase, user.id, currentEvent.id)
@@ -1072,8 +1109,18 @@ export async function getHomePageData() {
     currentEvent && typeof adminSupabase?.from === "function"
       ? listEventFights(adminSupabase, currentEvent.id)
       : Promise.resolve([]),
+    typeof adminSupabase?.from === "function"
+      ? listEventScoresForUserAndEvents(adminSupabase, user.id, previousEventIds)
+      : Promise.resolve([]),
+    typeof adminSupabase?.from === "function"
+      ? listPicksForUserAndEvents(adminSupabase, user.id, previousEventIds)
+      : Promise.resolve([]),
   ]);
-  const mainEventPromise = buildHomeMainEvent(currentEvent, currentEventFights);
+  logHomePerf("user-events-and-challenges");
+  const mainEventPromise = buildHomeMainEvent(currentEvent, currentEventFights).then((mainEvent) => {
+    logHomePerf("fighter-comparison");
+    return mainEvent;
+  });
 
   const activeChallengeRows = rawChallenges
     .filter(
@@ -1087,63 +1134,40 @@ export async function getHomePageData() {
     new Set(activeChallengeRows.flatMap((c) => [c.challenger_id, c.challenged_id])),
   );
   const profiles = await findPublicProfilesByIds(adminSupabase, profileIds);
+  logHomePerf("home-ready");
   const profileMap = new Map(
     profiles.map((p: any) => [String(p.id), p as RankingProfileRow]),
   );
 
-  const previousEvents = completedEvents.slice(0, 6);
-  const previousEventIds = previousEvents.map((event) => event.id);
-  const [previousScores, previousPicks] = await Promise.all([
-    typeof adminSupabase?.from === "function"
-      ? listEventScoresForUserAndEvents(adminSupabase, user.id, previousEventIds)
-      : Promise.resolve([]),
-    typeof adminSupabase?.from === "function"
-      ? listPicksForUserAndEvents(adminSupabase, user.id, previousEventIds)
-      : Promise.resolve([]),
-  ]);
   const performances = buildPreviousEventPerformances(previousEventIds, previousScores as any[], previousPicks as any[]);
   const performanceByEvent = new Map(performances.map((performance) => [performance.eventId, performance]));
 
-  let standings: any[] = [];
-  let lastEventScores: any[] = [];
-  try {
-    if (typeof adminSupabase?.from !== "function") throw new Error("Supabase indisponível");
-    const season = await getCachedCurrentSeason();
-    if (season) standings = await getCachedHomeSeasonStandings(season.id);
-    if (previousEventIds.length) {
-      const { data, error } = await adminSupabase
-        .from("event_scores")
-        .select("user_id, total_points")
-        .eq("event_id", previousEventIds[0]);
-      if (!error) lastEventScores = data || [];
-    }
-  } catch (error) {
-    console.warn("[home] Não foi possível carregar ranking para sugestão de rival.", error);
-  }
-  const currentStanding = standings.find((standing) => standing.user_id === user.id);
-  const lastEventScore = previousScores.find((score: any) => score.event_id === previousEventIds[0]);
-  const lastEventScoreByUser = new Map(lastEventScores.map((score) => [score.user_id, score.total_points]));
   const challengedIds = rawChallenges
     .filter((challenge) => challenge.event_id === currentEvent?.id && ["pending", "accepted"].includes(challenge.status))
     .flatMap((challenge) => [challenge.challenger_id, challenge.challenged_id]);
-  const suggestedRivals = buildChallengeSuggestions(
-    standings.map((standing) => ({
-      userId: standing.user_id,
-      nickname: standing.nickname,
-      displayName: [standing.first_name, standing.last_name].filter(Boolean).join(" ") || standing.nickname,
-      rankPosition: standing.rank_position,
-      totalPoints: standing.total_points,
-      lastEventPoints: lastEventScoreByUser.get(standing.user_id) ?? null,
-      isPublic: true,
-    })),
-    {
-      currentUserId: user.id,
-      currentRankPosition: currentStanding?.rank_position ?? null,
-      currentLastEventPoints: lastEventScore?.total_points ?? null,
-      excludedUserIds: [...challengedIds, ...profileIds],
-      max: 3,
-    },
-  );
+  const suggestedRivals = rankingPromise.then(({ standings, lastEventScores }) => {
+    const currentStanding = standings.find((standing) => standing.user_id === user.id);
+    const lastEventScore = previousScores.find((score: any) => score.event_id === previousEventIds[0]);
+    const lastEventScoreByUser = new Map(lastEventScores.map((score) => [score.user_id, score.total_points]));
+    return buildChallengeSuggestions(
+      standings.map((standing) => ({
+        userId: standing.user_id,
+        nickname: standing.nickname,
+        displayName: [standing.first_name, standing.last_name].filter(Boolean).join(" ") || standing.nickname,
+        rankPosition: standing.rank_position,
+        totalPoints: standing.total_points,
+        lastEventPoints: lastEventScoreByUser.get(standing.user_id) ?? null,
+        isPublic: true,
+      })),
+      {
+        currentUserId: user.id,
+        currentRankPosition: currentStanding?.rank_position ?? null,
+        currentLastEventPoints: lastEventScore?.total_points ?? null,
+        excludedUserIds: [...challengedIds, ...profileIds],
+        max: 3,
+      },
+    );
+  });
 
   return {
     profile,
@@ -1155,7 +1179,7 @@ export async function getHomePageData() {
       event,
       performance: performanceByEvent.get(event.id) || buildPreviousEventPerformances([event.id], [], [])[0],
     })),
-    mainEvent: await mainEventPromise,
+    mainEvent: mainEventPromise,
     currentEventPickProgress: {
       picked: currentEventPicks.length,
       total: currentEventFightCount,
