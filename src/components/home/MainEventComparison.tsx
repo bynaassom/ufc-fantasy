@@ -26,11 +26,12 @@ function FighterVisual({ fighter, corner }: { fighter: HomeFighter; corner: Corn
             "repeating-linear-gradient(90deg, transparent 0 38px, rgba(255,255,255,0.18) 39px 40px)",
         }}
       />
-      <div className="absolute inset-x-0 bottom-0 h-[45%] bg-gradient-to-t from-black via-black/55 to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-[32%] bg-gradient-to-t from-black/90 to-transparent" />
 
       <FighterHeadshotMedia
         imageUrl={fighter.imageUrl}
         fighterName={fighter.name}
+        fighterSlug={fighter.slug}
         corner={corner}
       />
 

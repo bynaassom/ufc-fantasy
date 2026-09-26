@@ -6,9 +6,98 @@ type FighterMediaResult = {
   slug: string;
   ufc_url: string;
   headshot_url: string;
+  portrait_url: string | null;
+  portrait_fallback_url: string | null;
   country: string;
   source: "ufc-athlete-page";
 };
+
+const UFC_PORTRAIT_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const UFC_PORTRAIT_MISS_TTL_MS = 60 * 1000;
+const UFC_PORTRAIT_CACHE_LIMIT = 500;
+const UFC_PORTRAIT_MAX_IN_FLIGHT = 32;
+const ufcPortraitCache = new Map<string, { expiresAt: number; value: { imageUrl: string | null; fallbackUrl: string | null } }>();
+const ufcPortraitInFlight = new Map<string, Promise<{ imageUrl: string | null; fallbackUrl: string | null }>>();
+
+export class UfcPortraitLookupSaturatedError extends Error {
+  constructor() {
+    super("UFC portrait lookup capacity reached");
+    this.name = "UfcPortraitLookupSaturatedError";
+  }
+}
+
+export function canonicalizeFighterName(name: string) {
+  return name.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ");
+}
+
+export function isValidUfcAthleteSlug(slug: string) {
+  return slug.length <= 100 && /^[a-z0-9]+(?:-[a-z0-9]+){0,15}$/i.test(slug) && !slug.includes("..") && !slug.includes("/");
+}
+
+function extractOfficialPortrait(html: string, base: string) {
+  // Only trust the athlete hero profile image. Generic page images include
+  // opponent cards, banners, and social previews with very different crops.
+  const tags = html.match(/<img\b[^>]*(?:class|\s)=["'][^"']*hero-profile__image[^"']*["'][^>]*>/gi) || [];
+  for (const tag of tags) {
+    const raw = tag.match(/(?:src|data-src)=["']([^"']+)["']/i)?.[1];
+    if (!raw) continue;
+    const fallbackUrl = absolutizeUfcUrl(decodeEscapedUrl(raw), base);
+    let parsed: URL;
+    try { parsed = new URL(fallbackUrl); } catch { continue; }
+    const officialHost = parsed.hostname === "ufc.com" || parsed.hostname.endsWith(".ufc.com") || parsed.hostname === "ufc.com.br" || parsed.hostname.endsWith(".ufc.com.br");
+    if (parsed.protocol !== "https:" || !officialHost) continue;
+    const path = parsed.pathname;
+    if (!path.includes("/styles/athlete_bio_full_body/") || /placeholder|silhouette|default|no[-_]?image/i.test(path)) continue;
+    const originalPath = path.replace("/images/styles/athlete_bio_full_body/s3/", "/images/");
+    if (originalPath === path || originalPath.includes("/styles/")) continue;
+    return { imageUrl: `https://ufc.com${originalPath}`, fallbackUrl };
+  }
+  return { imageUrl: null, fallbackUrl: null };
+}
+
+export async function getCachedUfcFighterPortrait(name: string, slug?: string) {
+  const canonicalSlug = slug?.toLowerCase() ?? "";
+  const key = `${canonicalizeFighterName(name)}:${canonicalSlug}`;
+  const cached = ufcPortraitCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) {
+    ufcPortraitCache.delete(key);
+    ufcPortraitCache.set(key, cached);
+    return cached.value;
+  }
+  if (cached) ufcPortraitCache.delete(key);
+  const existingRequest = ufcPortraitInFlight.get(key);
+  if (existingRequest) return existingRequest;
+  if (ufcPortraitInFlight.size >= UFC_PORTRAIT_MAX_IN_FLIGHT) {
+    throw new UfcPortraitLookupSaturatedError();
+  }
+
+  const request = (async () => {
+    // Portrait calls must continue to the next official locale if a page has
+    // regular metadata/headshots but no athlete hero portrait.
+    const media = await resolveUfcFighterMedia(name, 10_000, slug, true);
+    const identityMatches = !slug || media?.slug.toLowerCase() === canonicalSlug;
+    const selected = identityMatches ? media : null;
+    const value = { imageUrl: selected?.portrait_url ?? null, fallbackUrl: selected?.portrait_fallback_url ?? null };
+    // Expired entries are removed first; insertion order then gives LRU-style eviction.
+    const now = Date.now();
+    for (const [cacheKey, entry] of ufcPortraitCache) {
+      if (entry.expiresAt <= now) ufcPortraitCache.delete(cacheKey);
+    }
+    while (ufcPortraitCache.size >= UFC_PORTRAIT_CACHE_LIMIT) {
+      const oldestKey = ufcPortraitCache.keys().next().value;
+      if (oldestKey === undefined) break;
+      ufcPortraitCache.delete(oldestKey);
+    }
+    ufcPortraitCache.set(key, { value, expiresAt: now + (value.imageUrl ? UFC_PORTRAIT_CACHE_TTL_MS : UFC_PORTRAIT_MISS_TTL_MS) });
+    return value;
+  })();
+  ufcPortraitInFlight.set(key, request);
+  try {
+    return await request;
+  } finally {
+    ufcPortraitInFlight.delete(key);
+  }
+}
 
 export function isUsableHeadshotUrl(value?: string | null) {
   if (!value) return false;
@@ -261,11 +350,14 @@ async function scrapeAthletePage(
     const html = await response.text();
     const headshotUrl = extractHeadshotUrl(html, base);
     if (!headshotUrl) return null;
+    const portrait = extractOfficialPortrait(html, base);
 
     return {
       slug,
       ufc_url: ufcUrl,
       headshot_url: headshotUrl,
+      portrait_url: portrait.imageUrl,
+      portrait_fallback_url: portrait.fallbackUrl,
       country: extractCountry(html),
       source: "ufc-athlete-page",
     };
@@ -323,7 +415,9 @@ export async function resolveUfcFighterMedia(
   name: string,
   totalTimeoutMs = 10_000,
   preferredSlug?: string,
+  requirePortrait = false,
 ): Promise<FighterMediaResult | null> {
+  if (preferredSlug && !isValidUfcAthleteSlug(preferredSlug)) return null;
   const slugs = unique([
     ...(preferredSlug ? [preferredSlug] : []),
     ...generateFighterSlugCandidates(name),
@@ -335,7 +429,7 @@ export async function resolveUfcFighterMedia(
       const remainingMs = deadline - Date.now();
       if (remainingMs <= 0) return null;
       const result = await scrapeAthletePage(slug, base, Math.min(10_000, remainingMs));
-      if (result?.headshot_url) {
+      if (result?.headshot_url && (!requirePortrait || result.portrait_url)) {
         return result;
       }
     }
