@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   listActiveBonusEvents: vi.fn(),
   listRecentCompletedEvents: vi.fn(),
   listUpcomingEvents: vi.fn(),
+  listActiveChallengesForHome: vi.fn(),
   listChallengesForUser: vi.fn(),
   findPublicProfilesByIds: vi.fn(),
   listPicksForUserEvent: vi.fn(),
@@ -13,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   listEventScoresForUserAndEvents: vi.fn(),
   getCurrentSeason: vi.fn(),
   listGlobalSeasonStandings: vi.fn(),
+  listEventFights: vi.fn(),
   countFightsForEvent: vi.fn(),
   getAdminSupabase: vi.fn(),
   requirePageUserProfile: vi.fn(),
@@ -41,6 +43,7 @@ vi.mock("@/server/repositories/challenges", () => ({
   createChallenge: vi.fn(),
   findActiveChallengeBetweenUsers: vi.fn(),
   findChallengeById: vi.fn(),
+  listActiveChallengesForHome: mocks.listActiveChallengesForHome,
   listChallengesForProfile: vi.fn(),
   listChallengesForUser: mocks.listChallengesForUser,
   updateChallenge: vi.fn(),
@@ -68,6 +71,11 @@ vi.mock("@/server/repositories/event-scores", () => ({
 vi.mock("@/server/repositories/standings", () => ({
   getCurrentSeason: mocks.getCurrentSeason,
   listGlobalSeasonStandings: mocks.listGlobalSeasonStandings,
+}));
+
+vi.mock("@/server/repositories/fights", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/repositories/fights")>()),
+  listEventFights: mocks.listEventFights,
 }));
 
 vi.mock("@/server/repositories/stats", () => ({
@@ -136,6 +144,7 @@ describe("getHomePageData", () => {
     mocks.listRecentCompletedEvents.mockResolvedValue([]);
     mocks.listActiveBonusEvents.mockResolvedValue([]);
     mocks.listUpcomingEvents.mockResolvedValue([]);
+    mocks.listActiveChallengesForHome.mockResolvedValue([]);
     mocks.listChallengesForUser.mockResolvedValue([]);
     mocks.findPublicProfilesByIds.mockResolvedValue([]);
     mocks.listPicksForUserEvent.mockResolvedValue([]);
@@ -143,8 +152,9 @@ describe("getHomePageData", () => {
     mocks.listEventScoresForUserAndEvents.mockResolvedValue([]);
     mocks.getCurrentSeason.mockResolvedValue(null);
     mocks.listGlobalSeasonStandings.mockResolvedValue([]);
+    mocks.listEventFights.mockResolvedValue(Array.from({ length: 12 }, (_, index) => ({ id: `fight-${index}` })));
     mocks.countFightsForEvent.mockResolvedValue(12);
-    mocks.getAdminSupabase.mockResolvedValue({ client: "admin" });
+    mocks.getAdminSupabase.mockResolvedValue({ from: vi.fn() });
   });
 
   afterEach(() => {
@@ -185,6 +195,7 @@ describe("getHomePageData", () => {
       },
     });
     expect(mocks.getCurrentPublicEvent).toHaveBeenCalledOnce();
+    expect(mocks.countFightsForEvent).not.toHaveBeenCalled();
   });
 
   it("does not hold the home response while rival rankings load", async () => {
@@ -198,10 +209,48 @@ describe("getHomePageData", () => {
     const { getHomePageData } = await import("@/server/services/app");
     const result = await getHomePageData();
 
-    expect(mocks.listGlobalSeasonStandings).toHaveBeenCalledOnce();
+    await vi.waitFor(() => expect(mocks.listGlobalSeasonStandings).toHaveBeenCalledOnce());
     expect(result.suggestedRivals).toBeInstanceOf(Promise);
     finishStandings([]);
     await expect(result.suggestedRivals).resolves.toEqual([]);
+  });
+
+  it("streams challenges and previous performances without holding the hero", async () => {
+    let finishChallenges!: (rows: unknown[]) => void;
+    let finishPreviousPicks!: (rows: unknown[]) => void;
+    mocks.getCurrentPublicEvent.mockResolvedValue(makeEvent({}));
+    mocks.listActiveChallengesForHome.mockReturnValue(new Promise((resolve) => { finishChallenges = resolve; }));
+    mocks.listPicksForUserAndEvents.mockReturnValue(new Promise((resolve) => { finishPreviousPicks = resolve; }));
+
+    const { getHomePageData } = await import("@/server/services/app");
+    const result = await getHomePageData();
+
+    expect(result.currentEventPickProgress).toEqual({ picked: 0, total: 12 });
+    expect(result.activeChallenges).toBeInstanceOf(Promise);
+    expect(result.previousEvents).toBeInstanceOf(Promise);
+    finishChallenges([]);
+    finishPreviousPicks([]);
+    await expect(result.activeChallenges).resolves.toEqual([]);
+    await expect(result.previousEvents).resolves.toEqual([]);
+    await expect(result.suggestedRivals).resolves.toEqual([]);
+  });
+
+  it("keeps secondary query failures handled while the hero is pending", async () => {
+    let finishPicks!: (rows: unknown[]) => void;
+    mocks.getCurrentPublicEvent.mockResolvedValue(makeEvent({}));
+    mocks.listPicksForUserEvent.mockReturnValue(new Promise((resolve) => { finishPicks = resolve; }));
+    mocks.listActiveChallengesForHome.mockRejectedValue(new Error("challenge query failed"));
+
+    const { getHomePageData } = await import("@/server/services/app");
+    const pendingHome = getHomePageData();
+    await vi.waitFor(() => expect(mocks.listActiveChallengesForHome).toHaveBeenCalledOnce());
+    await Promise.resolve();
+    finishPicks([]);
+
+    const result = await pendingHome;
+    expect(result.currentEventPickProgress).toEqual({ picked: 0, total: 12 });
+    await expect(result.activeChallenges).rejects.toThrow("challenge query failed");
+    await expect(result.suggestedRivals).rejects.toThrow("challenge query failed");
   });
 
   it("promotes the next event when the previous upcoming event has expired", async () => {
@@ -298,7 +347,7 @@ describe("getHomePageData", () => {
     const result = await getHomePageData();
 
     expect(result.upcomingEvents.map((event) => event.id)).toEqual(["later-event"]);
-    expect(result.previousEvents).toHaveLength(6);
+    await expect(result.previousEvents).resolves.toHaveLength(6);
     expect(mocks.listUpcomingEvents).toHaveBeenCalledOnce();
     expect(mocks.listRecentCompletedEvents).toHaveBeenCalledOnce();
   });
@@ -325,5 +374,6 @@ describe("getHomePageData", () => {
     expect(mocks.listUpcomingEvents).toHaveBeenCalledWith({}, 50);
     expect(mocks.listRecentCompletedEvents).not.toHaveBeenCalled();
     expect(mocks.listChallengesForUser).not.toHaveBeenCalled();
+    expect(mocks.listActiveChallengesForHome).not.toHaveBeenCalled();
   });
 });

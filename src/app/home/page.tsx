@@ -23,7 +23,14 @@ async function HomeMainEvent({ mainEvent }: { mainEvent: Awaited<ReturnType<type
 }
 
 async function HomeChallengeSection({ data }: { data: Awaited<ReturnType<typeof getHomePageData>> }) {
-  return <HomeChallenges challenges={data.activeChallenges} suggestedRivals={await data.suggestedRivals} currentEvent={data.currentEvent ? { id: data.currentEvent.id, name: data.currentEvent.name } : null} />;
+  const [challenges, suggestedRivals] = await Promise.all([data.activeChallenges, data.suggestedRivals]);
+  return <HomeChallenges challenges={challenges} suggestedRivals={suggestedRivals} currentEvent={data.currentEvent ? { id: data.currentEvent.id, name: data.currentEvent.name } : null} />;
+}
+
+async function HomePreviousEvents({ previousEvents }: { previousEvents: Awaited<ReturnType<typeof getHomePageData>>["previousEvents"] }) {
+  const events = await previousEvents;
+  if (events.length === 0) return null;
+  return <section className="home-reveal" aria-label="Eventos anteriores"><RailHeading title="Eventos anteriores" href="/historico" /><HorizontalEventRail label="Eventos anteriores">{events.map(({ event, performance }) => <PreviousEventCard key={event.id} event={event} performance={performance} />)}</HorizontalEventRail></section>;
 }
 
 export default async function HomePage() {
@@ -45,7 +52,9 @@ export default async function HomePage() {
             <HomeChallengeSection data={data} />
           </Suspense>
           {data.upcomingEvents.length > 0 && <section className="home-reveal" aria-label="Próximos eventos"><RailHeading title="Próximos eventos" href="/event?view=all" /><HorizontalEventRail label="Próximos eventos">{data.upcomingEvents.map((event) => <UpcomingEventCard key={event.id} event={event} />)}</HorizontalEventRail></section>}
-          {data.previousEvents.length > 0 && <section className="home-reveal" aria-label="Eventos anteriores"><RailHeading title="Eventos anteriores" href="/historico" /><HorizontalEventRail label="Eventos anteriores">{data.previousEvents.map(({ event, performance }) => <PreviousEventCard key={event.id} event={event} performance={performance} />)}</HorizontalEventRail></section>}
+          {data.hasPreviousEvents && <Suspense fallback={<section className="h-40 animate-pulse border border-[var(--border)] bg-[var(--bg-card)]" aria-label="Carregando eventos anteriores" />}>
+            <HomePreviousEvents previousEvents={data.previousEvents} />
+          </Suspense>}
         </div>
       </main>
     </div>

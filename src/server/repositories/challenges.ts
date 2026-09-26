@@ -62,6 +62,18 @@ export async function listChallengesForUser(client: any, userId: string) {
   return data || [];
 }
 
+export async function listActiveChallengesForHome(client: any, userId: string) {
+  const { data, error } = await client
+    .from("challenges")
+    .select("id, event_id, challenger_id, challenged_id, status, event:events(id, name, slug)")
+    .in("status", ["pending", "accepted"])
+    .or(`challenger_id.eq.${userId},challenged_id.eq.${userId}`)
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}
+
 export async function listChallengesForProfile(client: any, profileId: string) {
   const { data, error } = await client
     .from("challenges")
