@@ -436,6 +436,143 @@ button:disabled {
     box-shadow: inset 0 0 0 3px var(--focus);
 }
 
+/* Fight Night pick'em — sharp broadcast graphics around the existing fight flow. */
+.sports-fight-card {
+    box-shadow: none;
+}
+
+.sports-fight-header {
+    border-left: 4px solid var(--red);
+}
+
+.sports-fight-matchup {
+    gap: 3px;
+}
+
+.sports-fighter {
+    isolation: isolate;
+    min-width: 0;
+}
+
+.sports-fighter::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background: linear-gradient(to bottom, transparent 26%, rgba(0, 0, 0, 0.1) 48%, rgba(0, 0, 0, 0.83) 100%);
+    border-bottom: 4px solid var(--red);
+}
+
+.sports-fighter[data-corner="blue"]::after {
+    border-bottom-color: var(--blue);
+}
+
+.sports-fighter-portrait {
+    height: 210px;
+    max-width: 290px;
+    margin-top: 0.25rem;
+    filter: saturate(0.85);
+    transform-origin: center bottom;
+    transition: transform 240ms ease-out, filter 240ms ease-out;
+}
+
+.sports-fighter-selected .sports-fighter-portrait {
+    transform: scale(1.055);
+    filter: saturate(1.12);
+}
+
+.sports-fighter-nameplate {
+    min-height: 94px;
+    border-top: 0;
+    background: rgba(0, 0, 0, 0.76);
+    text-align: left;
+    padding: 10px 12px 12px;
+}
+
+.sports-fighter-nameplate > p:nth-child(2) {
+    font-size: clamp(1.35rem, 4vw, 2.1rem);
+    font-style: italic;
+}
+
+.sports-fighter-selected .sports-fighter-nameplate {
+    background: rgba(10, 10, 10, 0.94);
+}
+
+.sports-pick-controls {
+    display: grid;
+    gap: 16px;
+    background: var(--bg-card);
+}
+
+.sports-pick-control-label {
+    margin-bottom: 7px;
+    color: var(--text-secondary);
+    font-family: var(--font-saira-condensed), "Saira Condensed", sans-serif;
+    font-size: 0.9rem;
+    font-weight: 900;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.sports-pick-options {
+    display: grid;
+    gap: 3px;
+}
+
+.sports-pick-methods { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.sports-pick-rounds { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+
+.sports-pick-option {
+    width: 100%;
+    min-height: 46px;
+    padding: 6px 4px;
+    border: 0;
+    border-bottom: 2px solid var(--border);
+    background: var(--bg-elevated);
+    color: var(--text);
+    font-size: 1.05rem;
+    transition: background-color 180ms ease, color 180ms ease, transform 180ms ease;
+}
+
+.sports-pick-option:disabled {
+    opacity: 0.5;
+}
+
+.sports-pick-option[aria-pressed="true"] {
+    transform: translateY(-2px);
+    border-bottom-color: var(--red);
+    background: var(--red);
+    color: white;
+}
+
+.sports-pick-decision {
+    display: flex;
+    align-items: center;
+    min-height: 46px;
+    border-left: 3px solid var(--red);
+    padding: 0 12px;
+    background: var(--bg-elevated);
+    color: var(--text);
+}
+
+@media (min-width: 640px) {
+    .sports-fighter-portrait { height: 245px; }
+    .sports-pick-controls { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+}
+
+@media (max-width: 390px) {
+    .sports-fighter-portrait { height: 178px; }
+    .sports-fighter-nameplate { padding: 8px; }
+    .sports-fighter-nameplate > p:nth-child(2) { font-size: 1.35rem; }
+    .sports-pick-option { font-size: 0.94rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sports-fighter-portrait,
+    .sports-pick-option { transition: none; }
+}
+
 .light .event-masthead,
 .light .fight-pick-card,
 .light .event-picks-scorebug {

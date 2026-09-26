@@ -98,7 +98,7 @@ export default function AnimatedRankingTable({
         className="grid grid-cols-12 px-4 py-2"
         style={{
           backgroundColor: "var(--bg-elevated)",
-          borderBottom: "2px solid var(--red)",
+          borderBottom: "3px solid var(--red)",
         }}
       >
         <div className="col-span-2 sm:col-span-1">
@@ -132,21 +132,20 @@ export default function AnimatedRankingTable({
                   ease: [0.22, 1, 0.36, 1],
                 },
               }}
-              className="grid grid-cols-12 px-4 py-3.5 items-center"
+              className="grid grid-cols-12 items-center px-4 py-3.5"
               style={{
-                backgroundColor: isMe ? "rgba(232,0,26,0.04)" : "transparent",
+                backgroundColor: isMe ? "rgba(232,0,26,0.07)" : index % 2 === 1 ? "rgba(127,127,127,0.035)" : "transparent",
                 borderBottom: index < displayRows.length - 1 ? "1px solid var(--border-light)" : "none",
-                outline: isMe ? "1px solid var(--red)" : "none",
-                outlineOffset: "-1px",
+                borderLeft: isMe ? "4px solid var(--red)" : "4px solid transparent",
               }}
             >
               <div className="col-span-2 sm:col-span-1 flex items-center gap-1.5">
                 {entry.rank <= 3 ? (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill={medalColors[entry.rank - 1]} aria-label={`Posição ${entry.rank}`}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill={medalColors[entry.rank - 1]} role="img" aria-label={`Posição ${entry.rank}`}>
                     <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
                   </svg>
                 ) : (
-                  <span className="font-condensed font-700 text-sm" style={{ color: "var(--text-muted)" }}>
+                  <span className="font-condensed font-900 text-sm" style={{ color: "var(--text-muted)" }}>
                     {entry.rank}
                   </span>
                 )}
@@ -181,7 +180,13 @@ export default function AnimatedRankingTable({
                 </Link>
               </div>
               <div className="col-span-2 text-right">
-                <span className="font-condensed font-900 text-lg" style={{ color: entry.rank <= 3 ? "var(--red)" : "var(--text)" }}>
+                <span
+                  className="inline-block min-w-12 px-1.5 py-1 text-center font-condensed font-900 text-lg leading-none tabular-nums"
+                  style={{
+                    backgroundColor: isMe ? "var(--red)" : "transparent",
+                    color: isMe ? "white" : entry.rank <= 3 ? "var(--red)" : "var(--text)",
+                  }}
+                >
                   {entry.points}
                 </span>
                 {tab === "evento" && entry.perfect_picks > 0 && (

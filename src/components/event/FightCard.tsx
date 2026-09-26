@@ -32,9 +32,9 @@ interface FightCardProps {
 }
 
 const METHODS: { value: FightMethod; label: string }[] = [
-  { value: "decision", label: "DECISÃO" },
-  { value: "submission", label: "FINALIZAÇÃO" },
   { value: "knockout", label: "NOCAUTE" },
+  { value: "submission", label: "FINALIZAÇÃO" },
+  { value: "decision", label: "DECISÃO" },
 ];
 
 export default function FightCard({
@@ -130,7 +130,7 @@ export default function FightCard({
 
   return (
     <div
-      className="fight-pick-card overflow-hidden"
+      className="fight-pick-card sports-fight-card overflow-hidden"
       style={{
         backgroundColor: "var(--bg-card)",
         border: completed
@@ -152,7 +152,7 @@ export default function FightCard({
     >
       {/* Weight class header */}
       <div
-        className="fight-card-meta relative flex min-h-[54px] items-center justify-between gap-3 overflow-hidden px-4 py-2.5"
+        className="fight-card-meta sports-fight-header relative flex min-h-[54px] items-center justify-between gap-3 overflow-hidden px-4 py-2.5"
         style={{
           borderBottom: "1px solid var(--border)",
           backgroundColor: "var(--bg-elevated)",
@@ -189,7 +189,7 @@ export default function FightCard({
       </div>
 
       {/* Fighters */}
-      <div className="fight-card-matchup relative grid grid-cols-2 bg-[var(--hero-ink)]">
+      <div className="fight-card-matchup sports-fight-matchup relative grid grid-cols-2 bg-[var(--hero-ink)]">
         {[fight.fighter_a, fight.fighter_b].map((fighter, idx) => {
           const isMyPick = pickedWinnerId === fighter.id;
           const isWinner = completed && fight.winner_id === fighter.id;
@@ -235,7 +235,8 @@ export default function FightCard({
               }
               onMouseEnter={() => setHoveredFighterId(fighter.id)}
               onMouseLeave={() => setHoveredFighterId(null)}
-              className="fighter-select-btn relative flex min-h-[258px] flex-col items-center justify-end overflow-hidden px-0 pt-3 sm:min-h-[310px]"
+              className={`fighter-select-btn sports-fighter relative flex min-h-[258px] flex-col items-center justify-end overflow-hidden px-0 pt-3 sm:min-h-[310px] ${isSelected ? "sports-fighter-selected" : ""}`}
+              data-corner={idx === 0 ? "red" : "blue"}
               style={{
                 backgroundColor: completed && isWinner && isMyPick
                   ? "rgba(34,197,94,0.08)"
@@ -293,7 +294,7 @@ export default function FightCard({
               />
               {/* Headshot */}
               <div
-                className="fight-card-portrait relative z-[1] h-[150px] w-full max-w-[190px] overflow-hidden transition-transform duration-300 sm:h-[198px] sm:max-w-[250px]"
+                className="fight-card-portrait sports-fighter-portrait relative z-[1] h-[150px] w-full max-w-[190px] overflow-hidden transition-transform duration-300 sm:h-[198px] sm:max-w-[250px]"
                 style={{
                   boxShadow: photoGlow,
                   transition: "all 0.2s",
@@ -307,7 +308,7 @@ export default function FightCard({
                 />
               </div>
 
-              <div className="relative z-[2] w-full border-t border-white/10 bg-black/70 px-2 pb-4 pt-3">
+              <div className="sports-fighter-nameplate relative z-[2] w-full border-t border-white/10 bg-black/70 px-2 pb-4 pt-3">
                 <p
                   className="mb-1 font-condensed text-[11px] font-900 uppercase tracking-[0.18em]"
                   style={{ color: idx === 0 ? "#ff586a" : "#71a8ff" }}
@@ -453,90 +454,59 @@ export default function FightCard({
         </div>
       </div>
 
-      {/* Comparativo de stats — inline, expansível */}
+      {/* Direct pick controls, visible alongside the matchup. */}
+      {!completed && !locked && (
+        <div className="sports-pick-controls px-4 py-4" style={{ borderTop: "1px solid var(--border)" }}>
+          <div role="group" aria-label="Método da vitória">
+            <p className="sports-pick-control-label">Método</p>
+            <div className="sports-pick-options sports-pick-methods">
+              {METHODS.map((method) => (
+                <button
+                  key={method.value}
+                  type="button"
+                  onClick={() => selectMethod(method.value)}
+                  disabled={!selectedWinnerId}
+                  aria-pressed={selectedMethod === method.value}
+                  aria-label={method.label}
+                  className="sports-pick-option min-tap font-condensed font-900 uppercase"
+                >
+                  {method.value === "knockout" ? "KO / TKO" : method.value === "submission" ? "SUB" : "DEC"}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div role="group" aria-label="Round da vitória">
+            <p className="sports-pick-control-label">Round</p>
+            {selectedMethod === "decision" ? (
+              <p className="sports-pick-decision font-condensed font-800 uppercase">Decisão · round final automático</p>
+            ) : (
+              <div className="sports-pick-options sports-pick-rounds">
+                {rounds.map((round) => (
+                  <button
+                    key={round}
+                    type="button"
+                    onClick={() => selectRound(round)}
+                    disabled={!selectedMethod}
+                    aria-pressed={selectedRound === round}
+                    aria-label={`Round ${round}`}
+                    className="sports-pick-option min-tap font-condensed font-900 uppercase"
+                  >
+                    R{round}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Optional stats follow the primary pick interaction. */}
       <FightStatsCompare
         slugA={nameToSlug(fight.fighter_a.name)}
         slugB={nameToSlug(fight.fighter_b.name)}
         nameA={fight.fighter_a.name}
         nameB={fight.fighter_b.name}
       />
-
-      {/* Method + Round combinado (mobile-friendly) */}
-      {!completed && selectedWinnerId && !locked && (
-        <div
-          className="px-4 py-3 slide-down"
-          style={{ borderTop: "1px solid var(--border)" }}
-        >
-          <p
-            id={`pick-details-${fight.id}`}
-            className="font-condensed font-700 text-xs uppercase tracking-widest mb-2"
-            style={{ color: "var(--text-secondary)" }}
-          >
-            Método e round
-          </p>
-          <div
-            className="flex flex-wrap gap-1.5"
-            role="group"
-            aria-labelledby={`pick-details-${fight.id}`}
-          >
-            {METHODS.map((m) => (
-              <button
-                key={m.value}
-                type="button"
-                onClick={() => selectMethod(m.value)}
-                aria-pressed={selectedMethod === m.value}
-                className="min-tap font-condensed font-900 text-xs uppercase tracking-widest transition-all hover:opacity-80"
-                style={{
-                  padding: selectedMethod === m.value ? "8px 14px" : "8px 14px",
-                  backgroundColor:
-                    selectedMethod === m.value
-                      ? "var(--red)"
-                      : "var(--bg-elevated)",
-                  color:
-                    selectedMethod === m.value
-                      ? "white"
-                      : "var(--text-secondary)",
-                  border: `1px solid ${selectedMethod === m.value ? "var(--red)" : "var(--border)"}`,
-                }}
-              >
-                {m.label}
-              </button>
-            ))}
-            {selectedMethod && selectedMethod !== "decision" && (
-              <span
-                className="inline-flex items-center px-2"
-                style={{ color: "var(--text-muted)" }}
-              >
-                —
-              </span>
-            )}
-            {selectedMethod && selectedMethod !== "decision" && (
-              rounds.map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => selectRound(r)}
-                  aria-pressed={selectedRound === r}
-                  aria-label={`Round ${r}`}
-                  className="min-tap font-condensed font-900 text-sm uppercase transition-all hover:opacity-80"
-                  style={{
-                    padding: "8px 12px",
-                    backgroundColor:
-                      selectedRound === r
-                        ? "var(--red)"
-                        : "var(--bg-elevated)",
-                    color:
-                      selectedRound === r ? "white" : "var(--text-secondary)",
-                    border: `1px solid ${selectedRound === r ? "var(--red)" : "var(--border)"}`,
-                  }}
-                >
-                  R{r}
-                </button>
-              ))
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Pick summary — antes do resultado, pick completo */}
       {!completed && complete && (

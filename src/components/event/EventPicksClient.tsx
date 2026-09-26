@@ -63,39 +63,32 @@ function isPendingPick(value: unknown): value is PendingPick {
 function CardSectionHeading({
   title,
   count,
-  index,
   headingId,
   primary = false,
 }: {
   title: string;
   count: number;
-  index: string;
   headingId: string;
   primary?: boolean;
 }) {
   return (
-    <div className="mb-4 flex items-end justify-between gap-4 border-b border-[var(--border)] pb-3">
-      <div className="flex min-w-0 items-end gap-3">
-        <span
-          aria-hidden="true"
-          className={`font-condensed text-4xl font-900 leading-[0.75] ${
-            primary ? "text-[var(--red)]" : "text-[var(--border)]"
-          }`}
-        >
-          {index}
-        </span>
+    <div className="mb-4 flex items-end justify-between gap-4 border-b-2 border-[var(--border)] pb-3">
+      <div className="flex min-w-0 items-end gap-3 border-l-[3px] border-[var(--red)] pl-3">
         <div className="min-w-0">
-          <p className="font-condensed text-[11px] font-800 uppercase tracking-[0.2em] text-[var(--text-muted)]">
-            Fight night
+          <p className="font-condensed text-[10px] font-900 uppercase tracking-[0.22em] text-[var(--red-text)]">
+            {primary ? "Fight night / Main card" : "Fight night / Prelims"}
           </p>
-          <h2 id={headingId} className="font-condensed text-2xl font-900 uppercase leading-none tracking-[-0.02em] text-[var(--text)] sm:text-3xl">
+          <h2 id={headingId} className="font-condensed text-2xl font-900 uppercase leading-none tracking-[-0.035em] text-[var(--text)] sm:text-3xl">
             {title}
           </h2>
         </div>
       </div>
-      <span className="shrink-0 pb-0.5 font-condensed text-[11px] font-800 uppercase tracking-[0.14em] text-[var(--text-muted)]">
-        {count} {count === 1 ? "luta" : "lutas"}
-      </span>
+      <div className="shrink-0 border-l border-[var(--border)] pl-3 text-right">
+        <span className="block font-condensed text-lg font-900 leading-none tabular-nums text-[var(--text)]">{String(count).padStart(2, "0")}</span>
+        <span className="mt-1 block font-condensed text-[9px] font-800 uppercase tracking-[0.16em] text-[var(--text-muted)]">
+          {count === 1 ? "luta" : "lutas"}
+        </span>
+      </div>
     </div>
   );
 }
@@ -230,6 +223,8 @@ export default function EventPicksClient({
     ...Object.keys(confirmedPicksMap),
     ...Object.keys(pendingPicks),
   ]).size;
+  const orderedFights = [...mainCard, ...prelimCard];
+  const progressPercent = totalFights > 0 ? (pickedFights / totalFights) * 100 : 0;
 
   const savePendingPicks = useCallback(async (snapshot: Record<string, PendingPick>) => {
     const snapshotEntries = Object.entries(snapshot);
@@ -373,88 +368,79 @@ export default function EventPicksClient({
 
   return (
     <div>
-      {/* Progress indicator */}
+      {/* Pick tracker */}
       {!locked && (
-        <aside className="event-picks-scorebug mb-8 border border-[var(--border)] bg-[var(--bg-card)]">
-          <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-            <div className="min-w-0">
-              <p className="font-condensed text-[11px] font-900 uppercase tracking-[0.2em] text-[var(--red-text)]">
-                Seu card
-              </p>
-              <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                <strong className="font-condensed text-4xl font-900 leading-none tabular-nums text-[var(--text)]">
-                  {pickedFights}
-                </strong>
-                <span className="font-condensed text-xl font-700 text-[var(--text-muted)]">
-                  / {totalFights}
-                </span>
-                <span className="font-condensed text-xs font-800 uppercase tracking-[0.12em] text-[var(--text-secondary)]">
-                  picks completos
-                </span>
+        <aside className="event-picks-scorebug mb-8 border border-[var(--border)] bg-[var(--bg-card)]" aria-label="Progresso dos seus picks">
+          <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-4">
+            <div className="flex min-w-0 items-center gap-4">
+              <div className="border-l-[3px] border-[var(--red)] pl-3">
+                <p className="font-condensed text-[10px] font-900 uppercase tracking-[0.22em] text-[var(--red-text)]">
+                  Pick tracker <span className="text-[var(--text-muted)]">/ {event.name}</span>
+                </p>
+                <div className="mt-1 flex flex-wrap items-baseline gap-x-2">
+                  <strong className="font-condensed text-5xl font-900 leading-[0.85] tabular-nums tracking-[-0.05em] text-[var(--text)] sm:text-6xl">
+                    {String(pickedFights).padStart(2, "0")}
+                  </strong>
+                  <span className="font-condensed text-2xl font-800 leading-none text-[var(--text-muted)]">/ {String(totalFights).padStart(2, "0")}</span>
+                  <span className="ml-1 font-condensed text-[10px] font-900 uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                    lutas preenchidas
+                  </span>
+                </div>
               </div>
             </div>
-          <div
-            className="flex min-h-11 items-center gap-2 font-condensed text-xs font-800 uppercase tracking-[0.1em]"
-            aria-live="polite"
-            role={saveStatus === "error" ? "alert" : "status"}
-            style={{
-              color:
-                saveStatus === "error"
-                  ? "var(--red)"
-                  : saveStatus === "saved"
-                    ? "var(--green)"
-                    : "var(--text-muted)",
-            }}
-          >
-            {saveStatus === "saving" && (
-              <span
-                className="h-3 w-3 animate-spin rounded-full"
-                style={{
-                  border: "2px solid var(--border)",
-                  borderTopColor: "var(--red)",
-                }}
-                aria-hidden="true"
-              />
-            )}
-            {saveStatus === "saved" && (
-              <svg
-                aria-hidden="true"
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-              >
-                <path d="M20 6L9 17l-5-5" />
-              </svg>
-            )}
-            <span>
-              {saveStatus === "pending" &&
-                (online ? "Preparando para salvar…" : "Salvo neste aparelho")}
-              {saveStatus === "saving" && "Salvando…"}
-              {saveStatus === "saved" && "Tudo salvo"}
-              {saveStatus === "idle" && "Salvamento automático"}
-              {saveStatus === "error" && "Erro ao salvar"}
-            </span>
-            {saveStatus === "error" && (
-              <button
-                type="button"
-                onClick={() => setSaveStatus("pending")}
-                className="min-tap underline underline-offset-2"
-              >
-                Tentar novamente
-              </button>
-            )}
-          </div>
-          </div>
-          <div className="h-1.5 overflow-hidden bg-[var(--border)]">
             <div
-              className="h-full bg-[var(--red)] transition-[width] duration-500"
+              className="flex min-h-10 items-center gap-2 border-l-2 pl-3 font-condensed text-xs font-900 uppercase tracking-[0.1em] sm:min-w-[190px] sm:justify-end"
+              aria-live="polite"
+              role={saveStatus === "error" ? "alert" : "status"}
               style={{
-                width: `${totalFights > 0 ? (pickedFights / totalFights) * 100 : 0}%`,
+                borderColor: saveStatus === "error" ? "var(--red)" : "var(--border)",
+                color:
+                  saveStatus === "error"
+                    ? "var(--red)"
+                    : saveStatus === "saved"
+                      ? "var(--green)"
+                      : "var(--text-muted)",
               }}
-            />
+            >
+              {saveStatus === "saving" && (
+                <span className="h-3 w-3 animate-spin rounded-full border-2 border-[var(--border)] border-t-[var(--red)]" aria-hidden="true" />
+              )}
+              {saveStatus === "saved" && (
+                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M20 6L9 17l-5-5" />
+                </svg>
+              )}
+              <span>
+                {saveStatus === "pending" && (online ? "Alterações pendentes" : "Salvo neste aparelho")}
+                {saveStatus === "saving" && "Salvando picks"}
+                {saveStatus === "saved" && "Picks salvos"}
+                {saveStatus === "idle" && "Autosave ativo"}
+                {saveStatus === "error" && "Falha ao salvar"}
+              </span>
+              {saveStatus === "error" && (
+                <button type="button" onClick={() => setSaveStatus("pending")} className="min-tap underline underline-offset-2">
+                  Tentar novamente
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="flex gap-[3px] px-4 pb-3 sm:px-5" role="img" aria-label={`${pickedFights} de ${totalFights} picks preenchidos`}>
+            {orderedFights.map((fight, index) => {
+              const isPicked = Boolean(confirmedPicksMap[fight.id] || pendingPicks[fight.id]);
+              return (
+                <span
+                  key={fight.id}
+                  title={`${index + 1}: ${isPicked ? "pick preenchido" : "pick pendente"}`}
+                  className="h-2 min-w-0 flex-1 transition-colors duration-300"
+                  style={{ backgroundColor: isPicked ? "var(--red)" : "var(--border)" }}
+                  aria-hidden="true"
+                />
+              );
+            })}
+          </div>
+          <div className="flex items-center justify-between border-t border-[var(--border)] px-4 py-2 font-condensed text-[9px] font-800 uppercase tracking-[0.16em] text-[var(--text-muted)] sm:px-5">
+            <span>Seu card</span>
+            <span>{Math.round(progressPercent)}% completo</span>
           </div>
         </aside>
       )}
@@ -462,7 +448,7 @@ export default function EventPicksClient({
       {/* Main Card */}
       {mainCard.length > 0 && (
         <section className="mb-12" aria-labelledby="main-card-heading">
-          <CardSectionHeading title="Card principal" count={mainCard.length} index="01" headingId="main-card-heading" primary />
+          <CardSectionHeading title="Card principal" count={mainCard.length} headingId="main-card-heading" primary />
           <div className="space-y-5">
             {mainCard.map((fight) => (
               <div key={fight.id} id={`fight-${fight.id}`} className="scroll-mt-20">
@@ -482,7 +468,7 @@ export default function EventPicksClient({
       {/* Prelim Card */}
       {prelimCard.length > 0 && (
         <section className="mb-12" aria-labelledby="prelim-card-heading">
-          <CardSectionHeading title="Card preliminar" count={prelimCard.length} index="02" headingId="prelim-card-heading" />
+          <CardSectionHeading title="Card preliminar" count={prelimCard.length} headingId="prelim-card-heading" />
           <div className="space-y-5">
             {prelimCard.map((fight) => (
               <div key={fight.id} id={`fight-${fight.id}`} className="scroll-mt-20">

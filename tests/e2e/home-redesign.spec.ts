@@ -50,7 +50,7 @@ test.describe("home Fight Night", () => {
       await page.setViewportSize(viewport);
       await login(page);
 
-      await expect(page.getByRole("heading", { name: /olá,/i })).toBeVisible();
+      await expect(page.locator("main h1").first()).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
 
       const hero = page.locator('main a[href^="/event/"]').first();

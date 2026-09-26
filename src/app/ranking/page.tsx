@@ -50,6 +50,12 @@ export default async function RankingPage(
   const currentMyRank = myRank as RankingRow | null;
   const eventOptions = rankingEvents as RankingSelectableEvent[];
   const selectedEvent = selectedRankingEvent as RankingSelectableEvent | null;
+  const playerAhead = currentMyRank
+    ? ranking.find((entry) => entry.rank === currentMyRank.rank - 1)
+    : undefined;
+  const pointsGap = playerAhead && currentMyRank
+    ? Math.max(0, playerAhead.points - currentMyRank.points)
+    : null;
 
   const totalPages = Math.max(1, Math.ceil(ranking.length / ITEMS_PER_PAGE));
   const currentPage = Math.min(requestedPage, totalPages);
@@ -72,7 +78,7 @@ export default async function RankingPage(
       style={{ backgroundColor: "var(--bg)" }}
     >
       <Navbar profile={profile} />
-      <main className="max-w-3xl mx-auto px-4 py-8">
+      <main className="max-w-5xl mx-auto px-4 py-8">
         <Link href="/home" className="inline-flex items-center gap-1 mb-4" style={{ color: "var(--text-muted)" }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <polyline points="15 18 9 12 15 6" />
@@ -80,39 +86,41 @@ export default async function RankingPage(
           <span className="text-xs font-condensed font-700 uppercase tracking-wider">Início</span>
         </Link>
         {/* Header */}
-        <div className="mb-6">
-          <div className="red-line">
-            <span className="section-title" style={{ fontSize: "1.75rem" }}>
-              RANKING
-            </span>
-          </div>
+        <div className="mb-6 border-b-2 pb-4" style={{ borderColor: "var(--red)" }}>
+          <p className="font-condensed font-700 text-xs uppercase tracking-[0.24em]" style={{ color: "var(--text-muted)" }}>
+            UFC FANTASY / CLASSIFICAÇÃO
+          </p>
+          <h1 className="font-condensed font-900 uppercase leading-none tracking-tight" style={{ color: "var(--text)", fontSize: "clamp(2rem, 6vw, 3.25rem)" }}>
+            Ranking <span style={{ color: "var(--red)" }}>Fantasy</span>
+          </h1>
         </div>
 
-        {/* Toggle — estilo igual ao da imagem (Card Principal / Preliminares) */}
-        <div
+        {/* Modos de classificação */}
+        <nav
           className="grid grid-cols-3 mb-6"
-          style={{ border: "1px solid var(--border)" }}
+          aria-label="Modo do ranking"
+          style={{ borderBottom: "1px solid var(--border)" }}
         >
           <Link
             href="/ranking?tab=geral"
-            className="flex-1 py-3 text-center font-condensed font-900 text-xs uppercase tracking-widest transition-all"
+            aria-current={tab === "geral" ? "page" : undefined}
+            className="flex-1 min-h-12 border-b-4 py-3 text-center font-condensed font-900 text-xs uppercase tracking-widest transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
             style={{
-              backgroundColor:
-                tab === "geral" ? "var(--red)" : "var(--bg-card)",
-              color: tab === "geral" ? "white" : "var(--text-muted)",
-              borderRight: "1px solid var(--border)",
+              backgroundColor: tab === "geral" ? "rgba(232,0,26,0.08)" : "transparent",
+              color: tab === "geral" ? "var(--text)" : "var(--text-muted)",
+              borderColor: tab === "geral" ? "var(--red)" : "transparent",
             }}
           >
             GERAL
           </Link>
           <Link
             href="/ranking?tab=temporada"
-            className="flex-1 py-3 text-center font-condensed font-900 text-xs uppercase tracking-widest transition-all"
+            aria-current={tab === "temporada" ? "page" : undefined}
+            className="flex-1 min-h-12 border-b-4 py-3 text-center font-condensed font-900 text-xs uppercase tracking-widest transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
             style={{
-              backgroundColor:
-                tab === "temporada" ? "var(--red)" : "var(--bg-card)",
-              color: tab === "temporada" ? "white" : "var(--text-muted)",
-              borderRight: "1px solid var(--border)",
+              backgroundColor: tab === "temporada" ? "rgba(232,0,26,0.08)" : "transparent",
+              color: tab === "temporada" ? "var(--text)" : "var(--text-muted)",
+              borderColor: tab === "temporada" ? "var(--red)" : "transparent",
             }}
           >
             TEMPORADA
@@ -123,17 +131,17 @@ export default async function RankingPage(
                 ? `/ranking?tab=evento&event=${selectedEvent.slug}`
                 : "/ranking?tab=evento"
             }
-            className="flex-1 py-3 text-center font-condensed font-900 text-xs uppercase tracking-widest transition-all"
+            aria-current={tab === "evento" ? "page" : undefined}
+            className="flex-1 min-h-12 border-b-4 py-3 text-center font-condensed font-900 text-xs uppercase tracking-widest transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
             style={{
-              backgroundColor:
-                tab === "evento" ? "var(--red)" : "var(--bg-card)",
-              color: tab === "evento" ? "white" : "var(--text-muted)",
-              borderRight: "1px solid var(--border)",
+              backgroundColor: tab === "evento" ? "rgba(232,0,26,0.08)" : "transparent",
+              color: tab === "evento" ? "var(--text)" : "var(--text-muted)",
+              borderColor: tab === "evento" ? "var(--red)" : "transparent",
             }}
           >
             EVENTO
           </Link>
-        </div>
+        </nav>
 
         {tab === "evento" && eventOptions.length > 0 && selectedEvent && (
           <div
@@ -141,6 +149,7 @@ export default async function RankingPage(
             style={{
               backgroundColor: "var(--bg-card)",
               border: "1px solid var(--border)",
+              borderLeft: "4px solid var(--red)",
             }}
           >
             <div>
@@ -170,6 +179,7 @@ export default async function RankingPage(
             style={{
               backgroundColor: "var(--bg-card)",
               border: "1px solid var(--border)",
+              borderLeft: "4px solid var(--red)",
             }}
           >
             <p
@@ -187,11 +197,10 @@ export default async function RankingPage(
         {/* Minha posição */}
         {currentMyRank && (
           <div
-            className="mb-5 flex items-center gap-4 px-5 py-4"
+            className="mb-5 flex items-center gap-4 border-y-2 px-5 py-4"
             style={{
-              backgroundColor: "var(--bg-card)",
-              border: "1px solid var(--border)",
-              borderLeft: "3px solid var(--red)",
+              backgroundColor: "rgba(232,0,26,0.06)",
+              borderColor: "var(--red)",
             }}
           >
             <span
@@ -220,6 +229,11 @@ export default async function RankingPage(
               >
                 {getPlayerLevel(currentMyRank.points).label}
               </p>
+              {pointsGap !== null && (
+                <p className="mt-1 font-condensed font-700 text-xs uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
+                  {pointsGap === 0 ? "Mesma pontuação da posição acima" : `A ${pointsGap} ${pointsGap === 1 ? "ponto" : "pontos"} do próximo lugar`}
+                </p>
+              )}
               {currentMyRank.nickname && (
                 <p
                   className="font-condensed font-600 text-xs uppercase tracking-widest"
