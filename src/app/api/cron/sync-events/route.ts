@@ -1,6 +1,8 @@
 export const dynamic = "force-dynamic";
 
+import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/server";
 import { syncScrapedCardForEvent } from "@/lib/ufc-card-sync";
 import { discoverUfcStatsUrl } from "@/lib/ufc-stats-discovery";
@@ -14,6 +16,8 @@ import { getSafeSyncedEventStatus } from "@/lib/event-lifecycle";
 import { syncUfcOddsForEvent } from "@/server/services/ufc-odds";
 import { tryRecordAutomationHealth } from "@/server/services/automation-health";
 import { tryPruneExpiredOperationalLogs } from "@/server/services/activity-log-retention";
+import { CACHE_TAGS } from "@/server/cache-tags";
+import { notifyBulkCardChanges } from "@/server/services/notifications";
 
 function slugify(value: string) {
   return value
@@ -82,6 +86,7 @@ export async function POST(req: NextRequest) {
     let created = 0;
     let updated = 0;
     let cardSynced = 0;
+    let replacementsRemoved = 0;
     const cardSync: Array<Record<string, unknown>> = [];
 
     for (const event of merged) {
@@ -90,7 +95,7 @@ export async function POST(req: NextRequest) {
       try {
         const result = await adminSupabase
           .from("events")
-          .select("id, name, slug, status, ufc_event_id, ufc_stats_url, timing_mode, picks_open_at, banner_image_url")
+          .select("id, name, slug, status, ufc_event_id, ufc_stats_url, timing_mode, picks_open_at, picks_lock_at, banner_image_url")
           .in("ufc_event_id", Array.from(new Set([sourceId, event.id])))
           .limit(1)
           .maybeSingle();
@@ -129,9 +134,30 @@ export async function POST(req: NextRequest) {
             (/\/event\//i.test(existing.ufc_event_id || "")
               ? existing.ufc_event_id
               : `https://www.ufc.com.br/event/${slug}`);
-          const result = await syncScrapedCardForEvent(adminSupabase, existing.id, url);
+          const mayRemoveReplacements =
+            existing.status === "upcoming" &&
+            existing.picks_lock_at &&
+            new Date(existing.picks_lock_at).getTime() > Date.now();
+          const result = await syncScrapedCardForEvent(
+            adminSupabase,
+            existing.id,
+            url,
+            { removeReplacedFights: Boolean(mayRemoveReplacements) },
+          );
           cardSync.push({ event_id: existing.id, event_name: event.name, ok: true, ...result });
           cardSynced++;
+          replacementsRemoved += result.replacements_removed_count;
+          if (result.replacements_removed_count) {
+            try {
+              await notifyBulkCardChanges(adminSupabase, {
+                event: { ...existing, name: event.name },
+                changeCount: result.replacements_removed_count + result.added_count,
+                batchId: randomUUID(),
+              });
+            } catch (error) {
+              console.error("Failed to notify card replacement", error);
+            }
+          }
         } catch (error) {
           cardSync.push({
             event_id: existing.id,
@@ -220,6 +246,7 @@ export async function POST(req: NextRequest) {
       created,
       updated,
       cards_synced: cardSynced,
+      replacements_removed: replacementsRemoved,
       card_failures: cardSync.filter((item) => item.ok === false).length,
       log_retention: retention,
     };
@@ -231,10 +258,15 @@ export async function POST(req: NextRequest) {
       { details },
     );
 
+    if (created || updated || cardSynced) {
+      revalidateTag(CACHE_TAGS.events, "max");
+    }
+
     return NextResponse.json({
       ok: true,
       message: `${created} criado(s), ${updated} atualizado(s), ${cardSynced} cards sincronizados`,
       card_sync: cardSync,
+      replacements_removed: replacementsRemoved,
       log_retention: retention,
     });
   } catch (error) {

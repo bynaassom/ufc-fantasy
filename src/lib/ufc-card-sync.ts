@@ -117,6 +117,39 @@ export type ScrapedCardDiff = {
   unchanged_count: number;
 };
 
+export function findReplacedFights(
+  removed: ExistingFightLike[],
+  officialFights: ScrapedCardFight[],
+  currentFightCount: number,
+  officialFightCount: number,
+) {
+  if (!officialFightCount || officialFightCount < Math.ceil(currentFightCount * 0.8)) {
+    return [];
+  }
+
+  const candidates = removed.flatMap((oldFight) => {
+    const oldNames = [
+      getFightParticipantName(oldFight.fighter_a),
+      getFightParticipantName(oldFight.fighter_b),
+    ];
+    const replacements = officialFights.filter((fight) => {
+      const newNames = [fight.fighter_a.name, fight.fighter_b.name];
+      return oldNames.filter((name) =>
+        name && newNames.some((newName) => namesMatch(name, newName)),
+      ).length === 1;
+    });
+    return replacements.length === 1
+      ? [{ oldFight, replacement: replacements[0] }]
+      : [];
+  });
+
+  // If two stale fights point to the same new matchup, require manual review.
+  return candidates.filter(
+    (candidate) =>
+      candidates.filter((other) => other.replacement === candidate.replacement).length === 1,
+  );
+}
+
 function decodeHtml(value: string) {
   return value
     .replace(/&nbsp;/gi, " ")
@@ -998,7 +1031,7 @@ export function diffScrapedCardAgainstExistingFights(
   };
 }
 
-export async function scrapeUfcEventCard(url: string): Promise<ScrapedCardFight[]> {
+async function scrapeUfcEventCardSnapshot(url: string) {
   if (!isAllowedScrapeUrl(url)) {
     throw new Error("Host não permitido para scraping");
   }
@@ -1030,9 +1063,18 @@ export async function scrapeUfcEventCard(url: string): Promise<ScrapedCardFight[
     articleFights,
   );
 
-  return official?.event.fights.length
-    ? mergeOfficialUfcCardFights(scrapedFights, official.event.fights, url)
-    : scrapedFights;
+  const officialFights = official?.event.fights || [];
+  const officialFightCount = officialFights.length;
+  return {
+    fights: officialFightCount
+      ? mergeOfficialUfcCardFights(scrapedFights, officialFights, url)
+      : scrapedFights,
+    officialFightCount,
+  };
+}
+
+export async function scrapeUfcEventCard(url: string): Promise<ScrapedCardFight[]> {
+  return (await scrapeUfcEventCardSnapshot(url)).fights;
 }
 
 export async function ensureFighter(adminSupabase: any, fighter: ScrapedCardFight["fighter_a"]) {
@@ -1172,8 +1214,10 @@ export async function syncScrapedCardForEvent(
   adminSupabase: any,
   eventId: string,
   eventUrl: string,
+  options: { removeReplacedFights?: boolean } = {},
 ) {
-  const scrapedFights = await scrapeUfcEventCard(eventUrl);
+  const { fights: scrapedFights, officialFightCount } =
+    await scrapeUfcEventCardSnapshot(eventUrl);
 
   const { data: currentFights, error: currentFightsError } = await adminSupabase
     .from("fights")
@@ -1192,7 +1236,17 @@ export async function syncScrapedCardForEvent(
   const diff = diffScrapedCardAgainstExistingFights(dbFights, scrapedFights);
   const added: string[] = [];
   const duplicatesRemoved: string[] = [];
+  const replacementsRemoved: string[] = [];
   const updated: string[] = [];
+
+  const replacements = options.removeReplacedFights
+    ? findReplacedFights(
+        diff.removed,
+        scrapedFights,
+        dbFights.length,
+        officialFightCount,
+      )
+    : [];
 
   for (const scrapedFight of diff.added) {
     const fighterAId = await ensureFighter(adminSupabase, scrapedFight.fighter_a);
@@ -1260,14 +1314,29 @@ export async function syncScrapedCardForEvent(
     duplicatesRemoved.push(label);
   }
 
+  for (const { oldFight } of replacements) {
+    const { data: deleted, error } = await adminSupabase.rpc(
+      "remove_replaced_fight_before_lock",
+      { p_event_id: eventId, p_fight_id: oldFight.id },
+    );
+    if (error) throw new Error(error.message);
+    if (deleted === true) {
+      replacementsRemoved.push(
+        `${getFightParticipantName(oldFight.fighter_a)} vs ${getFightParticipantName(oldFight.fighter_b)}`,
+      );
+    }
+  }
+
   return {
     scraped_count: scrapedFights.length,
     added_count: diff.added.length,
     duplicates_removed_count: diff.duplicates.length,
+    replacements_removed_count: replacementsRemoved.length,
     updated_count: diff.updated.length,
     unchanged_count: diff.unchanged_count,
     added,
     duplicates_removed: duplicatesRemoved,
+    replacements_removed: replacementsRemoved,
     updated,
   };
 }

@@ -1,6 +1,7 @@
 import {
   extractExcludedFightPairKeysFromNewsResults,
   diffScrapedCardAgainstExistingFights,
+  findReplacedFights,
   ensureFighter,
   mergeOfficialUfcCardFights,
   parseUfcCardListArticleHtml,
@@ -264,6 +265,86 @@ describe("ufc-card-sync", () => {
     expect(diff.removed).toHaveLength(0);
     expect(diff.duplicates.map((fight) => fight.id)).toEqual(["fight-newer"]);
     expect(diff.updated[0]?.db_id).toBe("fight-original");
+  });
+
+  it("identifies an old matchup after a replacement was already added", () => {
+    const oldFight = {
+      id: "old-fight",
+      result_confirmed: false,
+      fighter_a: { name: "Fighter One" },
+      fighter_b: { name: "Fighter Two" },
+    };
+    const newFight = {
+      id: "new-fight",
+      result_confirmed: false,
+      fighter_a: { name: "Fighter One" },
+      fighter_b: { name: "Fighter Three" },
+    };
+    const officialFight: ScrapedCardFight = {
+      fmid: "replacement",
+      card_type: "preliminary",
+      fight_order: 1,
+      weight_class: "Lightweight",
+      is_title_fight: false,
+      total_rounds: 3,
+      ufc_matchup_url: "https://www.ufc.com.br/event/test#replacement",
+      fighter_a: { name: "Fighter One", country: "", headshot_url: "" },
+      fighter_b: { name: "Fighter Three", country: "", headshot_url: "" },
+    };
+    const stableFights = Array.from({ length: 4 }, (_, index) => ({
+      id: `stable-${index}`,
+      result_confirmed: false,
+      fighter_a: { name: `Stable Alpha ${index}` },
+      fighter_b: { name: `Stable Beta ${index}` },
+    }));
+    const stableOfficial = stableFights.map((fight, index): ScrapedCardFight => ({
+      ...officialFight,
+      fmid: `stable-${index}`,
+      fighter_a: { name: fight.fighter_a.name, country: "", headshot_url: "" },
+      fighter_b: { name: fight.fighter_b.name, country: "", headshot_url: "" },
+    }));
+    const officialFights = [officialFight, ...stableOfficial];
+    const diff = diffScrapedCardAgainstExistingFights(
+      [oldFight, newFight, ...stableFights],
+      officialFights,
+    );
+
+    expect(diff.added).toHaveLength(0);
+    expect(diff.removed.map((fight) => fight.id)).toEqual(["old-fight"]);
+    expect(findReplacedFights(diff.removed, officialFights, 6, 5)).toEqual([
+      { oldFight, replacement: officialFight },
+    ]);
+    expect(findReplacedFights(diff.removed, [officialFight], 12, 1)).toEqual([]);
+    expect(findReplacedFights(diff.removed, [officialFight], 2, 0)).toEqual([]);
+  });
+
+  it("does not remove a confirmed or ambiguous old matchup", () => {
+    const oldFight = {
+      id: "old-fight",
+      result_confirmed: true,
+      fighter_a: { name: "Fighter One" },
+      fighter_b: { name: "Fighter Two" },
+    };
+    const replacement = (fighterA: string, fighterB: string): ScrapedCardFight => ({
+      fmid: `${fighterA}-${fighterB}`,
+      card_type: "preliminary",
+      fight_order: 1,
+      weight_class: "Lightweight",
+      is_title_fight: false,
+      total_rounds: 3,
+      ufc_matchup_url: "https://www.ufc.com.br/event/test",
+      fighter_a: { name: fighterA, country: "", headshot_url: "" },
+      fighter_b: { name: fighterB, country: "", headshot_url: "" },
+    });
+    const officialFights = [
+      replacement("Fighter One", "Fighter Three"),
+      replacement("Fighter Two", "Fighter Four"),
+    ];
+
+    const diff = diffScrapedCardAgainstExistingFights([oldFight], officialFights);
+    expect(diff.removed).toEqual([]);
+    expect(findReplacedFights([{ ...oldFight, result_confirmed: false }], officialFights, 1, 2))
+      .toEqual([]);
   });
 
   it("parses official news results and excludes transferred fights from article fallbacks", () => {
