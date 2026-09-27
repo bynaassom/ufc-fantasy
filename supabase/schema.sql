@@ -9,7 +9,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- ============================================================
 -- ENUMS
 -- ============================================================
-CREATE TYPE fight_method AS ENUM ('decision', 'submission', 'knockout');
+CREATE TYPE fight_method AS ENUM ('decision', 'submission', 'knockout', 'disqualification');
 CREATE TYPE event_status AS ENUM ('upcoming', 'live', 'completed');
 CREATE TYPE fight_card_type AS ENUM ('main', 'preliminary');
 CREATE TYPE user_role AS ENUM ('user', 'admin');

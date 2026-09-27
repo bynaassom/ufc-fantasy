@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-export type SyncedResultMethod = "decision" | "submission" | "knockout";
+export type SyncedResultMethod = "decision" | "submission" | "knockout" | "disqualification";
 
 export interface UfcStatsResult {
   winner: string;
@@ -83,6 +83,7 @@ export function namesMatch(a: string, b: string) {
 export function mapMethod(raw: string): SyncedResultMethod | null {
   const normalized = stripTags(raw).toLowerCase().replace(/\s+/g, " ");
 
+  if (/\b(?:dq|disqualification|disqualified)\b/.test(normalized)) return "disqualification";
   if (normalized.includes("dec")) return "decision";
   if (
     normalized.includes("sub") ||

@@ -83,6 +83,7 @@ export function getMethodLabel(method: string): string {
     decision: "Decisão",
     submission: "Finalização",
     knockout: "Nocaute",
+    disqualification: "Desqualificação",
   };
   return labels[method] || method;
 }

@@ -1,6 +1,7 @@
 import type { CompetitiveDivision } from "@/lib/ufc-weight";
 
 export type FightMethod = "decision" | "submission" | "knockout";
+export type FightResultMethod = FightMethod | "disqualification";
 export type EventStatus = "upcoming" | "live" | "completed";
 export type FightCardType = "main" | "preliminary";
 export type UserRole = "user" | "admin";

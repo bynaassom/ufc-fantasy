@@ -69,7 +69,7 @@ export const adminFightLinksBatchSchema = z.object({
 
 export const adminFightResultSchema = z.object({
   winner_side: z.enum(["a", "b"]),
-  method: z.enum(["decision", "submission", "knockout"]),
+  method: z.enum(["decision", "submission", "knockout", "disqualification"]),
   round: z.number().int().min(1).max(5),
 });
 

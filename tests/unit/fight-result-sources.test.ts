@@ -87,4 +87,13 @@ describe("fight-result-sources", () => {
       expect.objectContaining({ fight_id: "fight-1", sources: ["ufc"] }),
     ]);
   });
+
+  it("accepts a disqualification result without treating it as a knockout", () => {
+    const dqResult = { ...result, method: "disqualification" as const, round: 1 };
+    expect(buildResultConsensusUpdates([fight], [
+      { source: "ufc", label: "UFC API oficial", results: [dqResult] },
+    ]).updates).toEqual([
+      expect.objectContaining({ method: "disqualification", round: 1 }),
+    ]);
+  });
 });

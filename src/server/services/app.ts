@@ -2418,6 +2418,22 @@ export async function updateAdminEventById(
   payload: Record<string, unknown>,
 ) {
   const adminSupabase = await getAdminSupabase();
+  if (payload.status === "completed") {
+    const fights = await listEventFights(adminSupabase, eventId);
+    const pending = fights.filter((fight) => !fight.result_confirmed);
+    if (!fights.length || pending.length) {
+      const names = pending
+        .map((fight) => `${getRelatedFighterName(fight.fighter_a)} vs ${getRelatedFighterName(fight.fighter_b)}`)
+        .join(", ");
+      throw new ApiRouteError(
+        409,
+        "EVENT_RESULTS_PENDING",
+        fights.length
+          ? `Confirme os resultados antes de concluir o evento. Lutas pendentes: ${names}.`
+          : "Cadastre e confirme os resultados das lutas antes de concluir o evento.",
+      );
+    }
+  }
   const event = await updateEvent(
     adminSupabase,
     eventId,
@@ -2606,7 +2622,7 @@ export async function setAdminFightResult(
   fightId: string,
   payload: {
     winner_side: "a" | "b";
-    method: "decision" | "submission" | "knockout";
+    method: "decision" | "submission" | "knockout" | "disqualification";
     round: number;
   },
 ) {

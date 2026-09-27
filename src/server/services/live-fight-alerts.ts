@@ -148,7 +148,7 @@ export async function dispatchLiveFightAlerts(
 type ResultAlertUpdate = {
   fight_id: string;
   winner_id: string;
-  method: "decision" | "submission" | "knockout";
+  method: "decision" | "submission" | "knockout" | "disqualification";
   round: number;
 };
 
@@ -162,6 +162,7 @@ const RESULT_METHOD_LABELS: Record<ResultAlertUpdate["method"], string> = {
   decision: "decisão",
   submission: "finalização",
   knockout: "nocaute",
+  disqualification: "desqualificação",
 };
 
 export async function dispatchFightResultAlerts(

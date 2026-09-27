@@ -296,7 +296,7 @@ function ResManual({
   const [fightId, setFightId] = useState("");
   const [form, setForm] = useState({
     winner_side: "a" as "a" | "b",
-    method: "decision" as "decision" | "submission" | "knockout",
+    method: "decision" as "decision" | "submission" | "knockout" | "disqualification",
     round: 1,
   });
 
@@ -382,12 +382,13 @@ function ResManual({
             <label className={lbl} style={{ color: "var(--text-secondary)" }}>
               Método
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {(
                 [
                   { v: "decision", l: "Decisão" },
                   { v: "submission", l: "Finalização" },
                   { v: "knockout", l: "Nocaute" },
+                  { v: "disqualification", l: "Desqualificação" },
                 ] as const
               ).map(({ v, l }) => (
                 <button

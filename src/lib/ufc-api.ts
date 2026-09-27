@@ -563,8 +563,9 @@ export async function fetchFighterHeadshot(fighterId: string): Promise<string | 
 }
 
 // Normalize method name from UFC API to our schema
-export function normalizeMethod(method: string): "decision" | "submission" | "knockout" | null {
+export function normalizeMethod(method: string): "decision" | "submission" | "knockout" | "disqualification" | null {
   const m = method?.toLowerCase() || "";
+  if (/\b(?:dq|disqualification|disqualified)\b/.test(m)) return "disqualification";
   if (m.includes("decision") || m.includes("dec")) return "decision";
   if (m.includes("submission") || m.includes("sub")) return "submission";
   if (m.includes("knockout") || m.includes("ko") || m.includes("tko")) return "knockout";

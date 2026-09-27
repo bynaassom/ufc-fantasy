@@ -35,6 +35,8 @@ describe("ufc-results-sync", () => {
     expect(mapMethod("U-DEC")).toBe("decision");
     expect(mapMethod("Submission Guillotine Choke")).toBe("submission");
     expect(mapMethod("KO/TKO Punches")).toBe("knockout");
+    expect(mapMethod("DQ (Illegal Knee)")).toBe("disqualification");
+    expect(mapMethod("Disqualification")).toBe("disqualification");
   });
 
   it("parses results rows using the method and round columns instead of KD stats", () => {
