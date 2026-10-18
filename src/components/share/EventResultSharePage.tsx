@@ -61,7 +61,7 @@ export default function EventResultSharePage({ data, shareUrl }: { data: ShareDa
     if (!el) return;
     const obs = new ResizeObserver(([entry]) => {
       const w = entry.contentRect.width;
-      setCardScale(Math.min(1, Math.max(0.35, (w - 8) / 540)));
+      setCardScale(Math.min(1, Math.max(0.1, (w - 8) / 540)));
     });
     obs.observe(el);
     return () => obs.disconnect();
@@ -70,13 +70,23 @@ export default function EventResultSharePage({ data, shareUrl }: { data: ShareDa
   const perfectPicks = Number((score as any)?.perfect_picks ?? (picks.filter((pick: any) => pick.total_points === 3).length || 0));
   const winnersHit = picks.filter((pick: any) => Number(pick.points_winner || 0) > 0).length;
   const totalPicks = picks.length;
-  const whatsappHref = `https://wa.me/?text=${encodeURIComponent(`Veja meu resultado no ${event.name}: ${profile.nickname} fez ${totalPoints} pts no UFC Fantasy ${shareUrl}`)}`;
-  const shareCaption = `${profile.nickname} fez ${totalPoints} pontos no ${event.name} pelo UFC Fantasy. Veja o resultado e entre no jogo: ${shareUrl}`;
+  const shareCaption = [
+    `🥊 ${profile.nickname} no ${event.name}`,
+    "",
+    `🏆 ${totalPoints} pontos${rank ? ` · #${rank} no evento` : ""}`,
+    `🎯 ${winnersHit}/${totalPicks} vencedores certos`,
+    `🔥 ${perfectPicks} ${perfectPicks === 1 ? "cravada perfeita" : "cravadas perfeitas"}`,
+    "",
+    "E aí, como foi o seu card? Confira meu resultado no UFC Fantasy:",
+    shareUrl,
+  ].join("\n");
+  const whatsappHref = `https://wa.me/?text=${encodeURIComponent(shareCaption)}`;
   const filename = `ufc-fantasy-result-${event.slug}-${safeFilenamePart(profile.nickname)}.png`;
   const sortedFights = (event.fights || [])
     .slice()
     .sort((a: any, b: any) => a.fight_order - b.fight_order);
   const hasBanner = !!event.banner_image_url;
+  const cardHeight = Math.max(960, 600 + sortedFights.length * 39);
 
   return (
     <main className="min-h-[100dvh]" style={{ backgroundColor: "var(--bg)" }}>
@@ -85,15 +95,15 @@ export default function EventResultSharePage({ data, shareUrl }: { data: ShareDa
         <div
           ref={wrapperRef}
           className="flex justify-center overflow-hidden pb-3"
-          style={{ maxHeight: "calc(100dvh - 260px)" }}
+          style={{ height: cardHeight * cardScale + 12 }}
         >
-          <div style={{ transform: `scale(${cardScale})`, transformOrigin: "top center" }}>
+          <div style={{ width: 540 * cardScale, height: cardHeight * cardScale, flexShrink: 0 }}><div style={{ width: 540, transform: `scale(${cardScale})`, transformOrigin: "top left" }}>
           <div
             ref={cardRef}
             className="font-condensed"
             style={{
               width: 540,
-              height: 960,
+              height: cardHeight,
               background: "#0d0d0d",
               color: "#f0f0f0",
               padding: 16,
@@ -204,7 +214,7 @@ export default function EventResultSharePage({ data, shareUrl }: { data: ShareDa
                           Resultado
                         </p>
                         <h1
-                          className="-mt-1 text-[66px] font-900 uppercase leading-[0.88] tracking-tight"
+                          className="-mt-1 break-words text-[54px] font-900 uppercase leading-[0.95] tracking-tight"
                           style={{ color: "#f0f0f0" }}
                         >
                           {profile.nickname}
@@ -221,7 +231,7 @@ export default function EventResultSharePage({ data, shareUrl }: { data: ShareDa
                         <div className="grid grid-cols-3 text-center">
                           {[
                             { label: "MEUS PICKS", value: totalPicks, highlight: false },
-                            { label: "RESULTADOS", value: winnersHit, highlight: false },
+                            { label: "ACERTOS", value: winnersHit, highlight: false },
                             { label: "PONTOS", value: totalPoints, highlight: true },
                           ].map((col, i) => (
                             <div
@@ -448,6 +458,7 @@ export default function EventResultSharePage({ data, shareUrl }: { data: ShareDa
                 )}
               </div>
             </div>
+          </div>
           </div>
           </div>
         </div>

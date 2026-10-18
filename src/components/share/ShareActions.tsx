@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
 type Props = {
@@ -12,6 +12,17 @@ type Props = {
 
 export default function ShareActions({ cardRef, filename, shareCaption, whatsappTextUrl }: Props) {
   const [capturing, setCapturing] = useState(false);
+  const [preparedFile, setPreparedFile] = useState<File | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void captureBlob().then((blob) => {
+      if (active && blob) setPreparedFile(new File([blob], filename, { type: "image/png" }));
+    });
+    return () => { active = false; };
+    // The card is immutable for this share page.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filename]);
 
   function waitForPaint() {
     return new Promise<void>((resolve) => {
@@ -80,27 +91,27 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
       await navigator.clipboard.writeText(shareCaption);
       toast.success("Legenda copiada.");
     } catch {
-      /* clipboard not available */
+      toast.error("Não foi possível copiar. Selecione a legenda abaixo e copie.");
     }
   }
 
   async function handleDownload() {
-    const blob = await captureBlob();
+    const blob = preparedFile || await captureBlob();
     if (!blob) return;
     downloadBlob(blob);
   }
 
   async function handleShare() {
-    const blob = await captureBlob();
+    const blob = preparedFile || await captureBlob();
     if (!blob) return;
 
-    const file = new File([blob], filename, { type: "image/png" });
+    const file = preparedFile || new File([blob], filename, { type: "image/png" });
 
     if (navigator.share && navigator.canShare?.({ files: [file] })) {
       try {
         await navigator.share({ files: [file], text: shareCaption });
-      } catch (error: any) {
-        if (error?.name !== "AbortError") {
+      } catch (error: unknown) {
+        if (!(error instanceof Error && error.name === "AbortError")) {
           downloadBlob(blob);
           await copyCaption();
         }
@@ -112,7 +123,8 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
   }
 
   return (
-    <div className="flex flex-col gap-3 sm:flex-row">
+    <div className="space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap" aria-busy={capturing}>
       <button
         onClick={handleDownload}
         disabled={capturing}
@@ -131,7 +143,7 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
         className="px-5 py-3 text-center font-condensed text-sm font-900 uppercase tracking-widest text-white disabled:opacity-60"
         style={{ backgroundColor: "var(--red)" }}
       >
-        {capturing ? "Gerando..." : "Compartilhar imagem"}
+        {capturing ? "Gerando..." : "Compartilhar card + legenda"}
       </button>
       <a
         href={whatsappTextUrl}
@@ -144,8 +156,17 @@ export default function ShareActions({ cardRef, filename, shareCaption, whatsapp
           backgroundColor: "var(--bg-card)",
         }}
       >
-        Compartilhar texto
+        Abrir legenda no WhatsApp
       </a>
+      </div>
+      <div className="border border-[var(--border)] bg-[var(--bg-card)] p-4">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <label htmlFor="share-caption" className="font-condensed font-900 uppercase tracking-wide text-[var(--text)]">Legenda pronta</label>
+          <button onClick={copyCaption} className="min-h-11 px-3 text-sm font-semibold text-[var(--text)] underline underline-offset-4">Copiar legenda</button>
+        </div>
+        <textarea id="share-caption" readOnly value={shareCaption} rows={6} className="w-full resize-y border border-[var(--border)] bg-[var(--bg)] p-3 text-sm leading-relaxed text-[var(--text)]" />
+        <p className="mt-3 text-sm text-[var(--text-secondary)]">No celular, escolha o WhatsApp ao compartilhar. Se essa opção não aparecer, baixe o card e envie com a legenda.</p>
+      </div>
     </div>
   );
 }
