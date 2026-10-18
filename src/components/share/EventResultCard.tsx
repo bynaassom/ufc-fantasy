@@ -116,11 +116,14 @@ export default function EventResultCard({
       </div>
 
       {bannerSrc && (
-        <div style={{ margin: "0 -28px", backgroundColor: "#242424" }}>
+        <div
+          style={{ margin: "0 -28px", height: 304, backgroundColor: "#242424" }}
+        >
           {/* The same-origin optimizer allows the exporter to embed official UFC art. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={bannerSrc}
+            data-share-raster
             alt={`Banner de ${event.name}`}
             loading="eager"
             onError={() =>
