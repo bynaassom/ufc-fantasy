@@ -384,15 +384,16 @@ export default function EventResultCard({
         <span
           style={{ fontSize: 18, fontWeight: 800, textTransform: "uppercase" }}
         >
-          A próxima luta é de palpites.
+          Palpite agora
         </span>
         <span
           style={{
-            fontSize: 11,
-            color: muted,
+            fontSize: 16,
+            fontWeight: 600,
+            color: "#f5f3ee",
             textAlign: "right",
             overflowWrap: "anywhere",
-            maxWidth: 190,
+            maxWidth: 280,
           }}
         >
           {siteHost}
