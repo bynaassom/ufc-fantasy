@@ -12,7 +12,21 @@ export async function captureShareImage(node: HTMLElement): Promise<Blob> {
     document.fonts?.ready.catch(() => undefined),
     new Promise((resolve) => window.setTimeout(resolve, 3000)),
   ]);
-  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  // Let an image's onError handler switch to its fallback before cloning.
+  // Two passes cover the optimized banner and its direct-source fallback.
+  for (let pass = 0; pass < 2; pass++) {
+    await Promise.race([
+      Promise.all(
+        Array.from(node.querySelectorAll("img"), (image) =>
+          image.decode().catch(() => undefined),
+        ),
+      ),
+      new Promise((resolve) => window.setTimeout(resolve, 10000)),
+    ]);
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => resolve()),
+    );
+  }
 
   const options: Options = {
     width: Math.ceil(node.offsetWidth),

@@ -1,6 +1,8 @@
 "use client";
 
-import type { CSSProperties, Ref } from "react";
+import { useState, type CSSProperties, type Ref } from "react";
+import { getImageProps } from "next/image";
+import { shouldOptimizeRemoteImage } from "@/lib/image-optimization";
 import type { EventWithFights, Pick } from "@/types";
 import { formatEventDate } from "@/lib/utils";
 
@@ -54,6 +56,21 @@ export default function EventResultCard({
 }) {
   const { event, profile, picks, rank, status } = data;
   const metrics = resultMetrics(data);
+  const [failedBannerSources, setFailedBannerSources] = useState<string[]>([]);
+  const bannerUrl = event.banner_image_url;
+  const optimizedBanner =
+    bannerUrl && shouldOptimizeRemoteImage(bannerUrl)
+      ? getImageProps({
+          src: bannerUrl,
+          alt: "",
+          width: 540,
+          height: 304,
+          quality: 80,
+        }).props.src
+      : bannerUrl;
+  const bannerSrc = [optimizedBanner, bannerUrl].find(
+    (src): src is string => !!src && !failedBannerSources.includes(src),
+  );
   const pickMap = new Map(picks.map((pick) => [pick.fight_id, pick]));
   const fights = [...event.fights].sort((a, b) => {
     if (a.card_type !== b.card_type) return a.card_type === "main" ? -1 : 1;
@@ -82,16 +99,15 @@ export default function EventResultCard({
           marginBottom: 22,
         }}
       >
-        <div
-          style={{
-            fontSize: 22,
-            fontWeight: 900,
-            fontStyle: "italic",
-            letterSpacing: "-0.02em",
-          }}
-        >
-          UFC <span style={{ color: "#ff4b5e" }}>FANTASY</span>
-        </div>
+        {/* The card stays dark in both app themes; use the matching SVG. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/logo-dark.svg"
+          alt="UFC Fantasy"
+          width={170}
+          height={30}
+          style={{ display: "block", width: 170, height: 30 }}
+        />
         <span style={{ ...label, color: muted }}>
           {event.status === "completed"
             ? "Resultado final"
@@ -99,43 +115,28 @@ export default function EventResultCard({
         </span>
       </div>
 
-      <div
-        style={{
-          position: "relative",
-          minHeight: 130,
-          overflow: "hidden",
-          background: "#242424",
-          padding: "24px 24px 20px",
-        }}
-      >
-        {event.banner_image_url && (
-          // Literal image is required for browser image export.
-          // eslint-disable-next-line @next/next/no-img-element
+      {bannerSrc && (
+        <div style={{ margin: "0 -28px", backgroundColor: "#242424" }}>
+          {/* The same-origin optimizer allows the exporter to embed official UFC art. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={event.banner_image_url}
-            alt=""
-            onError={(e) => {
-              e.currentTarget.style.display = "none";
-            }}
+            src={bannerSrc}
+            alt={`Banner de ${event.name}`}
+            loading="eager"
+            onError={() =>
+              setFailedBannerSources((sources) => [...sources, bannerSrc])
+            }
             style={{
-              position: "absolute",
-              inset: 0,
-              width: "100%",
-              height: "100%",
+              display: "block",
+              width: 540,
+              height: 304,
               objectFit: "cover",
               objectPosition: event.banner_object_position || "center",
-              opacity: 0.35,
             }}
           />
-        )}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background:
-              "linear-gradient(90deg, rgba(16,16,16,.85), rgba(16,16,16,.15))",
-          }}
-        />
+        </div>
+      )}
+      <div style={{ padding: "22px 0", borderBottom: "1px solid #383838" }}>
         <div style={{ position: "relative" }}>
           <h2
             style={{

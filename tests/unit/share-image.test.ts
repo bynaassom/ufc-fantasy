@@ -4,7 +4,11 @@ import { captureShareImage, SHARE_IMAGE_PLACEHOLDER } from "@/lib/share-image";
 const image = vi.hoisted(() => ({ getFontEmbedCSS: vi.fn(), toBlob: vi.fn() }));
 vi.mock("html-to-image", () => image);
 
-const node = { offsetWidth: 540, offsetHeight: 1100 } as HTMLElement;
+const node = {
+  offsetWidth: 540,
+  offsetHeight: 1100,
+  querySelectorAll: () => [],
+} as unknown as HTMLElement;
 beforeEach(() => {
   image.getFontEmbedCSS
     .mockReset()
@@ -22,6 +26,23 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("share image export", () => {
+  it("waits for the banner to decode before exporting the card", async () => {
+    let loaded!: () => void;
+    const ready = new Promise<void>((resolve) => {
+      loaded = resolve;
+    });
+    const decode = vi.fn(() => ready);
+    const card = {
+      ...node,
+      querySelectorAll: () => [{ decode }],
+    } as unknown as HTMLElement;
+    const capture = captureShareImage(card);
+    await vi.waitFor(() => expect(decode).toHaveBeenCalled());
+    expect(image.toBlob).not.toHaveBeenCalled();
+    loaded();
+    await expect(capture).resolves.toBeInstanceOf(Blob);
+  });
+
   it("exports at the card's full size and provides a valid fallback for unavailable images", async () => {
     const blob = await captureShareImage(node);
     expect(blob.type).toBe("image/png");

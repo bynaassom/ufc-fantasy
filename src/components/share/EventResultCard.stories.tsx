@@ -127,13 +127,11 @@ export const LongNames: Story = {
         name: "UFC Fight Night: Um nome de evento muito longo para conferir o card",
         fights: [
           ...example.event.fights,
-          ...example.event.fights
-            .slice(0, 4)
-            .map((fight, i) => ({
-              ...fight,
-              id: `extra-${i}`,
-              fight_order: 20 + i,
-            })),
+          ...example.event.fights.slice(0, 4).map((fight, i) => ({
+            ...fight,
+            id: `extra-${i}`,
+            fight_order: 20 + i,
+          })),
         ],
       },
     },
@@ -147,6 +145,19 @@ export const Private: Story = {
       picks: [],
       score: null,
       rank: null,
+    },
+  },
+};
+
+export const WithBanner: Story = {
+  args: {
+    data: {
+      ...example,
+      event: {
+        ...example.event,
+        banner_image_url:
+          "https://ufc.com/images/styles/background_image_xl/s3/2025-08/100425-ufc-320-ankalaev-vs-pereira-2-EVENT-ART.jpg?h=d1cb525d&itok=40mg6y4N",
+      },
     },
   },
 };
