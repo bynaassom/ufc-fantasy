@@ -36,6 +36,54 @@ function createDeps(overrides: Partial<NotificationServiceDeps> = {}) {
 }
 
 describe("notification service", () => {
+  it("does not load recipients or picks outside notification windows", async () => {
+    const { deps } = createDeps({
+      getCurrentEvent: vi.fn(async () => ({
+        id: "event-1",
+        name: "UFC Fortaleza",
+        slug: "ufc-fortaleza",
+        status: "upcoming",
+        picks_open_at: "2026-05-01T18:00:00.000Z",
+        picks_lock_at: "2026-05-02T21:00:00.000Z",
+      })),
+    });
+
+    const result = await dispatchDuePickNotifications(
+      testClient,
+      { now: new Date("2026-05-02T19:30:00.000Z") },
+      deps,
+    );
+
+    expect(result.created).toBe(0);
+    expect(deps.listActiveRecipients).not.toHaveBeenCalled();
+    expect(deps.listConfirmedPickUsersForEvent).not.toHaveBeenCalled();
+    expect(deps.createNotificationOnce).not.toHaveBeenCalled();
+  });
+
+  it("still sends opening notifications when there are no closing reminders", async () => {
+    const { created, deps } = createDeps({
+      getCurrentEvent: vi.fn(async () => ({
+        id: "event-1",
+        name: "UFC Fortaleza",
+        slug: "ufc-fortaleza",
+        status: "upcoming",
+        picks_open_at: "2026-05-01T18:00:00.000Z",
+        picks_lock_at: "2026-05-02T21:00:00.000Z",
+      })),
+      listActiveRecipients: vi.fn(async () => [{ id: "user-1", is_banned: false }]),
+    });
+
+    await dispatchDuePickNotifications(
+      testClient,
+      { now: new Date("2026-05-01T18:05:00.000Z") },
+      deps,
+    );
+
+    expect(created).toHaveLength(1);
+    expect(created[0]).toMatchObject({ type: "picks_opened", user_id: "user-1" });
+    expect(deps.listConfirmedPickUsersForEvent).not.toHaveBeenCalled();
+  });
+
   it("sends deduplicated push directly to an anonymous Companion", async () => {
     const deps = {
       listPushSubscriptions: vi.fn(async () => [{

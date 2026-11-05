@@ -11,6 +11,7 @@ export const adminEventSchema = z.object({
   banner_image_url: z.string().optional().default(""),
   banner_object_position: z.string().optional().default("center"),
   ufc_event_id: z.string().optional().default(""),
+  ufc_live_event_id: z.string().trim().regex(/^(?:\d+)?$/, "Informe apenas números").optional(),
   ufc_stats_url: z.string().optional().default(""),
   is_bonus: z.boolean().optional().default(false),
   status: z.enum(["upcoming", "live", "completed"]).optional(),

@@ -11,6 +11,7 @@ const EVENT_PUBLIC_FIELDS = `
   banner_image_url,
   banner_object_position,
   ufc_event_id,
+  ufc_live_event_id,
   status,
   picks_lock_at,
   picks_open_at,

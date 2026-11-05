@@ -1031,7 +1031,7 @@ export function diffScrapedCardAgainstExistingFights(
   };
 }
 
-async function scrapeUfcEventCardSnapshot(url: string) {
+async function scrapeUfcEventCardSnapshot(url: string, manualEventId?: string | null) {
   if (!isAllowedScrapeUrl(url)) {
     throw new Error("Host não permitido para scraping");
   }
@@ -1053,10 +1053,13 @@ async function scrapeUfcEventCardSnapshot(url: string) {
   const html = await response.text();
   const primaryFights = parseUfcEventCardHtml(html, url);
   const eventName = parseEventTitleFromHtml(html);
-  const liveEventId = extractUfcLiveEventId(html);
+  const liveEventId = manualEventId || extractUfcLiveEventId(html);
   const [articleFights, official] = await Promise.all([
     eventName ? scrapeUfcCardListArticle(eventName) : Promise.resolve([]),
-    liveEventId ? fetchUfcLiveEvent(liveEventId).catch(() => null) : Promise.resolve(null),
+    liveEventId ? fetchUfcLiveEvent(liveEventId).catch((error) => {
+      if (manualEventId) throw error;
+      return null;
+    }) : Promise.resolve(null),
   ]);
   const scrapedFights = mergeSupplementalScrapedCardFights(
     primaryFights,
@@ -1065,6 +1068,9 @@ async function scrapeUfcEventCardSnapshot(url: string) {
 
   const officialFights = official?.event.fights || [];
   const officialFightCount = officialFights.length;
+  if (manualEventId && officialFightCount === 0) {
+    throw new Error("A API UFC não retornou lutas válidas para o ID manual informado");
+  }
   return {
     fights: officialFightCount
       ? mergeOfficialUfcCardFights(scrapedFights, officialFights, url)
@@ -1073,8 +1079,8 @@ async function scrapeUfcEventCardSnapshot(url: string) {
   };
 }
 
-export async function scrapeUfcEventCard(url: string): Promise<ScrapedCardFight[]> {
-  return (await scrapeUfcEventCardSnapshot(url)).fights;
+export async function scrapeUfcEventCard(url: string, manualEventId?: string | null): Promise<ScrapedCardFight[]> {
+  return (await scrapeUfcEventCardSnapshot(url, manualEventId)).fights;
 }
 
 export async function ensureFighter(adminSupabase: any, fighter: ScrapedCardFight["fighter_a"]) {
@@ -1214,10 +1220,10 @@ export async function syncScrapedCardForEvent(
   adminSupabase: any,
   eventId: string,
   eventUrl: string,
-  options: { removeReplacedFights?: boolean } = {},
+  options: { removeReplacedFights?: boolean; manualEventId?: string | null } = {},
 ) {
   const { fights: scrapedFights, officialFightCount } =
-    await scrapeUfcEventCardSnapshot(eventUrl);
+    await scrapeUfcEventCardSnapshot(eventUrl, options.manualEventId);
 
   const { data: currentFights, error: currentFightsError } = await adminSupabase
     .from("fights")

@@ -1,50 +1,14 @@
 export const dynamic = "force-dynamic";
 
-import { NextRequest } from "next/server";
-import { z } from "zod";
-import {
-  apiErrorFromUnknown,
-  apiSuccess,
-  assertSameOriginForMutation,
-  parseJsonBody,
-} from "@/server/api";
-import {
-  sendMessage,
-  getMessages,
-  pollNewMessages,
-} from "@/server/services/chat";
-
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const before = searchParams.get("before");
-    const since = searchParams.get("since");
-    const groupId = z.string().uuid().parse(searchParams.get("groupId"));
-
-    if (since) {
-      const messages = await pollNewMessages(since, groupId);
-      return apiSuccess({ messages });
-    }
-
-    const result = await getMessages(before, groupId);
-    return apiSuccess(result);
-  } catch (error) {
-    return apiErrorFromUnknown(error);
-  }
+// Old tabs may keep polling after deployment. Retire the API without touching
+// Auth or the database; historical messages remain stored for now.
+export async function GET() {
+  return Response.json(
+    { ok: false, error: { code: "CHAT_RETIRED", message: "O chat foi desativado." } },
+    { status: 410 },
+  );
 }
 
-const sendMessageSchema = z.object({
-  content: z.string().min(1).max(500),
-  groupId: z.string().uuid(),
-});
-
-export async function POST(request: NextRequest) {
-  try {
-    assertSameOriginForMutation(request);
-    const body = await parseJsonBody(request, sendMessageSchema);
-    const message = await sendMessage(body.content, body.groupId);
-    return apiSuccess({ message }, { status: 201 });
-  } catch (error) {
-    return apiErrorFromUnknown(error);
-  }
+export async function POST() {
+  return GET();
 }

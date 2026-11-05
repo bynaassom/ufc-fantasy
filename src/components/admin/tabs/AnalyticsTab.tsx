@@ -9,7 +9,6 @@ type AdminStats = {
   total_picks: number;
   total_challenges: number;
   total_groups: number;
-  total_chat_messages: number;
   active_users_last_7d: number;
   picks_this_event: number;
 };
@@ -55,7 +54,6 @@ export default function AnalyticsTab() {
     { label: "Picks no evento atual", value: stats.picks_this_event },
     { label: "Desafios", value: stats.total_challenges },
     { label: "Ligas criadas", value: stats.total_groups },
-    { label: "Mensagens no chat", value: stats.total_chat_messages },
   ];
 
   return (

@@ -69,7 +69,6 @@ import {
   countConfirmedPicksForFight,
   getPickDistributionForEvent,
   listPerfectPickUsersForFight,
-  listPicksForUser,
   listPicksForUserAndEvents,
   listPicksForUserEvent,
   listPicksForUsersEvent,
@@ -1452,16 +1451,15 @@ export async function getHistoryPageData() {
 
 export async function getHistoryEventPageData(slug: string) {
   const { supabase, user, profile } = await requirePageUserProfile();
-  const [event, userPicks] = await Promise.all([
-    getCachedEventBySlug(slug),
-    listPicksForUser(supabase, user.id),
-  ]);
+  const event = await getCachedEventBySlug(slug);
   if (!event) {
     return { profile, event: null, picks: [], score: null };
   }
 
-  const score = await getEventScoreForUserAndEvent(supabase, user.id, event.id);
-  const picks = userPicks.filter((pick: any) => pick.event_id === event.id);
+  const [score, picks] = await Promise.all([
+    getEventScoreForUserAndEvent(supabase, user.id, event.id),
+    listPicksForUserEvent(supabase, user.id, event.id),
+  ]);
 
   return { profile, event, picks, score };
 }
@@ -2358,6 +2356,7 @@ export async function getAdminEvent(eventId: string) {
 
 const EVENT_RESULT_SOURCE_FIELDS = [
   "ufc_event_id",
+  "ufc_live_event_id",
   "ufc_stats_url",
 ] as const;
 

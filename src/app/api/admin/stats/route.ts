@@ -13,7 +13,6 @@ export async function GET() {
       { count: totalPicks },
       { count: totalChallenges },
       { count: totalGroups },
-      { count: totalChatMessages },
       { count: activeUsers },
       { count: picksThisEvent },
     ] = await Promise.all([
@@ -22,7 +21,6 @@ export async function GET() {
       adminSupabase.from("picks").select("*", { count: "exact", head: true }),
       adminSupabase.from("challenges").select("*", { count: "exact", head: true }),
       adminSupabase.from("groups").select("*", { count: "exact", head: true }),
-      adminSupabase.from("chat_messages").select("*", { count: "exact", head: true }),
       adminSupabase
         .from("profiles")
         .select("*", { count: "exact", head: true })
@@ -47,7 +45,6 @@ export async function GET() {
         total_picks: totalPicks || 0,
         total_challenges: totalChallenges || 0,
         total_groups: totalGroups || 0,
-        total_chat_messages: totalChatMessages || 0,
         active_users_last_7d: activeUsers || 0,
         picks_this_event: picksThisEvent || 0,
       },

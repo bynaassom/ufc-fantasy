@@ -81,8 +81,8 @@ export default function PrivacidadePage() {
           </h2>
           <p className={bodyClass} style={{ color: "var(--text-secondary)" }}>
             Usamos esses dados para criar e proteger sua conta, salvar e
-            calcular picks, exibir rankings e perfis, operar ligas, desafios e
-            chat, enviar notificações solicitadas, sincronizar eventos e
+            calcular picks, exibir rankings e perfis, operar ligas e desafios,
+            enviar notificações solicitadas, sincronizar eventos e
             resultados, detectar abuso ou fraude, moderar conteúdo, corrigir
             falhas e manter a segurança e a integridade da competição. Também
             podemos usar registros técnicos agregados para diagnosticar e
@@ -97,10 +97,11 @@ export default function PrivacidadePage() {
           <p className={bodyClass} style={{ color: "var(--text-secondary)" }}>
             Para que o jogo funcione, seu apelido, nome informado, pontuação,
             posição no ranking, badges e outros elementos do perfil podem ser
-            exibidos para outros usuários. Picks, resultados, mensagens e
+            exibidos para outros usuários. Picks, resultados e
             atividades podem ficar visíveis conforme a funcionalidade e as
             regras da liga. Evite publicar informações pessoais ou sensíveis no
-            perfil e no chat.
+            perfil. O chat foi desativado; mensagens antigas podem permanecer
+            armazenadas conforme as regras de retenção desta política.
           </p>
         </section>
 

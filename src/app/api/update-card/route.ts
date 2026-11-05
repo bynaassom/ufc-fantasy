@@ -14,6 +14,7 @@ import { readUpdateCardRequest } from "@/lib/update-card-request";
 import {
   buildUfcAutomaticTimingUpdate,
   fetchUfcLiveEventFromPage,
+  fetchUfcLiveEvent,
 } from "@/lib/ufc-live-api";
 import { assertSameOriginForMutation } from "@/server/api";
 import { CACHE_TAGS } from "@/server/cache-tags";
@@ -72,7 +73,7 @@ export async function POST(req: NextRequest) {
   const { data: event } = await adminSupabase
     .from("events")
     .select(
-      "id, name, slug, status, ufc_event_id, event_date, prelims_start_at, timing_mode, picks_lock_at, picks_open_at",
+      "id, name, slug, status, ufc_event_id, ufc_live_event_id, event_date, prelims_start_at, timing_mode, picks_lock_at, picks_open_at",
     )
     .eq("id", event_id)
     .single();
@@ -106,7 +107,7 @@ export async function POST(req: NextRequest) {
 
   for (const candidateUrl of candidateUrls) {
     try {
-      const fights = await scrapeUfcEventCard(candidateUrl);
+      const fights = await scrapeUfcEventCard(candidateUrl, event.ufc_live_event_id);
       if (fights.length === 0) {
         attemptedErrors.push(`${candidateUrl}: nenhuma luta encontrada`);
         continue;
@@ -156,7 +157,9 @@ export async function POST(req: NextRequest) {
   };
   if (event.timing_mode !== "manual") {
     try {
-      const official = await fetchUfcLiveEventFromPage(resolvedUrl);
+      const official = event.ufc_live_event_id
+        ? await fetchUfcLiveEvent(event.ufc_live_event_id)
+        : await fetchUfcLiveEventFromPage(resolvedUrl);
       const timingUpdate = buildUfcAutomaticTimingUpdate(event, official.event);
 
       if (timingUpdate) {

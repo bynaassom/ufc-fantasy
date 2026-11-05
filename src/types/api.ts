@@ -173,16 +173,3 @@ export type HomeChallenge = {
 };
 
 export type HomeSuggestedRival = SuggestedRival;
-
-export type ChatListResponse = {
-  messages: import("@/types").ChatMessage[];
-  hasMore: boolean;
-};
-
-export type SendChatMessagePayload = {
-  content: string;
-};
-
-export type SendChatMessageResponse = {
-  message: import("@/types").ChatMessage;
-};

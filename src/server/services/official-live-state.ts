@@ -201,7 +201,7 @@ export async function getOfficialLiveState(
   try {
     const eventId = await getCachedOfficialEventId(
       event.slug,
-      event.ufc_event_id || null,
+      event.ufc_live_event_id || event.ufc_event_id || null,
     );
     if (!eventId) return null;
 

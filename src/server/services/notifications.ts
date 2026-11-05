@@ -408,10 +408,17 @@ export async function dispatchDuePickNotifications(
   const event = await deps.getCurrentEvent(client);
   if (!event) return { ...emptyNotificationBatchResult };
 
+  const openedDue = isPicksOpenedNotificationDue({ now, event });
+  const closedDue = isPicksClosedNotificationDue({ now, event });
+  const reminderTypes = getDuePickReminderTypes({ now, event });
+  if (!openedDue && !closedDue && !reminderTypes.length) {
+    return { ...emptyNotificationBatchResult };
+  }
+
   const activeRecipients = await deps.listActiveRecipients(client);
   let result = { ...emptyNotificationBatchResult };
 
-  if (isPicksOpenedNotificationDue({ now, event })) {
+  if (openedDue) {
     result = addBatchResults(
       result,
       await createNotificationsForUsers(
@@ -426,7 +433,7 @@ export async function dispatchDuePickNotifications(
     );
   }
 
-  if (isPicksClosedNotificationDue({ now, event })) {
+  if (closedDue) {
     result = addBatchResults(
       result,
       await createNotificationsForUsers(
@@ -441,7 +448,6 @@ export async function dispatchDuePickNotifications(
     );
   }
 
-  const reminderTypes = getDuePickReminderTypes({ now, event });
   if (!reminderTypes.length) return result;
 
   const confirmedPicks = await deps.listConfirmedPickUsersForEvent(client, event.id);

@@ -31,6 +31,7 @@ type VerificationEvent = {
   event_date: string;
   picks_lock_at: string;
   ufc_event_id?: string | null;
+  ufc_live_event_id?: string | null;
   ufc_stats_url?: string | null;
 };
 
@@ -46,7 +47,7 @@ async function scrapeOfficialCard(event: VerificationEvent) {
       });
       if (!response.ok) throw new Error(`UFC.com HTTP ${response.status}`);
       const html = await response.text();
-      const liveEventId = extractUfcLiveEventId(html);
+      const liveEventId = event.ufc_live_event_id || extractUfcLiveEventId(html);
 
       if (liveEventId) {
         const official = await fetchUfcLiveEvent(liveEventId);
@@ -226,7 +227,7 @@ export async function dispatchDueCardVerifications(adminSupabase: DbClient, now 
   const horizon = new Date(now.getTime() + 73 * 60 * 60 * 1000).toISOString();
   const { data: events, error: eventsError } = await adminSupabase
     .from("events")
-    .select("id, name, slug, event_date, picks_lock_at, ufc_event_id, ufc_stats_url")
+    .select("id, name, slug, event_date, picks_lock_at, ufc_event_id, ufc_live_event_id, ufc_stats_url")
     .in("status", ["upcoming", "live"])
     .not("picks_lock_at", "is", null)
     .gt("picks_lock_at", now.toISOString())

@@ -70,6 +70,7 @@ export interface Event {
   banner_image_url?: string;
   banner_object_position?: string;
   ufc_event_id?: string | null;
+  ufc_live_event_id?: string | null;
   status: EventStatus;
   picks_lock_at: string;
   picks_open_at: string | null;
@@ -100,7 +101,7 @@ export interface Fight {
   is_title_fight: boolean;
   total_rounds: 3 | 5;
   winner_id?: string;
-  result_method?: FightMethod;
+  result_method?: FightResultMethod;
   result_round?: number;
   result_confirmed: boolean;
   odds_a?: string | null;
@@ -429,21 +430,4 @@ export interface EventRecapData {
     total_perfect_picks: number;
   };
   fightStats: EventRecapFightStat[];
-}
-
-export interface ChatMessage {
-  id: string;
-  user_id: string;
-  group_id?: string | null;
-  content: string;
-  is_hidden: boolean;
-  hidden_by?: string | null;
-  hidden_at?: string | null;
-  created_at: string;
-  profile?: {
-    nickname: string;
-    first_name: string;
-    last_name: string;
-    role: string;
-  };
 }

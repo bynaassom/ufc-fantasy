@@ -41,7 +41,7 @@ The live app is available at **[ufc-fantasy.vercel.app](https://ufc-fantasy.verc
 
 - Picks for winner, method, and round, with automatic saving and event-aware lock times
 - Global, event, and season leaderboards with rank movement
-- Private leagues with invite links, standings, champions, and group chat
+- Private leagues with invite links, standings, champions, and WhatsApp invitations
 - Head-to-head player challenges and rivalries
 - Live fight-night feed, scoring, and fighter comparison
 - Public profiles, experience levels, badges, and trophy cases

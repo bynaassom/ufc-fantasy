@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
       try {
         const result = await adminSupabase
           .from("events")
-          .select("id, name, slug, status, ufc_event_id, ufc_stats_url, timing_mode, picks_open_at, picks_lock_at, banner_image_url")
+          .select("id, name, slug, status, ufc_event_id, ufc_live_event_id, ufc_stats_url, timing_mode, picks_open_at, picks_lock_at, banner_image_url")
           .in("ufc_event_id", Array.from(new Set([sourceId, event.id])))
           .limit(1)
           .maybeSingle();
@@ -142,7 +142,7 @@ export async function POST(req: NextRequest) {
             adminSupabase,
             existing.id,
             url,
-            { removeReplacedFights: Boolean(mayRemoveReplacements) },
+            { removeReplacedFights: Boolean(mayRemoveReplacements), manualEventId: existing.ufc_live_event_id },
           );
           cardSync.push({ event_id: existing.id, event_name: event.name, ok: true, ...result });
           cardSynced++;

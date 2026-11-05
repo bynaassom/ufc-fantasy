@@ -65,6 +65,15 @@ https://seudominio.com/auth/callback
 
 ## Cron Jobs
 
+### Otimizações de leitura (setembro/2026)
+
+- O histórico de um evento consulta palpites por `user_id` e `event_id`, sem carregar todos os eventos do usuário.
+- A migração `20260918000000_picks_user_event_index.sql` adiciona o índice correspondente. Execute o comando isoladamente, sem `BEGIN`/`COMMIT` e sem um runner que envolva a migração em transação, pois utiliza `CREATE INDEX CONCURRENTLY`. Verifique antes se já há índice equivalente no banco e execute fora do horário de lutas; a construção ainda consome CPU e I/O. Não foi aplicada automaticamente em produção.
+- O chat interno foi retirado; as APIs antigas retornam HTTP 410 sem acessar Auth ou banco. A tabela e as mensagens históricas foram preservadas. `/bate-papo` continua redirecionando para `/ligas`.
+- O job de notificações só consulta destinatários quando alguma janela de aviso está ativa. Frequência, lembretes, fallback e pontuação por luta permanecem iguais.
+
+### Agendamento atual
+
 Configure os jobs como `POST` e envie `Content-Type: application/json` com body `{}` ou vazio.
 
 | Job | Endpoint | Header | Frequência sugerida |
@@ -110,6 +119,6 @@ Checklist manual:
 - Fluxo de picks
 - Ranking geral/evento/temporada
 - Ligas e convite
-- Chat global e chat de liga
+- Ligas sem chat interno; convites por WhatsApp preservados
 - Admin: eventos, lutas, resultados e logs
 - PWA/mobile com safe area e navbar fixa

@@ -1027,6 +1027,7 @@ function EventoEditar({
           },
           { label: "Banner URL", key: "banner_image_url", type: "text" },
           { label: "URL UFC.com", key: "ufc_event_id", type: "text" },
+          { label: "ID numérico da API UFC (opcional)", key: "ufc_live_event_id", type: "text" },
           { label: "URL UFCStats", key: "ufc_stats_url", type: "text" },
           ].map(({ label, key, type, options }) => {
           const k = key as keyof EventEditForm;
