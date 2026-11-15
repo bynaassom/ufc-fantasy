@@ -1,5 +1,6 @@
 import type { FightWithFighters } from "@/types";
 import { getWeightClassLabel } from "@/lib/ufc-weight";
+import { getMethodLabel } from "@/lib/utils";
 import { FightAlertButton } from "@/components/event/EventAlertControls";
 
 export default function CompanionFightCard({
@@ -9,7 +10,7 @@ export default function CompanionFightCard({
   fight: FightWithFighters;
   number: number;
 }) {
-  const completed = fight.result_confirmed && Boolean(fight.winner_id);
+  const completed = fight.result_confirmed;
   const fightName = `${fight.fighter_a.name} vs ${fight.fighter_b.name}`;
 
   return (
@@ -33,7 +34,7 @@ export default function CompanionFightCard({
           )}
           {completed && (
             <span className="border border-[var(--border)] px-1.5 py-0.5 font-condensed text-[8px] font-900 uppercase tracking-widest text-[var(--text-muted)]">
-              encerrada
+              {fight.result_method === "majority_draw" ? getMethodLabel(fight.result_method) : "encerrada"}
             </span>
           )}
         </div>

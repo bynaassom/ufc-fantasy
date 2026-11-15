@@ -3,7 +3,7 @@
 import { useState, type CSSProperties, type Ref, type ReactNode } from "react";
 import { getImageProps } from "next/image";
 import { shouldOptimizeRemoteImage } from "@/lib/image-optimization";
-import { formatEventDate } from "@/lib/utils";
+import { formatEventDate, getMethodLabel } from "@/lib/utils";
 import type { Event } from "@/types";
 
 export const shareMuted = "#aaa9a5";
@@ -18,6 +18,7 @@ export function formatShareMethod(
   round?: number | null,
 ) {
   if (!method) return "";
+  if (method === "majority_draw") return getMethodLabel(method);
   const methods: Record<string, string> = {
     knockout: "KO/TKO",
     submission: "SUB",

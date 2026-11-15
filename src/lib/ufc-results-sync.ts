@@ -1,13 +1,10 @@
 import { createHash } from "node:crypto";
+import type { FightResultMethod } from "@/types";
 
-export type SyncedResultMethod = "decision" | "submission" | "knockout" | "disqualification";
-
-export interface UfcStatsResult {
-  winner: string;
-  loser: string;
-  method: SyncedResultMethod;
-  round: number;
-}
+export type UfcStatsResult = { round: number } & (
+  | { method: "majority_draw"; fighters: [string, string] }
+  | { method: Exclude<FightResultMethod, "majority_draw">; winner: string; loser: string }
+);
 
 export interface UfcStatsCardFight {
   fighter_a_name: string;
@@ -80,9 +77,17 @@ export function namesMatch(a: string, b: string) {
   return false;
 }
 
-export function mapMethod(raw: string): SyncedResultMethod | null {
+export function isDrawOutcome(raw: string) {
+  const outcome = stripTags(raw);
+  return /^(?:d|draw)(?:\s+(?:d|draw))?$/i.test(outcome);
+}
+
+export function mapMethod(raw: string, isDraw = false): FightResultMethod | null {
   const normalized = stripTags(raw).toLowerCase().replace(/\s+/g, " ");
 
+  const isMajority = /\bmajority\b|\bm[ -]?dec\b/.test(normalized);
+  if (isMajority && (isDraw || /\bdraw\b/.test(normalized))) return "majority_draw";
+  if (isDraw || /\bdraw\b/.test(normalized)) return null;
   if (/\b(?:dq|disqualification|disqualified)\b/.test(normalized)) return "disqualification";
   if (normalized.includes("dec")) return "decision";
   if (
@@ -108,6 +113,16 @@ export function mapMethod(raw: string): SyncedResultMethod | null {
   }
 
   return null;
+}
+
+function parseResultRow(first: string, second: string, outcome: string, rawMethod: string, rawRound: string): UfcStatsResult | null {
+  const method = mapMethod(rawMethod, isDrawOutcome(outcome));
+  const round = parseRound(rawRound);
+  if (!method || !round) return null;
+
+  return method === "majority_draw"
+    ? { fighters: [first, second], method, round }
+    : { winner: first, loser: second, method, round };
 }
 
 function parseRound(raw: string) {
@@ -295,19 +310,8 @@ function parseResultsFromHtmlTable(html: string) {
     const rowText = cells.join(" ");
     if (/view matchup/i.test(rowText)) continue;
 
-    const methodCell = cells.at(-3) || "";
-    const roundCell = cells.at(-2) || "";
-    const method = mapMethod(methodCell);
-    const round = parseRound(roundCell);
-
-    if (!method || !round) continue;
-
-    results.push({
-      winner: fighterNames[0],
-      loser: fighterNames[1],
-      method,
-      round,
-    });
+    const result = parseResultRow(fighterNames[0], fighterNames[1], cells[0], cells.at(-3) || "", cells.at(-2) || "");
+    if (result) results.push(result);
   }
 
   return results;
@@ -323,10 +327,6 @@ function parseResultsFromMarkdown(html: string) {
       .filter(Boolean);
     if (cols.length < 9) continue;
 
-    const method = mapMethod(cols.at(-3) || "");
-    const round = parseRound(cols.at(-2) || "");
-    if (!method || !round) continue;
-
     const fighterCol = (cols[1] || "").replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
     const names = fighterCol
       .split(/\n|\s{2,}/)
@@ -334,12 +334,8 @@ function parseResultsFromMarkdown(html: string) {
       .filter(Boolean);
     if (names.length < 2) continue;
 
-    results.push({
-      winner: names[0],
-      loser: names[1],
-      method,
-      round,
-    });
+    const result = parseResultRow(names[0], names[1], cols[0], cols.at(-3) || "", cols.at(-2) || "");
+    if (result) results.push(result);
   }
 
   return results;

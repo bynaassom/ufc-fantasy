@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { formatEventDate } from "@/lib/utils";
+import { formatEventDate, getMethodLabel } from "@/lib/utils";
 import type { EventRecapData } from "@/types";
 import ShareRecapButton from "./ShareRecapButton";
 
@@ -109,9 +109,11 @@ export default function EventRecapContent({
                   <p className="font-condensed text-sm font-900 uppercase tracking-wide" style={{ color: "var(--text)" }}>
                     {fight.fighter_a_name} vs {fight.fighter_b_name}
                   </p>
-                  {fight.result_confirmed && fight.winner_id && (
+                  {fight.result_confirmed && (fight.winner_id || fight.result_method === "majority_draw") && (
                     <span className="font-condensed text-[10px] font-700 uppercase tracking-widest px-2 py-0.5" style={{ backgroundColor: "var(--red)", color: "white" }}>
-                      {fight.winner_id === fight.fighter_a_id ? fight.fighter_a_name : fight.fighter_b_name}
+                      {fight.result_method === "majority_draw"
+                        ? getMethodLabel(fight.result_method)
+                        : fight.winner_id === fight.fighter_a_id ? fight.fighter_a_name : fight.fighter_b_name}
                     </span>
                   )}
                 </div>

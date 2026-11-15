@@ -185,7 +185,9 @@ export default function EventResultCard({
                     : undefined;
               const outcome = !fight.result_confirmed
                 ? "Aguardando resultado"
-                : [
+                : fight.result_method === "majority_draw"
+                  ? methodLabel(fight.result_method)
+                  : [
                     winner
                       ? winner.id === chosen?.id
                         ? "Acertou o vencedor"

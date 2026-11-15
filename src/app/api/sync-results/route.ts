@@ -613,7 +613,9 @@ export async function POST(req: NextRequest) {
       source_names: resultSources.flatMap((source) =>
         source.results.map((result) => ({
           source: source.source,
-          label: `${result.winner} vs ${result.loser}`,
+          label: result.method === "majority_draw"
+            ? result.fighters.join(" vs ")
+            : `${result.winner} vs ${result.loser}`,
         })),
       ),
     });

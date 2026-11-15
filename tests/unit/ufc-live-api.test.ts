@@ -165,6 +165,27 @@ describe("ufc-live-api", () => {
     expect(parsed).toMatchObject({ status: "upcoming", results: [] });
   });
 
+  it("includes a final majority draw from the official API", () => {
+    const parsed = parseUfcLiveEventPayload({
+      LiveEventDetail: {
+        EventId: 1344,
+        Status: "Completed",
+        FightCard: [{
+          ...fight,
+          Fighters: fight.Fighters.map((fighter) => ({
+            ...fighter,
+            Outcome: { Outcome: "Draw" },
+          })),
+          Result: { Method: "Decision - Majority", EndingRound: 5 },
+        }],
+      },
+    });
+
+    expect(parsed?.results).toEqual([
+      { fighters: ["Islam Makhachev", "Ian Machado Garry"], method: "majority_draw", round: 5 },
+    ]);
+  });
+
   it("reads five rounds from RuleSet for a non-title fight", () => {
     const parsed = parseUfcLiveEventPayload({
       LiveEventDetail: {

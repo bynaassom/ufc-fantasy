@@ -1,4 +1,4 @@
-import { mapMethod, type UfcStatsResult } from "@/lib/ufc-results-sync";
+import { isDrawOutcome, mapMethod, type UfcStatsResult } from "@/lib/ufc-results-sync";
 import { getAutomatedEventTiming } from "@/lib/event-timing";
 import { normalizeWeightClass } from "@/lib/ufc-weight";
 
@@ -147,19 +147,25 @@ function parseResults(fights: RawFight[]) {
 
   for (const fight of fights) {
     const fighters = fight.Fighters || [];
+    if (fighters.length !== 2) continue;
+
+    const isDraw = fighters.every((fighter) => isDrawOutcome(fighter.Outcome?.Outcome || ""));
+    const method = mapMethod(fight.Result?.Method || "", isDraw);
+    const round = Number(fight.Result?.EndingRound);
+    if (!method || !Number.isInteger(round) || round < 1 || round > 5) continue;
+
+    if (method === "majority_draw") {
+      const [first, second] = fighters.map(fighterName);
+      if (first && second) results.push({ fighters: [first, second], method, round });
+      continue;
+    }
+
     const winner = fighters.find((fighter) =>
       isWinningOutcome(fighter.Outcome?.Outcome),
     );
     const loser = fighters.find((fighter) =>
       isLosingOutcome(fighter.Outcome?.Outcome),
     );
-    const method = mapMethod(fight.Result?.Method || "");
-    const round = Number(fight.Result?.EndingRound);
-
-    if (!winner || !loser || !method || !Number.isInteger(round) || round < 1) {
-      continue;
-    }
-
     const winnerName = fighterName(winner);
     const loserName = fighterName(loser);
     if (!winnerName || !loserName) continue;

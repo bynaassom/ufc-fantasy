@@ -1,9 +1,10 @@
 import {
   mapMethod,
   namesMatch,
-  type SyncedResultMethod,
   type UfcStatsResult,
 } from "@/lib/ufc-results-sync";
+import { getMethodLabel } from "@/lib/utils";
+import type { FightResultMethod } from "@/types";
 
 export type ResultSourceId = "ufcstats" | "ufc";
 
@@ -25,8 +26,8 @@ export interface ConsensusFightInput {
 
 export interface ConsensusUpdate {
   fight_id: string;
-  winner_id: string;
-  method: SyncedResultMethod;
+  winner_id: string | null;
+  method: FightResultMethod;
   round: number;
   label: string;
   eventSlug: string | undefined;
@@ -50,9 +51,9 @@ export interface ResultConsensus {
 type MatchedSourceResult = {
   source: ResultSourceId;
   label: string;
-  winner_id: string;
-  winnerName: string;
-  method: SyncedResultMethod;
+  winner_id: string | null;
+  description: string;
+  method: FightResultMethod;
   round: number;
 };
 
@@ -88,8 +89,9 @@ function dedupeResults(results: UfcStatsResult[]) {
   const seen = new Set<string>();
   return results.filter((result) => {
     const key = [
-      normalizeKey(result.winner),
-      normalizeKey(result.loser),
+      ...(result.method === "majority_draw"
+        ? result.fighters.map(normalizeKey).sort()
+        : [normalizeKey(result.winner), normalizeKey(result.loser)]),
       result.method,
       result.round,
     ].join("|");
@@ -154,28 +156,35 @@ export function parseUfcOfficialEventResults(html: string) {
     const blueName =
       firstTextByClasses(blueSection, ["c-listing-fight__corner-name--blue"]) ||
       firstTextByClasses(block, ["details-content__name--blue"]);
+    const isDraw = /__outcome--draw\b/i.test(redSection) && /__outcome--draw\b/i.test(blueSection);
     const method = mapMethod(
       firstTextByClasses(block, ["c-listing-fight__result-text", "method"]),
+      isDraw,
     );
     const round = parseRound(
       firstTextByClasses(block, ["c-listing-fight__result-text", "round"]),
     );
-    if (!method || !round) continue;
+    if (!redName || !blueName || !method || !round) continue;
 
-    if (hasWinOutcome(redSection) && hasLossOutcome(blueSection)) {
+    if (method === "majority_draw") {
+      results.push({ fighters: [redName, blueName], method, round });
+    } else if (hasWinOutcome(redSection) && hasLossOutcome(blueSection)) {
       results.push({ winner: redName, loser: blueName, method, round });
     } else if (hasWinOutcome(blueSection) && hasLossOutcome(redSection)) {
       results.push({ winner: blueName, loser: redName, method, round });
     }
   }
 
-  return dedupeResults(results.filter((result) => result.winner && result.loser));
+  return dedupeResults(results);
 }
 
 function matchesFight(result: UfcStatsResult, fighterA: string, fighterB: string) {
+  const [first, second] = result.method === "majority_draw"
+    ? result.fighters
+    : [result.winner, result.loser];
   return (
-    (namesMatch(result.winner, fighterA) || namesMatch(result.winner, fighterB)) &&
-    (namesMatch(result.loser, fighterA) || namesMatch(result.loser, fighterB))
+    (namesMatch(first, fighterA) && namesMatch(second, fighterB)) ||
+    (namesMatch(first, fighterB) && namesMatch(second, fighterA))
   );
 }
 
@@ -202,15 +211,17 @@ export function buildResultConsensusUpdates(
       );
       if (!result) continue;
 
-      const winnerIsA = namesMatch(result.winner, fighterA);
-      const winnerIsB = namesMatch(result.winner, fighterB);
-      if (!winnerIsA && !winnerIsB) continue;
+      const isDraw = result.method === "majority_draw";
+      const winnerIsA = !isDraw && namesMatch(result.winner, fighterA);
+      const winnerName = winnerIsA ? fighterA : fighterB;
 
       matches.push({
         source: sourceSet.source,
         label: sourceSet.label,
-        winner_id: winnerIsA ? fighterAId : fighterBId,
-        winnerName: winnerIsA ? fighterA : fighterB,
+        winner_id: isDraw ? null : winnerIsA ? fighterAId : fighterBId,
+        description: isDraw
+          ? `${getMethodLabel(result.method)} (R${result.round})`
+          : `${winnerName} (${result.method}, R${result.round})`,
         method: result.method,
         round: result.round,
       });
@@ -231,7 +242,7 @@ export function buildResultConsensusUpdates(
         sourceLabels: matches.map((match) => match.label),
         details: matches.map(
           (match) =>
-            `${match.label}: ${match.winnerName} (${match.method}, R${match.round})`,
+            `${match.label}: ${match.description}`,
         ),
       });
       continue;
@@ -246,7 +257,7 @@ export function buildResultConsensusUpdates(
       round: agreed.round,
       sources: agreedMatches.map((match) => match.source),
       sourceLabels: agreedMatches.map((match) => match.label),
-      label: `${fighterA} vs ${fighterB} -> ${agreed.winnerName} (${agreed.method}, R${agreed.round}) [${agreedMatches
+      label: `${fighterA} vs ${fighterB} -> ${agreed.description} [${agreedMatches
         .map((match) => match.label)
         .join(" + ")}]`,
       eventSlug: fight.event?.slug || undefined,

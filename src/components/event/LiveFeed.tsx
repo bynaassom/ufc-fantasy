@@ -17,7 +17,7 @@ interface LiveFight {
   fight_order: number;
   fighter_a: LiveFighter;
   fighter_b: LiveFighter;
-  winner_id?: string;
+  winner_id?: string | null;
   result_method?: string;
   result_round?: number;
 }
@@ -558,12 +558,12 @@ export default function LiveFeed({
           )}
 
           {entries.map((entry) => {
-            const winner =
-              entry.fight.fighter_a.id === entry.fight.winner_id
-                ? entry.fight.fighter_a
-                : entry.fight.fighter_b;
-
-            const isCorrect = entry.pick?.winner_id === entry.fight.winner_id;
+            const { fight } = entry;
+            const winner = [fight.fighter_a, fight.fighter_b].find(
+              (fighter) => fighter.id === fight.winner_id,
+            );
+            const isDraw = fight.result_method === "majority_draw";
+            const isCorrect = winner && entry.pick?.winner_id === winner.id;
             const methodLabel = getMethodLabel(entry.fight.result_method || "");
 
             return (
@@ -583,16 +583,18 @@ export default function LiveFeed({
                 <div
                   className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
                   style={{
-                    backgroundColor: isCorrect ? "var(--green)" : "var(--red)",
+                    backgroundColor: isDraw ? "var(--bg-elevated)" : isCorrect ? "var(--green)" : "var(--red)",
                     color: "white",
                   }}
                 >
-                  {isCorrect ? "✓" : "✗"}
+                  {isDraw ? "=" : isCorrect ? "✓" : "✗"}
                 </div>
 
                 {/* Info */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold truncate">{winner.name}</p>
+                  <p className="text-sm font-bold truncate">
+                    {winner?.name ?? `${fight.fighter_a.name} vs ${fight.fighter_b.name}`}
+                  </p>
                   <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
                     {methodLabel}
                     {entry.fight.result_round ? ` - R${entry.fight.result_round}` : ""}

@@ -101,6 +101,25 @@ describe("ufc-results-sync", () => {
     ]);
   });
 
+  it("uses the draw outcome to distinguish a majority draw from a majority win", () => {
+    const row = (outcome: string, method: string) => `
+      <tr>
+        <td>${outcome}</td>
+        <td>
+          <a href="/fighter-details/a">Ernesta Kareckaite</a>
+          <a href="/fighter-details/b">Melissa Gatto</a>
+        </td>
+        <td>${method}</td><td>3</td><td>5:00</td>
+      </tr>`;
+    expect(parseUfcStatsEventResults(row("<p>draw</p><p>draw</p>", "M-DEC"))).toEqual([
+      { fighters: ["Ernesta Kareckaite", "Melissa Gatto"], method: "majority_draw", round: 3 },
+    ]);
+    expect(parseUfcStatsEventResults(row("win", "M-DEC"))).toEqual([
+      { winner: "Ernesta Kareckaite", loser: "Melissa Gatto", method: "decision", round: 3 },
+    ]);
+    expect(parseUfcStatsEventResults(row("draw", "S-DEC"))).toEqual([]);
+  });
+
   it("resolves UFCStats browser challenge and retries with the verification cookie", async () => {
     const url = "http://ufcstats.com/event-details/example";
     const challengeHtml = `

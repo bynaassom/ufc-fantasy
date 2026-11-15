@@ -60,7 +60,8 @@ export default function FightCard({
   const rounds = Array.from({ length: fight.total_rounds }, (_, i) => i + 1);
 
   // ── Estado do resultado ────────────────────────────────────
-  const completed = fight.result_confirmed && !!fight.winner_id;
+  const completed = fight.result_confirmed;
+  const isDraw = fight.result_method === "majority_draw";
 
   // O que o usuário apostou
   const pickedWinnerId = existingPick?.picked_winner_id || null;
@@ -68,7 +69,7 @@ export default function FightCard({
   const pickedRound = existingPick?.picked_round || null;
 
   // Acertos (só relevante se luta completada e usuário tinha pick)
-  const hitWinner = completed && pickedWinnerId === fight.winner_id;
+  const hitWinner = completed && !!pickedWinnerId && pickedWinnerId === fight.winner_id;
   const hitMethod = hitWinner && pickedMethod === fight.result_method;
   // Decisão: round é automático se acertou vencedor + método (vale 3 pts)
   const hitRound =
@@ -626,8 +627,9 @@ export default function FightCard({
               className="font-condensed font-700 text-xs uppercase tracking-widest"
               style={{ color: "var(--text)" }}
             >
-              {fight.winner?.name} · {getMethodLabel(fight.result_method)}
-              {fight.result_method !== "decision"
+              {fight.winner?.name && `${fight.winner.name} · `}
+              {getMethodLabel(fight.result_method)}
+              {fight.result_method !== "decision" && !isDraw
                 ? ` · R${fight.result_round}`
                 : ""}
             </span>

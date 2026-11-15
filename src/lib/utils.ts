@@ -84,6 +84,7 @@ export function getMethodLabel(method: string): string {
     submission: "Finalização",
     knockout: "Nocaute",
     disqualification: "Desqualificação",
+    majority_draw: "Empate majoritário",
   };
   return labels[method] || method;
 }

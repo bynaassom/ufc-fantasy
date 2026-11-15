@@ -9,7 +9,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- ============================================================
 -- ENUMS
 -- ============================================================
-CREATE TYPE fight_method AS ENUM ('decision', 'submission', 'knockout', 'disqualification');
+CREATE TYPE fight_method AS ENUM ('decision', 'submission', 'knockout', 'disqualification', 'majority_draw');
 CREATE TYPE event_status AS ENUM ('upcoming', 'live', 'completed');
 CREATE TYPE fight_card_type AS ENUM ('main', 'preliminary');
 CREATE TYPE user_role AS ENUM ('user', 'admin');
@@ -669,13 +669,22 @@ BEGIN
 
     SELECT * INTO fight_record FROM fights WHERE id = fight_id_value FOR UPDATE;
     IF NOT FOUND THEN RAISE EXCEPTION 'Fight % was not found', fight_id_value; END IF;
-    IF winner_id_value NOT IN (fight_record.fighter_a_id, fight_record.fighter_b_id) THEN
+    IF method_value IS NULL THEN
+      RAISE EXCEPTION 'Method is required for fight %', fight_id_value;
+    END IF;
+    IF method_value = 'majority_draw' THEN
+      IF winner_id_value IS NOT NULL THEN
+        RAISE EXCEPTION 'A majority draw cannot have a winner for fight %', fight_id_value;
+      END IF;
+    ELSIF winner_id_value IS NULL OR winner_id_value NOT IN (fight_record.fighter_a_id, fight_record.fighter_b_id) THEN
       RAISE EXCEPTION 'Winner % does not belong to fight %', winner_id_value, fight_id_value;
     END IF;
-    IF round_value < 1 OR round_value > fight_record.total_rounds THEN
+    IF round_value IS NULL OR round_value < 1 OR round_value > fight_record.total_rounds THEN
       RAISE EXCEPTION 'Round % is invalid for fight %', round_value, fight_id_value;
     END IF;
-    IF method_value = 'decision' THEN round_value := fight_record.total_rounds; END IF;
+    IF method_value IN ('decision', 'majority_draw') THEN
+      round_value := fight_record.total_rounds;
+    END IF;
 
     UPDATE fights SET
       winner_id = winner_id_value,

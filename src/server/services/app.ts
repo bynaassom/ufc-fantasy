@@ -21,6 +21,7 @@ import { getServiceRoleSupabase } from "@/lib/supabase/service-role";
 import { ApiRouteError } from "@/server/api";
 import { requireActiveUser } from "@/server/auth/guards";
 import { CACHE_TAGS } from "@/server/cache-tags";
+import type { AdminFightResult } from "@/server/validators/admin";
 import {
   createChallenge,
   findActiveChallengeBetweenUsers,
@@ -2619,18 +2620,17 @@ export async function updateAdminFightLinks(
 
 export async function setAdminFightResult(
   fightId: string,
-  payload: {
-    winner_side: "a" | "b";
-    method: "decision" | "submission" | "knockout" | "disqualification";
-    round: number;
-  },
+  payload: AdminFightResult,
 ) {
   const adminSupabase = await getAdminSupabase();
   const fight = await findFightById(adminSupabase, fightId);
-  const winnerId =
-    payload.winner_side === "a" ? fight.fighter_a_id : fight.fighter_b_id;
+  const winnerId = payload.method === "majority_draw"
+    ? null
+    : payload.winner_side === "a" ? fight.fighter_a_id : fight.fighter_b_id;
   const resultRound =
-    payload.method === "decision" ? fight.total_rounds : payload.round;
+    payload.method === "decision" || payload.method === "majority_draw"
+      ? fight.total_rounds
+      : payload.round;
 
   const { error } = await adminSupabase.rpc("sync_fight_results_batch", {
     results: [

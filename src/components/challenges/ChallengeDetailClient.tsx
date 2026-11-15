@@ -123,12 +123,14 @@ function FightComparisonRow({
             {comparison.fight.weight_class}
           </p>
         </div>
-        {comparison.fight.result_confirmed && comparison.fight.winner_id && (
+        {comparison.fight.result_confirmed && (comparison.fight.winner_id || comparison.fight.result_method === "majority_draw") && (
           <span
             className="px-2 py-1 text-xs font-condensed font-900 uppercase tracking-widest text-white"
             style={{ backgroundColor: "var(--green)" }}
           >
-            Resultado: {getWinnerName(comparison.fight, comparison.fight.winner_id)}
+            Resultado: {comparison.fight.winner_id
+              ? getWinnerName(comparison.fight, comparison.fight.winner_id)
+              : getMethodLabel("majority_draw")}
           </span>
         )}
       </div>

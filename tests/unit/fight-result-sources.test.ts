@@ -96,4 +96,40 @@ describe("fight-result-sources", () => {
       expect.objectContaining({ method: "disqualification", round: 1 }),
     ]);
   });
+
+  it("imports a draw without a winner even when the sources list the fighters in reverse order", () => {
+    const html = `
+      <div class="c-listing-fight">
+        <div class="c-listing-fight__corner--red">
+          <div class="c-listing-fight__outcome--draw">Draw</div>
+          <span class="c-listing-fight__corner-name--red">Song Yadong</span>
+        </div>
+        <div class="c-listing-fight__corner--blue">
+          <div class="c-listing-fight__outcome--draw">Draw</div>
+          <span class="c-listing-fight__corner-name--blue">Deiveson Figueiredo</span>
+        </div>
+        <div class="c-listing-fight__result-text method">Decision - Majority</div>
+        <div class="c-listing-fight__result-text round">3</div>
+      </div>`;
+    const official = parseUfcOfficialEventResults(html);
+    expect(official).toEqual([
+      { fighters: ["Song Yadong", "Deiveson Figueiredo"], method: "majority_draw", round: 3 },
+    ]);
+
+    const sourceSets: ResultSourceSet[] = [
+      { source: "ufc", label: "UFC.com", results: official },
+      { source: "ufcstats", label: "UFCStats", results: [
+        { fighters: ["Deiveson Figueiredo", "Song Yadong"], method: "majority_draw", round: 3 },
+      ] },
+    ];
+    expect(buildResultConsensusUpdates([fight], sourceSets)).toMatchObject({
+      updates: [{ fight_id: fight.id, winner_id: null, method: "majority_draw", round: 3, sources: ["ufc", "ufcstats"] }],
+      conflicts: [],
+    });
+    sourceSets[1].results = [result];
+    expect(buildResultConsensusUpdates([fight], sourceSets)).toMatchObject({
+      updates: [],
+      conflicts: [{ fight_id: fight.id }],
+    });
+  });
 });

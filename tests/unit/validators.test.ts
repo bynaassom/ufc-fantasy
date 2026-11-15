@@ -92,4 +92,10 @@ describe("validators", () => {
 
     expect(result.success).toBe(true);
   });
+
+  it("accepts a manual majority draw only without a winner", () => {
+    expect(adminFightResultSchema.safeParse({ method: "majority_draw" }).success).toBe(true);
+    expect(adminFightResultSchema.safeParse({ method: "majority_draw", winner_side: "a" }).success).toBe(false);
+    expect(adminFightResultSchema.safeParse({ method: "decision", round: 3 }).success).toBe(false);
+  });
 });

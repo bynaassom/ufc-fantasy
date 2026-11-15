@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { groupAdminEvents } from "@/lib/admin-event-groups";
+import { getMethodLabel } from "@/lib/utils";
+import type { FightResultMethod } from "@/types";
 import toast from "react-hot-toast";
 
 import {
@@ -296,11 +298,22 @@ function ResManual({
   const [fightId, setFightId] = useState("");
   const [form, setForm] = useState({
     winner_side: "a" as "a" | "b",
-    method: "decision" as "decision" | "submission" | "knockout" | "disqualification",
+    method: "decision" as FightResultMethod,
     round: 1,
   });
 
   const fight = eventFights.find((f: any) => f.id === fightId);
+  const isDraw = form.method === "majority_draw";
+
+  function selectFight(id: string) {
+    const selected = eventFights.find((candidate: any) => candidate.id === id);
+    setFightId(id);
+    setForm({
+      winner_side: selected?.winner_id && selected.winner_id === selected.fighter_b?.id ? "b" : "a",
+      method: selected?.result_method ?? "decision",
+      round: selected?.result_round ?? 1,
+    });
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -311,9 +324,9 @@ function ResManual({
     try {
       await adminSend(`/api/admin/fights/${fightId}/result`, {
         method: "POST",
-        body: JSON.stringify(form),
+        body: JSON.stringify(isDraw ? { method: form.method } : form),
       });
-      toast.success("Resultado inserido e picks pontuados!");
+      toast.success(fight.result_confirmed ? "Resultado corrigido!" : "Resultado registrado!");
       loadFights(selectedEventId);
       setFightId("");
     } catch (error: any) {
@@ -337,16 +350,16 @@ function ResManual({
         </label>
         <select
           value={fightId}
-          onChange={(e) => setFightId(e.target.value)}
+          onChange={(e) => selectFight(e.target.value)}
           style={sel}
           onFocus={focus}
           onBlur={blur}
         >
           <option value="">Selecione…</option>
           {eventFights.map((f: any) => (
-            <option key={f.id} value={f.id} disabled={f.result_confirmed}>
+            <option key={f.id} value={f.id}>
               {f.fighter_a?.name} vs {f.fighter_b?.name}
-              {f.result_confirmed ? " ✓" : ""}
+              {f.result_confirmed ? " · Resultado confirmado" : ""}
             </option>
           ))}
         </select>
@@ -354,6 +367,37 @@ function ResManual({
       {fight && (
         <>
           <div>
+            <label className={lbl} style={{ color: "var(--text-secondary)" }}>
+              Método
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {(
+                [
+                  "decision",
+                  "submission",
+                  "knockout",
+                  "disqualification",
+                  "majority_draw",
+                ] as const
+              ).map((v) => (
+                <button
+                  type="button"
+                  key={v}
+                  onClick={() => setForm((f) => ({ ...f, method: v }))}
+                  className="py-3 font-condensed font-900 text-xs uppercase tracking-widest transition-all"
+                  style={{
+                    backgroundColor:
+                      form.method === v ? "var(--red)" : "var(--bg-elevated)",
+                    color: form.method === v ? "white" : "var(--text)",
+                    border: `1px solid ${form.method === v ? "var(--red)" : "var(--border)"}`,
+                  }}
+                >
+                  {getMethodLabel(v)}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div hidden={isDraw}>
             <label className={lbl} style={{ color: "var(--text-secondary)" }}>
               Vencedor
             </label>
@@ -378,37 +422,7 @@ function ResManual({
               ))}
             </div>
           </div>
-          <div>
-            <label className={lbl} style={{ color: "var(--text-secondary)" }}>
-              Método
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              {(
-                [
-                  { v: "decision", l: "Decisão" },
-                  { v: "submission", l: "Finalização" },
-                  { v: "knockout", l: "Nocaute" },
-                  { v: "disqualification", l: "Desqualificação" },
-                ] as const
-              ).map(({ v, l }) => (
-                <button
-                  type="button"
-                  key={v}
-                  onClick={() => setForm((f) => ({ ...f, method: v }))}
-                  className="py-3 font-condensed font-900 text-xs uppercase tracking-widest transition-all"
-                  style={{
-                    backgroundColor:
-                      form.method === v ? "var(--red)" : "var(--bg-elevated)",
-                    color: form.method === v ? "white" : "var(--text)",
-                    border: `1px solid ${form.method === v ? "var(--red)" : "var(--border)"}`,
-                  }}
-                >
-                  {l}
-                </button>
-              ))}
-            </div>
-          </div>
-          {form.method !== "decision" && (
+          {form.method !== "decision" && !isDraw && (
             <div>
               <label className={lbl} style={{ color: "var(--text-secondary)" }}>
                 Round
@@ -441,7 +455,7 @@ function ResManual({
         className="w-full py-3 font-condensed font-900 text-sm uppercase tracking-widest text-white disabled:opacity-40"
         style={{ backgroundColor: "var(--red)" }}
       >
-        CONFIRMAR RESULTADO
+        {fight?.result_confirmed ? "CORRIGIR RESULTADO" : "CONFIRMAR RESULTADO"}
       </button>
     </form>
   );

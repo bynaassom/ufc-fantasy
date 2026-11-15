@@ -1,4 +1,5 @@
-import type { FightWithFighters } from "@/types";
+import type { FightResultMethod, FightWithFighters } from "@/types";
+import { getMethodLabel } from "@/lib/utils";
 import type { DbClient } from "@/types/database";
 import type { UfcLiveEvent } from "@/lib/ufc-live-api";
 import {
@@ -147,8 +148,8 @@ export async function dispatchLiveFightAlerts(
 
 type ResultAlertUpdate = {
   fight_id: string;
-  winner_id: string;
-  method: "decision" | "submission" | "knockout" | "disqualification";
+  winner_id: string | null;
+  method: FightResultMethod;
   round: number;
 };
 
@@ -156,13 +157,6 @@ type ResultAlertFight = {
   id: string;
   fighter_a?: { id?: string | null; name?: string | null } | null;
   fighter_b?: { id?: string | null; name?: string | null } | null;
-};
-
-const RESULT_METHOD_LABELS: Record<ResultAlertUpdate["method"], string> = {
-  decision: "decisão",
-  submission: "finalização",
-  knockout: "nocaute",
-  disqualification: "desqualificação",
 };
 
 export async function dispatchFightResultAlerts(
@@ -181,11 +175,17 @@ export async function dispatchFightResultAlerts(
 
     const fighterA = fight.fighter_a;
     const fighterB = fight.fighter_b;
-    const winner = fighterA?.id === update.winner_id ? fighterA : fighterB;
+    const winner = update.winner_id === fighterA?.id ? fighterA
+      : update.winner_id === fighterB?.id ? fighterB : null;
     const winnerName = winner?.name;
     const fighterAName = fighterA?.name;
     const fighterBName = fighterB?.name;
-    if (!winnerName || !fighterAName || !fighterBName) continue;
+    if (!fighterAName || !fighterBName) continue;
+    const methodLabel = getMethodLabel(update.method);
+    const fightResult = update.method === "majority_draw"
+      ? methodLabel
+      : winnerName && `${winnerName} venceu por ${methodLabel.toLowerCase()} no R${update.round}`;
+    if (!fightResult) continue;
 
     const [userIds, anonymousIds] = await Promise.all([
       activeDeps.listRecipientIds(
@@ -209,7 +209,7 @@ export async function dispatchFightResultAlerts(
         event,
         fightId: update.fight_id,
         fightName: `${fighterAName} vs ${fighterBName}`,
-        fightResult: `${winnerName} venceu por ${RESULT_METHOD_LABELS[update.method]} no R${update.round}`,
+        fightResult,
         targetPath: `/event/${event.slug}#fight-${update.fight_id}`,
       }),
     );
@@ -221,7 +221,7 @@ export async function dispatchFightResultAlerts(
         event,
         fightId: update.fight_id,
         fightName: `${fighterAName} vs ${fighterBName}`,
-        fightResult: `${winnerName} venceu por ${RESULT_METHOD_LABELS[update.method]} no R${update.round}`,
+        fightResult,
         targetPath: `/companion/${event.slug}#fight-${update.fight_id}`,
       }),
     );

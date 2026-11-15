@@ -68,11 +68,19 @@ export const adminFightLinksBatchSchema = z.object({
   ).min(1),
 });
 
-export const adminFightResultSchema = z.object({
-  winner_side: z.enum(["a", "b"]),
-  method: z.enum(["decision", "submission", "knockout", "disqualification"]),
-  round: z.number().int().min(1).max(5),
-});
+export const adminFightResultSchema = z.discriminatedUnion("method", [
+  z.object({
+    method: z.enum(["decision", "submission", "knockout", "disqualification"]),
+    winner_side: z.enum(["a", "b"]),
+    round: z.number().int().min(1).max(5),
+  }),
+  z.object({
+    method: z.literal("majority_draw"),
+    winner_side: z.null().optional(),
+  }),
+]);
+
+export type AdminFightResult = z.infer<typeof adminFightResultSchema>;
 
 export const adminRoleToggleSchema = z.object({
   currentRole: z.enum(["user", "admin"]),
